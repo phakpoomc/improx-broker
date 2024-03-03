@@ -36,6 +36,11 @@ else
 
 console.log(window.mainprocess);
 
+function remove(key)
+{
+  console.log('Remove: ', key);
+  window.mainprocess.removeBN(key);
+}
 
 </script>
 
@@ -63,6 +68,7 @@ console.log(window.mainprocess);
                   <p class="card-text">NodeID: {{  b.nodeid }} </p>
                   <p class="card-text">Type: Websocket</p>
                   <router-link :to="'/black_node_edit/' + b.name" type='button' class="btn btn-primary">Connect</router-link>
+                  <button type="button" class="btn btn-danger" @click="remove(b.name)"> Remove </button>
                   <!-- <button type='button' class="btn btn-secondary" data-bs-id="siteid"
                     data-bs-host="sitehost" data-bs-port="siteport" data-bs-toggle="modal"
                     data-bs-target="#addEditModal">Edit</button>

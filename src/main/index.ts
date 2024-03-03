@@ -8,28 +8,30 @@ import Aedes from 'aedes'
 import { createServer as wsCreateServer } from 'aedes-server-factory'
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 
-const METER_CFG_PATH = path.resolve(app.getPath('appData'), 'meters.info');
 const BN_CFG_PATH = path.resolve(app.getPath('appData'), 'blacknode.info');
 
 
 interface Meter {
   id: Number;
   name: string;
+  status: string;
+  last_update: Date;
 }
 
 interface Blacknode {
   name: string;
+  serial: string;
   siteid: string;
   nodeid: string;
   meteron: any;
   meteroff: any;
   metercount: any;
   meter_list: Array<Meter>;
+  status: string;
+  last_update: Date;
 }
 
 var DISCOVERY = true;
-var meters = {};
-var meterCount = 0;
 var blacknode = {};
 var bn_list: Blacknode[] = [];
 
@@ -90,7 +92,6 @@ function startMQTT()
   aedesInst = new Aedes()
   httpServer = wsCreateServer(aedesInst, {ws: true})
 
-  loadMeterInfoFromLocal()
   loadBNInfoFromLocal()
 
   aedesInst.on('publish', function(pkt, _client) {
@@ -102,82 +103,105 @@ function startMQTT()
       if(m)
       {
         let meterKey = m[2] + '-' + m[3] + '-' + m[4];
-        meters[meterKey] = {'connected': true, 'meter_name': pkt.topic, 'modbus': -1, 'address': -1};
+        let bnKey = m[2] + "-" + m[3];
+        let meterID = Number(m[4]);
   
-        let newMeterCount = Object.keys(meters).length;
-  
-        if(meterCount != newMeterCount)
+        if(!blacknode.hasOwnProperty(bnKey))
         {
-          meterCount = newMeterCount;
-  
-          writeFile(METER_CFG_PATH, JSON.stringify(meters), {flag: 'w' });
+          let obj: Blacknode = {
+            'name': bnKey,
+            'serial': bnKey,
+            'siteid': m[2],
+            'nodeid': m[3],
+            'meteron': 1,
+            'meteroff': 0,
+            'metercount': 1,
+            'meter_list': [],
+            'status': 'on',
+            'last_update': new Date()
+          }
 
-          let bnKey = m[2] + "-" + m[3];
-          if(!blacknode.hasOwnProperty(bnKey))
+          for(let i=0; i<30; i++)
           {
-            let meterObj: Meter = {
-              id: 0,
-              name: meterKey
+            let initMeter: Meter = {
+              id: i,
+              name: 'undefined',
+              status: 'off',
+              last_update: new Date()
             }
 
-            let obj: Blacknode = {
-              'name': bnKey,
-              'siteid': m[2],
-              'nodeid': m[3],
-              'meteron': 1,
-              'meteroff': 0,
-              'metercount': 1,
-              'meter_list': [meterObj]
-            }
+            obj.meter_list.push(initMeter);
+          }
 
-            bn_list.push(obj);
+          let meterObj: Meter = {
+            id: meterID,
+            name: meterKey,
+            status: 'on',
+            last_update: new Date()
+          }
 
-            blacknode[bnKey] = obj;
-
-            writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
+          if(meterID >=0 && meterID < 30)
+          {
+            obj.meter_list[meterID] = meterObj;
           }
           else
           {
-            let currentMeter = blacknode[bnKey].metercount+1;
-
-            let meterObj: Meter = {
-              id: currentMeter,
-              name: meterKey
-            }
-
-            blacknode[bnKey].metercount++;
-            blacknode[bnKey].meteron++;
-            blacknode[bnKey].meterList.push(meterObj);
-
-            writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
-
-            for(let b of bn_list)
-            {
-              if(b.name == bnKey)
-              {
-                b.meteron++;
-                b.metercount++;
-                b.meter_list.push(meterObj);
-              }
-            }
+            obj.meter_list[0] = meterObj;
           }
+
+          bn_list.push(obj);
+
+          blacknode[bnKey] = obj;
+
+          writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
+        }
+        else
+        {
+          let meterID = Number(m[4]);
+
+          let meterObj: Meter = {
+            id: meterID,
+            name: meterKey,
+            status: 'on',
+            last_update: new Date()
+          }
+
+          if(meterID >=0 && meterID < 30)
+          {
+            blacknode[bnKey].meter_list[meterID] = meterObj;
+          }
+          else
+          {
+            blacknode[bnKey].meter_list[0] = meterObj;
+          }
+          
+          blacknode[bnKey].metercount++;
+          blacknode[bnKey].meteron++;
+          blacknode[bnKey].status = 'on';
+          blacknode[bnKey].last_update = new Date();
+          blacknode[bnKey].meter_list[meterID] = meterObj;
+
+
+          writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
+
+          
         }
       }
     }
   
     if(pkt.topic == 'bn_comm')
     {
-      let jsonData;
+      // let jsonData;
   
-      try
-      {
-        jsonData = JSON.parse(pkt.payload.toString());
-        handleComm(jsonData);
-      }
-      catch(err)
-      {
-        // Not a JSON
-      } 
+      // try
+      // {
+      //   jsonData = JSON.parse(pkt.payload.toString());
+      //   // handleComm(jsonData);
+      // }
+      // catch(err)
+      // {
+      //   // Not a JSON
+      // } 
       
     }
   
@@ -189,30 +213,27 @@ function startMQTT()
   })
 }
 
-function loadMeterInfoFromLocal()
-{
-  const data = readFile(METER_CFG_PATH, { encoding: 'utf-8', flag: 'r' });
-
-  meters = JSON.parse(data);
-  meterCount = Object.keys(meters).length;
-}
-
 function loadBNInfoFromLocal()
 {
   const data = readFile(BN_CFG_PATH, { encoding: 'utf-8', flag: 'r' });
 
   blacknode = JSON.parse(data);
 
+  bn_list = [];
+
   for(let key in blacknode)
   {
     let obj: Blacknode = {
-      'name': blacknode[key]['sitename'],
+      'name': blacknode[key]['name'],
+      'serial': blacknode[key]['serial'],
       'siteid': blacknode[key]['siteid'],
       'nodeid': blacknode[key]['nodeid'],
       'meteron': blacknode[key]['meteron'],
       'meteroff': blacknode[key]['meteroff'],
       'metercount': blacknode[key]['metercount'],
-      'meter_list': blacknode[key]['meter_list']
+      'meter_list': blacknode[key]['meter_list'],
+      'status': blacknode[key]['status'],
+      'last_update': blacknode[key]['last_update']
     }
 
     bn_list.push(obj)
@@ -224,71 +245,71 @@ function loadBNInfoFromLocal()
 //   writeFileSync(__dirname + '\\meters.info', '{}', {flag: 'w' });
 // }
 
-function handleComm(payload)
-{
-  console.log('handleComm: ', payload);
+// function handleComm(payload)
+// {
+//   console.log('handleComm: ', payload);
 
-  if(payload['cmd'] == 'get_meter_cfg')
-  {
-    let pkt = {
-      'cmd': 'get_meter_cfg_response',
-      'data': meters
-    };
+//   // if(payload['cmd'] == 'get_meter_cfg')
+//   // {
+//   //   let pkt = {
+//   //     'cmd': 'get_meter_cfg_response',
+//   //     'data': meters
+//   //   };
 
-    aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
+//   //   aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
 
-    return true;
-  }
-  else if(payload['cmd'] == 'set_meter_cfg')
-  {
-    meters = payload['data'];
-    meterCount = Object.keys(payload['data']).length;
+//   //   return true;
+//   // }
+//   // else if(payload['cmd'] == 'set_meter_cfg')
+//   // {
+//   //   meters = payload['data'];
+//   //   meterCount = Object.keys(payload['data']).length;
 
-    writeFileSync('meters.info', JSON.stringify(meters), {flag: 'w' });
+//   //   writeFileSync('meters.info', JSON.stringify(meters), {flag: 'w' });
 
-    let pkt = {
-      'cmd': 'set_meter_cfg_response',
-      'data': 'success'
-    };
+//   //   let pkt = {
+//   //     'cmd': 'set_meter_cfg_response',
+//   //     'data': 'success'
+//   //   };
 
-    aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
-  }
-  else if(payload['cmd'] == 'get_bn_cfg')
-  {
-    let pkt = {
-      'cmd': 'get_bn_cfg_response',
-      'data': blacknode
-    };
+//   //   aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
+//   // }
+//   // else if(payload['cmd'] == 'get_bn_cfg')
+//   // {
+//   //   let pkt = {
+//   //     'cmd': 'get_bn_cfg_response',
+//   //     'data': blacknode
+//   //   };
 
-    aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
+//   //   aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
 
-    return true;
-  }
-  else if(payload['cmd'] == 'set_bn_cfg')
-  {
+//   //   return true;
+//   // }
+//   // else if(payload['cmd'] == 'set_bn_cfg')
+//   // {
 
-    blacknode = payload['data'];
+//   //   blacknode = payload['data'];
 
-    writeFileSync('blacknode.info', JSON.stringify(payload['data']), {flag: 'w' });
+//   //   writeFileSync('blacknode.info', JSON.stringify(payload['data']), {flag: 'w' });
 
-    let pkt = {
-      'cmd': 'set_bn_cfg_response',
-      'data': 'success'
-    };
+//   //   let pkt = {
+//   //     'cmd': 'set_bn_cfg_response',
+//   //     'data': 'success'
+//   //   };
 
-    aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
-  }
-  else if(payload['cmd'] == 'reboot')
-  {
-    console.log('Reboot blacknode server');
-  }
-  else
-  {
-    return false;
-  }
+//   //   aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
+//   // }
+//   // else if(payload['cmd'] == 'reboot')
+//   // {
+//   //   console.log('Reboot blacknode server');
+//   // }
+//   // else
+//   // {
+//   //   return false;
+//   // }
 
-  return false;
-}
+//   return false;
+// }
 
 /* End of MQTT Broker Section */
 
@@ -342,7 +363,6 @@ app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.electron')
 
   ipcMain.handle('auth:isAuthenticated', () => {
-    console.log('Handle: ', authenticated)
     return authenticated
   });
 
@@ -352,6 +372,66 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('handler:isBlacknodeCallbackRegistered', () => {
     return bn_cb_registered;
+  });
+
+  ipcMain.handle('cmd:updateBN', (_event, cfg) => {
+    console.log('Update: ', cfg);
+
+    let pkt = {
+      'cmd': 'update_bn_cfg',
+      'data': cfg
+    };
+
+    aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
+
+  });
+
+  ipcMain.handle('cmd:resetBN', (_event, key) => {
+    // Reset based on command or topic
+    console.log('Reset: ', key);
+    let pkt = {
+      'cmd': 'reset',
+      'data': key
+    };
+
+    aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
+  });
+
+  ipcMain.handle('cmd:removeBN', (_event, key) => {
+    console.log('Removing key ', key, bn_list);
+    delete blacknode[key];
+    
+    let found = -1;
+    for(let i=0; i<bn_list.length; i++)
+    {
+      console.log(bn_list[i].name);
+      if(bn_list[i].name == key)
+      {
+        found = i;
+        console.log(found);
+        break;
+      }
+    }
+
+    if(found != -1)
+    {
+      bn_list.splice(found, 1);
+    }
+
+    console.log('After: ', bn_list);
+
+    writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
+  });
+
+  ipcMain.handle('data:getBlacknodeCFG', (_event, key) => {
+    if(blacknode.hasOwnProperty(key))
+    {
+      return blacknode[key];
+    }
+    else
+    {
+      return null;
+    }
   });
 
   // Default open or close DevTools by F12 in development
@@ -389,7 +469,7 @@ ipcMain.on('authenticate', (_event, args) => {
 
   //console.log(event);
 
-  if(data['username'] == 'admin' && data['password'] == 'password')
+  if(data['username'] == '' && data['password'] == '')
   {
     authenticated = true
     username = data['username']
@@ -434,4 +514,4 @@ setInterval(() => {
   // bn_list.push(obj);
 
   mainWindow.webContents.send('update-bn', bn_list);
-}, 5000)
+}, 1000)

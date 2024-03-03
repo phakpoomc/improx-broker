@@ -35,8 +35,11 @@ if (process.contextIsolated) {
       getBN: (callback) => ipcRenderer.on('update-bn', (_event, value) => callback(value)),
       isAuthenticated: () => ipcRenderer.invoke('auth:isAuthenticated'),
       getUsername: () => ipcRenderer.invoke('auth:getUsername'),
+      getCFG: (key) => ipcRenderer.invoke('data:getBlacknodeCFG', key),
       isBNCBRegistered: () => ipcRenderer.invoke('handler:isBlacknodeCallbackRegistered'),
-      
+      updateBN: (bnCFG) => ipcRenderer.invoke('cmd:updateBN', bnCFG),
+      resetBN: (bn_name) => ipcRenderer.invoke('cmd:resetBN', bn_name),
+      removeBN: (bn_name) => ipcRenderer.invoke('cmd:removeBN', bn_name)
     })
   } catch (error) {
     console.error(error)
