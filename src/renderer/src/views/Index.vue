@@ -62,11 +62,20 @@ function remove(key)
                   <b> {{ b.name }} </b>
                 </div>
                 <div class="card-body">
-                  <h5 class="card-title"> ข้อมูล </h5>
-                  <!-- <p class="card-text">รายละเอียด: {{ b.sitedesc }} </p> -->
+                  <!-- <h5 class="card-title"> ข้อมูล </h5> -->
+                  <!-- <p class="card-text">ClientID: {{ b.clientid }} </p> -->
                   <p class="card-text">SiteID: {{ b.siteid }} </p>
                   <p class="card-text">NodeID: {{  b.nodeid }} </p>
-                  <p class="card-text">Type: Websocket</p>
+                  <p class="card-text" v-if="b.status === 'on'">
+                    Status: <span class="text-success fw-bold"> {{ b.status }} </span> 
+                  </p>
+                  <p class="card-text" v-else-if="b.status === 'error'">
+                    Status: <span class="text-danger fw-bold"> {{ b.status }} </span> 
+                  </p>
+                  <p class="card-text" v-else>
+                    Status: <span class="text-muted fw-bold"> {{ b.status }} </span> 
+                  </p>
+                  <p class="card-text">Last: {{ b.last_update.toLocaleString() }}</p>
                   <router-link :to="'/black_node_edit/' + b.name" type='button' class="btn btn-primary">Connect</router-link>
                   <button type="button" class="btn btn-danger" @click="remove(b.name)"> Remove </button>
                   <!-- <button type='button' class="btn btn-secondary" data-bs-id="siteid"

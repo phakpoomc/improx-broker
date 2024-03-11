@@ -20,12 +20,10 @@ interface Meter {
 
 interface Blacknode {
   name: string;
+  clientid: string;
   serial: string;
   siteid: string;
   nodeid: string;
-  meteron: any;
-  meteroff: any;
-  metercount: any;
   meter_list: Array<Meter>;
   status: string;
   last_update: Date;
@@ -94,7 +92,36 @@ function startMQTT()
 
   loadBNInfoFromLocal()
 
+  aedesInst.on('clientDisconnect', function(client) {
+    for(let bn of bn_list)
+    {
+      if(bn['clientid'] == client.id)
+      {
+        bn['status'] = 'off';
+        bn['last_update'] = new Date();
+        blacknode[bn['name']]['status'] = 'off';
+        blacknode[bn['name']]['last_update'] = new Date();
+      }
+    }
+  });
+
+  aedesInst.on('clientError', function(client, _err) {
+    for(let bn of bn_list)
+    {
+      if(bn['clientid'] == client.id)
+      {
+        bn['status'] = 'error';
+        bn['last_update'] = new Date();
+        blacknode[bn['name']]['status'] = 'error';
+        blacknode[bn['name']]['last_update'] = new Date();
+
+        console.log(_err);
+      }
+    }
+  });
+
   aedesInst.on('publish', function(pkt, _client) {
+    //console.log(_client);
     if(DISCOVERY)
     {
       const re = /LOG\/(DATABASE|REALTIME)\/(.*?)\/(.*?)\/(\d*)/;
@@ -110,12 +137,10 @@ function startMQTT()
         {
           let obj: Blacknode = {
             'name': bnKey,
+            'clientid': _client.id,
             'serial': bnKey,
             'siteid': m[2],
             'nodeid': m[3],
-            'meteron': 1,
-            'meteroff': 0,
-            'metercount': 1,
             'meter_list': [],
             'status': 'on',
             'last_update': new Date()
@@ -175,16 +200,27 @@ function startMQTT()
             blacknode[bnKey].meter_list[0] = meterObj;
           }
           
-          blacknode[bnKey].metercount++;
-          blacknode[bnKey].meteron++;
+          blacknode[bnKey].clientid = _client.id;
           blacknode[bnKey].status = 'on';
           blacknode[bnKey].last_update = new Date();
           blacknode[bnKey].meter_list[meterID] = meterObj;
 
+          for(let bn of bn_list)
+          {
+            if(bn.name == bnKey)
+            {
+              bn.clientid = blacknode[bnKey].clientid;
+              bn.status = 'on';
+              bn.last_update = blacknode[bnKey].last_update;
+              bn.meter_list[meterID] = blacknode[bnKey].meter_list[meterID];
+
+              break;
+            }
+          }
+
+          // console.log(bn_list);
 
           writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
-
-          
         }
       }
     }
@@ -225,14 +261,12 @@ function loadBNInfoFromLocal()
   {
     let obj: Blacknode = {
       'name': blacknode[key]['name'],
+      'clientid': '',//blacknode[key]['clientid'],
       'serial': blacknode[key]['serial'],
       'siteid': blacknode[key]['siteid'],
       'nodeid': blacknode[key]['nodeid'],
-      'meteron': blacknode[key]['meteron'],
-      'meteroff': blacknode[key]['meteroff'],
-      'metercount': blacknode[key]['metercount'],
       'meter_list': blacknode[key]['meter_list'],
-      'status': blacknode[key]['status'],
+      'status': 'off',//blacknode[key]['status'],
       'last_update': blacknode[key]['last_update']
     }
 
