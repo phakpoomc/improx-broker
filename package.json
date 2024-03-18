@@ -30,6 +30,7 @@
     "@electron-toolkit/utils": "^1.0.2",
     "aedes": "^0.51.0",
     "aedes-server-factory": "^0.2.1",
+    "bootstrap-icons": "^1.11.3",
     "vue-router": "^4.2.5",
     "websocket-stream": "^5.5.2"
   },

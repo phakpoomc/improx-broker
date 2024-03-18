@@ -1,0 +1,37 @@
+:root {
+    --main-btn-color: #ff7d26;
+    --main-bg-color: #ff8f26;
+}
+
+.cover-banner {
+    height: 100vh;
+    background-image: url('/src/assets/img/impro-cover.png');
+    background-size: cover;
+    background-position: center;
+    border-bottom-right-radius: 40px;
+    border-top-right-radius: 40px;
+}
+
+.logo-inbn {
+    height: 550px;
+}
+
+.bg-main {
+    background-color: var(--main-bg-color) !important;
+}
+
+.logo-lgin {
+    height: 100px;
+    margin-left: -1.5rem;
+}
+
+.btn-main {
+    background-color: var(--main-btn-color) !important;
+    color: aliceblue !important;
+}
+
+.btn-main:hover,
+.btn-main:focus {
+    background-color: #ff6c03 !important;
+    border-color: #ff6c03 !important;
+}

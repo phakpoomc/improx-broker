@@ -11,8 +11,7 @@ user.value = await window.mainprocess.getUsername();
 let cbRegistered = await window.mainprocess.isBNCBRegistered();
 const bn = ref();
 
-if(!cbRegistered)
-{
+if (!cbRegistered) {
   window.mainprocess.getBN((data) => {
     console.log('Received: ', data)
 
@@ -21,8 +20,7 @@ if(!cbRegistered)
 
   window.mainprocess.send('registerCB', '')
 }
-else
-{
+else {
   window.api.removeCB();
 
   window.mainprocess.getBN((data) => {
@@ -36,8 +34,7 @@ else
 
 console.log(window.mainprocess);
 
-function remove(key)
-{
+function remove(key) {
   console.log('Remove: ', key);
   window.mainprocess.removeBN(key);
 }
@@ -56,7 +53,7 @@ function remove(key)
               <input type='hidden' name='host' value='sitehost'>
               <input type='hidden' name='port' value='siteport'>
 
-              
+
               <div class="card">
                 <div class="card-header">
                   <b> {{ b.name }} </b>
@@ -65,27 +62,30 @@ function remove(key)
                   <!-- <h5 class="card-title"> ข้อมูล </h5> -->
                   <!-- <p class="card-text">ClientID: {{ b.clientid }} </p> -->
                   <p class="card-text">SiteID: {{ b.siteid }} </p>
-                  <p class="card-text">NodeID: {{  b.nodeid }} </p>
+                  <p class="card-text">NodeID: {{ b.nodeid }} </p>
                   <p class="card-text" v-if="b.status === 'on'">
-                    Status: <span class="text-success fw-bold"> {{ b.status }} </span> 
+                    Status: <span class="text-success fw-bold"> {{ b.status }} </span>
                   </p>
                   <p class="card-text" v-else-if="b.status === 'error'">
-                    Status: <span class="text-danger fw-bold"> {{ b.status }} </span> 
+                    Status: <span class="text-danger fw-bold"> {{ b.status }} </span>
                   </p>
                   <p class="card-text" v-else>
-                    Status: <span class="text-muted fw-bold"> {{ b.status }} </span> 
+                    Status: <span class="text-muted fw-bold"> {{ b.status }} </span>
                   </p>
                   <p class="card-text">Last: {{ b.last_update.toLocaleString() }}</p>
-                  <router-link :to="'/black_node_edit/' + b.name" type='button' class="btn btn-primary">Connect</router-link>
-                  <button type="button" class="btn btn-danger" @click="remove(b.name)"> Remove </button>
+                  <div class="d-flex justify-content-between">
+                    <router-link :to="'/black_node_edit/' + b.name" type='button'
+                      class="btn btn-primary">Connect</router-link>
+                    <button type="button" class="btn btn-danger" @click="remove(b.name)"> Remove </button>
+                  </div>
                   <!-- <button type='button' class="btn btn-secondary" data-bs-id="siteid"
                     data-bs-host="sitehost" data-bs-port="siteport" data-bs-toggle="modal"
                     data-bs-target="#addEditModal">Edit</button>
                 </div> -->
+                </div>
               </div>
             </div>
-            </div>
-        </template>
+          </template>
         </div>
       </div>
 
@@ -138,10 +138,10 @@ function remove(key)
       </div> -->
     </template>
 
-      <template #username>
+    <template #username>
       {{ user }}
     </template>
-    
+
 
     <template #datetime>
       Datetime {{ dt.toLocaleString() }}
