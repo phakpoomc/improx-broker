@@ -35,3 +35,7 @@
     background-color: #ff6c03 !important;
     border-color: #ff6c03 !important;
 }
+
+#app {
+    font-family: 'Montserrat', sans-serif;
+}
