@@ -31,6 +31,13 @@
     "aedes": "^0.51.0",
     "aedes-server-factory": "^0.2.1",
     "bootstrap-icons": "^1.11.3",
+    "mariadb": "^3.2.3",
+    "mysql2": "^3.9.2",
+    "pg": "^8.11.3",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.1",
+    "sqlite3": "^5.1.7",
+    "tedious": "^18.1.0",
     "vue-router": "^4.2.5",
     "websocket-stream": "^5.5.2"
   },

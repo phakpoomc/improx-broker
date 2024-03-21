@@ -5,7 +5,7 @@
 
 .cover-banner {
     height: 100vh;
-    background-image: url('/src/assets/img/impro-cover.png');
+    /* background-image: url('/src/assets/img/impro-cover.png'); */
     background-size: cover;
     background-position: center;
     border-bottom-right-radius: 40px;

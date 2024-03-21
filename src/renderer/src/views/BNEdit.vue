@@ -119,7 +119,7 @@ var nodes = [
         </div>
       </div>
 
-      <div class="card card-body bg-light border-light mb-4">
+      <!-- <div class="card card-body bg-light border-light mb-4">
         <div class="row">
           <div class="col-12 h5">
             Node Member Status
@@ -138,10 +138,10 @@ var nodes = [
             </div>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <div class="row">
-        <div class="col-12">
+        <div class="col-12 overflow-auto" style="min-height: 200px; max-height: 400px;">
           <table id='meter-table' class="table table-striped">
             <thead class="table-dark">
               <tr>
@@ -163,22 +163,30 @@ var nodes = [
               <template v-for="m in bnCFG.meter_list">
                 <tr>
                   <template v-if="m.name === 'undefined'">
-                    <td style="text-align: center"> {{ m.id }}</td>
+                    <td class="align-middle" style="text-align: center"> {{ m.id }}</td>
                     <td>
                       <input :id="'meter-' + m.id" type="text" class="form-control border-1 mt-1 mb-1"
                         :name="'meter-' + m.id" value="" disabled>
                     </td>
-                    <td style="text-align: center"> N/A </td>
+                    <td class="align-middle" style="text-align: center">  </td>
                     <td></td>
                   </template>
                   <template v-else>
-                    <td style="text-align: center"> {{ m.id }}</td>
+                    <td class="align-middle" style="text-align: center"> {{ m.id }}</td>
                     <td>
                       <input :id="'meter-' + m.id" type="text" class="form-control border-1 mt-1 mb-1"
                         :name="'meter-' + m.id" :value="m.name" required autofocus>
                     </td>
-                    <td style="text-align: center"> {{ m.status }}</td>
-                    <td> {{ m.last_update.toLocaleString() }}</td>
+                    <td  class="align-middle" style="text-align: center"> 
+                      <!-- {{ m.status }} -->
+                      <div :class="['node-status', m.status === 'on' ? 'text-success' : 'text-danger']">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                          class="bi bi-circle-fill" viewBox="0 0 16 16">
+                          <circle cx="8" cy="8" r="8" />
+                        </svg>
+                      </div>
+                    </td>
+                    <td class="align-middle"> {{ m.last_update.toLocaleString() }}</td>
                   </template>
                 </tr>
               </template>
@@ -186,7 +194,8 @@ var nodes = [
           </table>
         </div>
       </div>
-      <div class="row">
+
+      <div class="row mt-3">
         <div class="col-12 d-flex justify-content-end">
           <button class="btn btn-secondary ms-2" @click="save()">
             Save

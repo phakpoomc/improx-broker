@@ -13,6 +13,7 @@ var api = {
   removeCB: (): void => {
     console.log('Calling removeCB');
     console.log(ipcRenderer.removeAllListeners('update-bn'));
+    console.log(ipcRenderer.removeAllListeners('last-message'));
   }
 }
 
@@ -33,9 +34,13 @@ if (process.contextIsolated) {
         }
       },
       getBN: (callback) => ipcRenderer.on('update-bn', (_event, value) => callback(value)),
+      getMessage: (callback) => ipcRenderer.on('last-message', (_event, value) => callback(value)),
       isAuthenticated: () => ipcRenderer.invoke('auth:isAuthenticated'),
       getUsername: () => ipcRenderer.invoke('auth:getUsername'),
       getCFG: (key) => ipcRenderer.invoke('data:getBlacknodeCFG', key),
+      getDBCFG: () => ipcRenderer.invoke('data:getDatabaseCFG'),
+      setDBCFG: (dbCFG) => ipcRenderer.invoke('data:setDatabaseCFG', dbCFG),
+      clearMessage: () => ipcRenderer.invoke('data:clearMessage'),
       isBNCBRegistered: () => ipcRenderer.invoke('handler:isBlacknodeCallbackRegistered'),
       updateBN: (bnCFG) => ipcRenderer.invoke('cmd:updateBN', bnCFG),
       resetBN: (bn_name) => ipcRenderer.invoke('cmd:resetBN', bn_name),

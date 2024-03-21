@@ -30,7 +30,7 @@
                   <label for="password" class="form-label">Password </label>
                   <input type="password" class="form-control" name="password" id="password" value="">
                 </div>
-                <div class="col-12 d-flex justify-content-between">
+                <!-- <div class="col-12 d-flex justify-content-between">
                   <div class="form-check">
                     <input class="form-check-input" type="checkbox" value="" name="remember_me" id="remember_me">
                     <label class="form-check-label text-secondary" for="remember_me">
@@ -40,7 +40,7 @@
                   <div class="d-flex gap-2 gap-md-4 flex-column flex-md-row justify-content-md-end">
                     <a href="#!" class="link-secondary text-decoration-none">Forgot password?</a>
                   </div>
-                </div>
+                </div> -->
                 <div class="col-12">
                   <div class="d-grid">
                     <router-link router-link to="/" class="btn bsb-btn-xl btn-secondary" type="submit"

@@ -3,6 +3,7 @@ import { createWebHistory, createWebHashHistory, createRouter } from 'vue-router
 import Login from '../views/Login.vue'
 import Index from '../views/Index.vue'
 import BNEdit from '../views/BNEdit.vue'
+import SQLEdit from '../views/SQLEdit.vue'
 import PageNotFound from '../views/PageNotFound.vue'
 
 const routes = [
@@ -21,6 +22,12 @@ const routes = [
     path: '/black_node_edit/:id',
     name: 'BNEdit',
     component: BNEdit
+  },
+  {
+    /* SQL Edit */
+    path: '/sql_edit',
+    name: 'SQLEdit',
+    component: SQLEdit
   },
   {
     path: '/:catchAll(.*)*',

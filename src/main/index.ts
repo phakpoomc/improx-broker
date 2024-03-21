@@ -2,6 +2,124 @@ import { app, shell, BrowserWindow, ipcMain/*, safeStorage*/ } from 'electron'
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
+var last = {
+  'message': '',
+  'time': new Date(),
+  'status': ''
+};
+
+/* DB Section */
+const DB_CFG_PATH = path.resolve(app.getPath('appData'), 'db.info');
+
+var database = {};
+
+const db_data = readFile(DB_CFG_PATH, { encoding: 'utf-8', flag: 'r' });
+database = JSON.parse(db_data);
+
+import { Sequelize, DataTypes } from 'sequelize';
+
+var energy;
+
+function syncDB()
+{
+  const sequelize = new Sequelize(
+    database['dbname'], 
+    database['username'], 
+    database['password'], 
+    {
+    host: database['host'], 
+    port: database['port'],
+    dialect: database['dialect'], 
+    define: {
+      timestamps: false 
+    },
+    dialectOptions: {
+      useUTC: false
+    },
+    timezone: '+07:00',
+    logging: false
+  });
+
+  sequelize.authenticate().then(() => {
+    last['message'] = 'Database connected.';
+    last['time'] = new Date();
+    last['status'] = 'success';
+    console.log('DB Connected');
+  }).catch((err) => {
+    last['message'] = 'Cannot connect to database.';
+    last['time'] = new Date();
+    last['status'] = 'error';
+    console.log("Cannot connect to DB: ", err);
+  });
+
+  energy = sequelize.define(
+    'energy',
+    {
+      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
+      Meter_ID: { type: DataTypes.INTEGER, field: 'Meter_ID' },
+      DateTimeUpdate: { type: DataTypes.DATE, field: 'DateTimeUpdate'},
+      Import_kWh: { type: DataTypes.DOUBLE, field: 'Import_kWh'},
+      Export_kWh: { type: DataTypes.DOUBLE, field: 'Export_kWh'},
+      TotalkWh: { type: DataTypes.DOUBLE, field: 'Total_kWh'},
+      Total_kvarh: { type: DataTypes.FLOAT, field: 'Total_kvarh'},
+      Ind_kvarh: { type: DataTypes.FLOAT, field: 'Ind_kvarh'},
+      Cap_kvarh: { type: DataTypes.FLOAT, field: 'Cap_kvarh'},
+      kVAh: { type: DataTypes.FLOAT, field: 'kVAh'},
+      V1: { type: DataTypes.FLOAT, field: 'V1'},
+      V2: { type: DataTypes.FLOAT, field: 'V2'},
+      V3: { type: DataTypes.FLOAT, field: 'V3'},
+      V12: { type: DataTypes.FLOAT, field: 'V12'},
+      V23: { type: DataTypes.FLOAT, field: 'V23'},
+      V31: { type: DataTypes.FLOAT, field: 'V31'},
+      I1: { type: DataTypes.FLOAT, field: 'I1'},
+      I2: { type: DataTypes.FLOAT, field: 'I2'},
+      I3: { type: DataTypes.FLOAT, field: 'I3'},
+      P1: { type: DataTypes.FLOAT, field: 'P1'},
+      P2: { type: DataTypes.FLOAT, field: 'P2'},
+      P3: { type: DataTypes.FLOAT, field: 'P3'},
+      P_Sum: { type: DataTypes.FLOAT, field: 'P_Sum'},
+      Q1: { type: DataTypes.FLOAT, field: 'Q1'},
+      Q2: { type: DataTypes.FLOAT, field: 'Q2'},
+      Q3: { type: DataTypes.FLOAT, field: 'Q3'},
+      Q_Sum: { type: DataTypes.FLOAT, field: 'Q_Sum'},
+      S1: { type: DataTypes.FLOAT, field: 'S1'},
+      S2: { type: DataTypes.FLOAT, field: 'S2'},
+      S3: { type: DataTypes.FLOAT, field: 'S3'},
+      S_Sum: { type: DataTypes.FLOAT, field: 'S_Sum'},
+      PF1: { type: DataTypes.FLOAT, field: 'PF1'},
+      PF2: { type: DataTypes.FLOAT, field: 'PF2'},
+      PF3: { type: DataTypes.FLOAT, field: 'PF3'},
+      PF_Sum: { type: DataTypes.FLOAT, field: 'PF_Sum'},
+      THD_U1: { type: DataTypes.FLOAT, field: 'THD_U1'},
+      THD_U2: { type: DataTypes.FLOAT, field: 'THD_U2'},
+      THD_U3: { type: DataTypes.FLOAT, field: 'THD_U3'},
+      THD_I1: { type: DataTypes.FLOAT, field: 'THD_I1'},
+      THD_I2: { type: DataTypes.FLOAT, field: 'THD_I2'},
+      THD_I3: { type: DataTypes.FLOAT, field: 'THD_I3'},
+      Frequency: { type: DataTypes.FLOAT, field: 'Frequency'},
+      kWdemand: { type: DataTypes.DOUBLE, field: 'kWdemand'},
+    },
+    {
+        tableName: 'energy' 
+    }
+  );
+
+  sequelize.sync().then(() => {
+    last['message'] = 'Database table synced.';
+    last['time'] = new Date();
+    last['status'] = 'success';
+    console.log('Table synced');
+  }).catch((err) => {
+    last['message'] = 'Cannot sync database table.';
+    last['time'] = new Date();
+    last['status'] = 'error';
+    console.log('Cannot sync table: ', err);
+  });
+
+  return energy;
+}
+
+syncDB();
 
 /* MQTT Broker Section */
 import Aedes from 'aedes'
@@ -9,7 +127,6 @@ import { createServer as wsCreateServer } from 'aedes-server-factory'
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 
 const BN_CFG_PATH = path.resolve(app.getPath('appData'), 'blacknode.info');
-
 
 interface Meter {
   id: Number;
@@ -126,9 +243,73 @@ function startMQTT()
     {
       const re = /LOG\/(DATABASE|REALTIME)\/(.*?)\/(.*?)\/(\d*)/;
       let m = pkt.topic.match(re);
-  
+
       if(m)
       {
+        const pkt_re = /(\d{4})-(\d{2})-(\d{2})\+(\d{2}):(\d{2}):(\d{2})&d=(.*)/;
+
+        let d = pkt.payload.toString().match(pkt_re);
+
+        if(d)
+        {
+          console.log(d);
+          let dt = new Date(d[1], d[2], d[3], d[4], d[5], d[6]);
+          let e = d[7].split("|");
+
+          if(e.length == 40)
+          {
+            try{
+              energy.create({
+                Meter_ID: Number(m[4]),
+                DateTimeUpdate: dt,
+                Import_kWh: parseFloat(e[0]),
+                Export_kWh: parseFloat(e[1]),
+                TotalkWh: parseFloat(e[2]),
+                Total_kvarh: parseFloat(e[3]),
+                Ind_kvarh: parseFloat(e[4]),
+                Cap_kvarh: parseFloat(e[5]),
+                kVAh: parseFloat(e[6]),
+                V1: parseFloat(e[7]),
+                V2: parseFloat(e[8]),
+                V3: parseFloat(e[9]),
+                V12: parseFloat(e[10]),
+                V23: parseFloat(e[11]),
+                V31: parseFloat(e[12]),
+                I1: parseFloat(e[13]),
+                I2: parseFloat(e[14]),
+                I3: parseFloat(e[15]),
+                P1: parseFloat(e[16]),
+                P2: parseFloat(e[17]),
+                P3: parseFloat(e[18]),
+                P_Sum: parseFloat(e[19]),
+                Q1: parseFloat(e[20]),
+                Q2: parseFloat(e[21]),
+                Q3: parseFloat(e[22]),
+                Q_Sum: parseFloat(e[23]),
+                S1: parseFloat(e[24]),
+                S2: parseFloat(e[25]),
+                S3: parseFloat(e[26]),
+                S_Sum: parseFloat(e[27]),
+                PF1: parseFloat(e[28]),
+                PF2: parseFloat(e[29]),
+                PF3: parseFloat(e[30]),
+                PF_Sum: parseFloat(e[31]),
+                THD_U1: parseFloat(e[32]),
+                THD_U2: parseFloat(e[33]),
+                THD_U3: parseFloat(e[34]),
+                THD_I1: parseFloat(e[35]),
+                THD_I2: parseFloat(e[36]),
+                THD_I3: parseFloat(e[37]),
+                Frequency: parseFloat(e[38]),
+                kWdemand: parseFloat(e[39]),
+              });
+            }
+            catch(err){
+              console.log(err);
+            }
+          }
+        }
+
         let meterKey = m[2] + '-' + m[3] + '-' + m[4];
         let bnKey = m[2] + "-" + m[3];
         let meterID = Number(m[4]);
@@ -468,6 +649,33 @@ app.whenReady().then(async () => {
     }
   });
 
+  ipcMain.handle('data:getDatabaseCFG', (_event) => {
+    return database;
+  });
+
+  ipcMain.handle('data:setDatabaseCFG', (_event, dbCFG) => {
+    database = {
+      'host': dbCFG.host,
+      'port': dbCFG.port,
+      'dialect': dbCFG.dialect,
+      'dbname': dbCFG.dbname,
+      'username': dbCFG.username,
+      'password': dbCFG.password
+    };
+    
+    writeFile(DB_CFG_PATH, JSON.stringify(database), {flag: 'w'});
+
+    syncDB();
+  });
+
+  ipcMain.handle('data:clearMessage', (_event) => {
+    last['message'] = '';
+    last['time'] = new Date();
+    last['status'] = '';
+
+    console.log('Clear messaged.');
+  });
+
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
   // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
@@ -505,6 +713,10 @@ ipcMain.on('authenticate', (_event, args) => {
 
   if(data['username'] == '' && data['password'] == '')
   {
+    last['message'] = 'Logged in successfully.';
+    last['time'] = new Date();
+    last['status'] = 'success';
+
     authenticated = true
     username = data['username']
 
@@ -515,7 +727,10 @@ ipcMain.on('authenticate', (_event, args) => {
   }
   else
   {
-    authenticated = false
+    authenticated = false;
+    last['message'] = 'Username or password is incorrect.';
+    last['time'] = new Date();
+    last['status'] = 'error';
   }
 });
 
@@ -547,5 +762,14 @@ setInterval(() => {
   // }
   // bn_list.push(obj);
 
+  let now = new Date();
+  if(now.getTime() - last['time'].getTime() > 5000)
+  {
+    last['message'] = '';
+    last['time'] = now;
+    last['status'] = '';
+  }
+
   mainWindow.webContents.send('update-bn', bn_list);
+  mainWindow.webContents.send('last-message', last);
 }, 1000)

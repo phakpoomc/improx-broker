@@ -7,7 +7,7 @@ function back() {
     router.back();
 }
 
-var username = 'Username-001';
+// var username = 'Username-001';
 </script>
 
 <template>
@@ -66,11 +66,11 @@ var username = 'Username-001';
             </div>
             <div class="" id="navbarNavDropdown">
                 <ul class="navbar-nav">
-                    <li class="nav-item d-flex align-items-center me-3">
+                    <!-- <li class="nav-item d-flex align-items-center me-3">
                         <div class="text text-light">
                             {{ username }}
                         </div>
-                    </li>
+                    </li> -->
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle text-light" href="#" id="navbarDropdownMenuLink"
                             role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -82,6 +82,12 @@ var username = 'Username-001';
 
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdownMenuLink">
+                            <!-- <li>
+                                <router-link :to="'/sql_edit'" type='button'
+                      class="button dropdown-item">Edit DB Connection</router-link>
+
+                            </li> -->
+      
                             <li><router-link to="/login" class="button dropdown-item"
                                     onclick="window.mainprocess.send('logout', '')">Logout</router-link></li>
                         </ul>
@@ -108,8 +114,10 @@ var username = 'Username-001';
                         <div class="date-update">
                             <slot name="datetime"></slot>
                         </div>
+                        
                     </div>
                 </div>
+                <slot name="message"></slot>
                 <div class="row">
                     <div class="col px-4">
                         <slot name="body"></slot>
