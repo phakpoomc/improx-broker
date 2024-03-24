@@ -15,8 +15,7 @@ var dt = new Date();
 const bnCFG = ref();
 
 bnCFG.value = await window.mainprocess.getDBCFG();
-
-console.log('CFG: ', bnCFG.value);
+var dialect = bnCFG.value.dialect;
 
 let db_choices = [{value: 'mysql', text: 'MySQL'},
                   {value: 'sqlite', text: 'SQLite'},
@@ -41,6 +40,8 @@ function save() {
     'password': password
   };
 
+  console.log(obj);
+
   window.mainprocess.setDBCFG(obj);
 
   router.push('/');
@@ -62,21 +63,21 @@ function save() {
         <div class="row mb-4">
           <div class="col-4">
             <div class="setting-input mb-2">
-              <label class="mb-2 text-muted" for="bn-name">Host</label>
+              <label class="mb-2 text-muted" for="host">Host</label>
               <input id="host" type="text" class="form-control" name="host" :value="bnCFG.host" required
                 autofocus>
             </div>
           </div>
           <div class="col-2">
             <div class="setting-input mb-2">
-              <label class="mb-2 text-muted" for="bn-sn">Port</label>
+              <label class="mb-2 text-muted" for="port">Port</label>
               <input id="port" type="text" class="form-control" name="port" :value="bnCFG.port" required>
             </div>
           </div>
           <div class="col-2">
             <div class="setting-input mb-2">
-              <label class="mb-2 text-muted" for="bn-sn">Dialect</label>
-              <select v-model="bnCFG.dialect" id="dialect" name="dialect" class="form-select" aria-label="Default select example" required>
+              <label class="mb-2 text-muted" for="dialect">Dialect</label>
+              <select v-model="dialect" id="dialect" name="dialect" class="form-select" aria-label="Default select example" required>
                 <option v-for="choice in db_choices" :value="choice.value">{{ choice.text }}</option>
               </select>
       
@@ -84,21 +85,21 @@ function save() {
           </div>
           <div class="col-4">
             <div class="setting-input mb-2">
-              <label class="mb-2 text-muted" for="siteid">Database Name</label>
+              <label class="mb-2 text-muted" for="dbname">Database Name</label>
               <input id="dbname" type="text" class="form-control" name="dbname" :value="bnCFG.dbname" required
                 autofocus>
             </div>
           </div>
           <div class="col-6">
             <div class="setting-input mb-2">
-              <label class="mb-2 text-muted" for="siteid">Username</label>
+              <label class="mb-2 text-muted" for="username">Username</label>
               <input id="username" type="text" class="form-control" name="username" :value="bnCFG.username" required
                 autofocus>
             </div>
           </div>
           <div class="col-6">
             <div class="setting-input mb-2">
-              <label class="mb-2 text-muted" for="nodeid">Password</label>
+              <label class="mb-2 text-muted" for="password">Password</label>
               <input id="password" type="text" class="form-control" name="password" :value="bnCFG.password" required
                 autofocus>
             </div>

@@ -57,16 +57,10 @@ function clearMessage()
         <div class='row'>
           <template v-for="b in bn">
             <div class='col-4 mt-2'>
-
-              <input type='hidden' name='siteid' value='siteid'>
-              <input type='hidden' name='host' value='sitehost'>
-              <input type='hidden' name='port' value='siteport'>
-
-
               <div class="card">
                 <div class="card-header">
                   <b class="align-middle"> {{ b.name }} </b>
-                  <a class="link-opacity-100 text-secondary float-end" @click="remove(b.name)">
+                  <a class="link-opacity-100 text-secondary float-end" @click="remove(b.serial)">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-x" viewBox="0 0 16 16">
                       <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
                     </svg>
@@ -76,6 +70,7 @@ function clearMessage()
                 <div class="card-body">
                   <!-- <h5 class="card-title"> ข้อมูล </h5> -->
                   <!-- <p class="card-text">ClientID: {{ b.clientid }} </p> -->
+                  <p class="card-text">SerialNo: {{ b.serial }} </p>
                   <p class="card-text">SiteID: {{ b.siteid }} </p>
                   <p class="card-text">NodeID: {{ b.nodeid }} </p>
                   <p class="card-text" v-if="b.status === 'on'">
@@ -88,9 +83,14 @@ function clearMessage()
                     Status: <span class="text-muted fw-bold"> {{ b.status }} </span>
                   </p>
                   <p class="card-text">Last: {{ b.last_update.toLocaleString().replace('T', ' || ') }}</p>
-                  <div class="d-flex justify-content-between">
-                    <router-link :to="'/black_node_edit/' + b.name" type='button'
+                  <div v-if="b.status === 'on' || b.status === 'setup'" class="d-flex justify-content-between">
+                    <router-link :to="'/black_node_edit/' + b.serial" type='button'
                       class="btn btn-primary float-end">Connect</router-link>
+                    <!-- <button type="button" class="btn btn-danger" @click="remove(b.name)"> Remove </button> -->
+                  </div>
+                  <div v-else class="d-flex justify-content-between">
+                    <router-link :to="'/black_node_edit/' + b.serial" type='button'
+                      class="btn btn-secondary float-end disabled">Connect</router-link>
                     <!-- <button type="button" class="btn btn-danger" @click="remove(b.name)"> Remove </button> -->
                   </div>
                 </div>

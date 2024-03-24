@@ -1,7 +1,7 @@
 {
-  "name": "improx",
+  "name": "improx-broker",
   "version": "1.0.0",
-  "description": "ImproX Application",
+  "description": "ImproX Broker Application",
   "main": "./out/main/index.js",
   "author": "Phakpoom Chinprutthiwong",
   "homepage": "https://www.electronjs.org",

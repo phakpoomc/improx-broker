@@ -21,26 +21,46 @@ console.log('CFG: ', bnCFG.value);
 
 console.log('Param: ', route.params.id);
 
+var period = bnCFG.value.period;
+
+let period_choices = [{value: '1', text: '1 Minute'},
+                  {value: '5', text: '5 Minutes'},
+                  {value: '10', text: '10 Minutes'},
+                  {value: '15', text: '15 Minutes'},
+                  {value: '30', text: '30 Minutes'},]
+
 function save() {
   let bnName = document.getElementById('bn-name').value;
+  let period = document.getElementById('period').value;
+  let mqtt = document.getElementById('mqtt').value;
+  let clientip = document.getElementById('clientip').value;
   let siteid = document.getElementById('siteid').value;
   let nodeid = document.getElementById('nodeid').value;
-  let meter_names = [];
+  let meters_info = [];
 
   for (let i = 0; i < 30; i++) {
-    let m = document.getElementById('meter-' + String(i)).value;
+    let mname = document.getElementById('meter-' + String(i) + '-name').value;
+    let mtype = document.getElementById('meter-' + String(i) + '-type').value;
 
-    meter_names.push(m);
+    let mobj = {
+      'name': mname,
+      'type': mtype
+    };
+
+    meters_info.push(mobj);
   }
 
   let obj = {
-    'bn_name': bnName,
+    'name': bnName,
+    'period': period,
+    'mqtt': mqtt,
+    'clientip': clientip,
     'siteid': siteid,
     'nodeid': nodeid,
-    'meter_names': meter_names
+    'meter_list': meters_info
   };
 
-  window.mainprocess.updateBN(obj);
+  window.mainprocess.updateBN(obj, route.params.id);
 
   router.go();
 }
@@ -73,14 +93,30 @@ var nodes = [
         <div class="row mb-4">
           <div class="col-3">
             <div class="setting-input mb-2">
+              <label class="mb-2 text-muted" for="bn-sn">Serial Number</label>
+              <input id="bn-sn" type="text" class="form-control" name="bn-sn" :value="bnCFG.serial" disabled>
+            </div>
+
+            <div class="setting-input mb-2">
+              <label class="mb-2 text-muted" for="metercount">Period</label>
+              <select v-model="period" id="period" name="period" class="form-select" aria-label="Default select example" required>
+                <option v-for="choice in period_choices" :value="choice.value">{{ choice.text }}</option>
+              </select>
+            </div>
+            
+            
+          </div>
+          <div class="col-3">
+            <div class="setting-input mb-2">
               <label class="mb-2 text-muted" for="bn-name">Blacknode Name</label>
               <input id="bn-name" type="text" class="form-control" name="bn-name" :value="bnCFG.name" required
                 autofocus>
             </div>
             <div class="setting-input mb-2">
-              <label class="mb-2 text-muted" for="bn-sn">Serial Number</label>
-              <input id="bn-sn" type="text" class="form-control" name="bn-sn" :value="bnCFG.serial" disabled>
+              <label class="mb-2 text-muted" for="mqtt"> MQTT Connection </label>
+              <input id="mqtt" type="text" class="form-control" name="mqtt" :value="bnCFG.mqtt" required>
             </div>
+            
           </div>
           <div class="col-3">
             <div class="setting-input mb-2">
@@ -88,28 +124,19 @@ var nodes = [
               <input id="siteid" type="text" class="form-control" name="siteid" :value="bnCFG.siteid" required
                 autofocus>
             </div>
+            
+            <div class="setting-input mb-2">
+              <label class="mb-2 text-muted" for="clientip">Client IP</label>
+              <input id="clientip" type="text" class="form-control" name="clientip" :value="bnCFG.clientip" required>
+            </div>
+          </div>
+          <div class="col-3">
             <div class="setting-input mb-2">
               <label class="mb-2 text-muted" for="nodeid">Node ID</label>
               <input id="nodeid" type="text" class="form-control" name="nodeid" :value="bnCFG.nodeid" required
                 autofocus>
             </div>
-          </div>
-          <div class="col-3">
-            <div class="setting-input mb-2">
-              <label class="mb-2 text-muted" for="meteron"># Meter On</label>
-              <input id="meteron" type="text" class="form-control" name="meteron" :value="bnCFG.meteron" disabled>
-            </div>
-            <div class="setting-input mb-2">
-              <label class="mb-2 text-muted" for="meteroff"># Meter Off</label>
-              <input id="meteroff" type="text" class="form-control" name="meteroff" :value="bnCFG.meteroff" disabled>
-            </div>
-          </div>
-          <div class="col-3">
-            <div class="setting-input mb-2">
-              <label class="mb-2 text-muted" for="metercount"># Total Meter</label>
-              <input id="metercount" type="text" class="form-control" name="metercount" :value="bnCFG.metercount"
-                disabled>
-            </div>
+            
             <div class="setting-input mb-2">
               <label class="mb-2 text-muted" for="bn-lastupdate">Last Update</label>
               <input id="bn-lastupdate" type="text" class="form-control" name="bn-lastupdate"
@@ -151,6 +178,9 @@ var nodes = [
                 <th>
                   Meter Name
                 </th>
+                <th>
+                  Meter Type
+                </th>
                 <th style="text-align: center">
                   Status
                 </th>
@@ -162,20 +192,14 @@ var nodes = [
             <tbody class="">
               <template v-for="m in bnCFG.meter_list">
                 <tr>
-                  <template v-if="m.name === 'undefined'">
-                    <td class="align-middle" style="text-align: center"> {{ m.id }}</td>
+                    <td class="align-middle" style="text-align: center"> {{ m.id+1 }}</td>
                     <td>
-                      <input :id="'meter-' + m.id" type="text" class="form-control border-1 mt-1 mb-1"
-                        :name="'meter-' + m.id" value="" disabled>
+                      <input :id="'meter-' + m.id + '-name'" type="text" class="form-control border-1 mt-1 mb-1"
+                        :name="'meter-' + m.id + '-name'" :value="m.name" required autofocus>
                     </td>
-                    <td class="align-middle" style="text-align: center">  </td>
-                    <td></td>
-                  </template>
-                  <template v-else>
-                    <td class="align-middle" style="text-align: center"> {{ m.id }}</td>
                     <td>
-                      <input :id="'meter-' + m.id" type="text" class="form-control border-1 mt-1 mb-1"
-                        :name="'meter-' + m.id" :value="m.name" required autofocus>
+                      <input :id="'meter-' + m.id + '-type'" type="text" class="form-control border-1 mt-1 mb-1"
+                        :name="'meter-' + m.id + '-type'" :value="m.type" required autofocus>
                     </td>
                     <td  class="align-middle" style="text-align: center"> 
                       <!-- {{ m.status }} -->
@@ -187,7 +211,7 @@ var nodes = [
                       </div>
                     </td>
                     <td class="align-middle"> {{ m.last_update.toLocaleString() }}</td>
-                  </template>
+                  <!-- </template> -->
                 </tr>
               </template>
             </tbody>
@@ -199,9 +223,6 @@ var nodes = [
         <div class="col-12 d-flex justify-content-end">
           <button class="btn btn-secondary ms-2" @click="save()">
             Save
-          </button>
-          <button class="btn btn-secondary ms-2">
-            Reset
           </button>
           <button class="btn btn-secondary ms-2" @click="reset(route.params.id)">
             Reboot

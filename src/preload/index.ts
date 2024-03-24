@@ -42,7 +42,7 @@ if (process.contextIsolated) {
       setDBCFG: (dbCFG) => ipcRenderer.invoke('data:setDatabaseCFG', dbCFG),
       clearMessage: () => ipcRenderer.invoke('data:clearMessage'),
       isBNCBRegistered: () => ipcRenderer.invoke('handler:isBlacknodeCallbackRegistered'),
-      updateBN: (bnCFG) => ipcRenderer.invoke('cmd:updateBN', bnCFG),
+      updateBN: (bnCFG, sn) => ipcRenderer.invoke('cmd:updateBN', bnCFG, sn),
       resetBN: (bn_name) => ipcRenderer.invoke('cmd:resetBN', bn_name),
       removeBN: (bn_name) => ipcRenderer.invoke('cmd:removeBN', bn_name)
     })

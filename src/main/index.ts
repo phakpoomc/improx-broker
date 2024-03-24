@@ -22,101 +22,120 @@ var energy;
 
 function syncDB()
 {
-  const sequelize = new Sequelize(
-    database['dbname'], 
-    database['username'], 
-    database['password'], 
-    {
-    host: database['host'], 
-    port: database['port'],
-    dialect: database['dialect'], 
-    define: {
-      timestamps: false 
-    },
-    dialectOptions: {
-      useUTC: false
-    },
-    timezone: '+07:00',
-    logging: false
-  });
+  
+  if(database['dbname'] && database['dbname'] != '' && database['host'] && database['host'] != '' && database['port'] && database['port'] != '' && database['dialect'] && database['dialect'] != '')
+  {
+    console.log(database['dbname'] != '');
+    const sequelize = new Sequelize(
+      database['dbname'], 
+      database['username'], 
+      database['password'], 
+      {
+      host: database['host'], 
+      port: database['port'],
+      dialect: database['dialect'], 
+      define: {
+        timestamps: false 
+      },
+      dialectOptions: {
+        useUTC: false
+      },
+      timezone: '+07:00',
+      logging: false
+    });
+  
+    sequelize.authenticate().then(() => {
+      last['message'] = 'Database connected.';
+      last['time'] = new Date();
+      last['status'] = 'success';
+      console.log('DB Connected');
+    }).catch((err) => {
+      last['message'] = 'Cannot connect to database.';
+      last['time'] = new Date();
+      last['status'] = 'error';
+      console.log("Cannot connect to DB: ", err);
 
-  sequelize.authenticate().then(() => {
-    last['message'] = 'Database connected.';
-    last['time'] = new Date();
-    last['status'] = 'success';
-    console.log('DB Connected');
-  }).catch((err) => {
-    last['message'] = 'Cannot connect to database.';
+      return;
+    });
+  
+    energy = sequelize.define(
+      'energy',
+      {
+        id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
+        SerialNo: { type: DataTypes.STRING, field: 'SerialNo' },
+        SiteID: { type: DataTypes.STRING, field: 'SiteID' },
+        NodeID: { type: DataTypes.STRING, field: 'NodeID' },
+        ModbusID: { type: DataTypes.STRING, field: 'ModbusID' },
+        DateTimeUpdate: { type: DataTypes.DATE, field: 'DateTimeUpdate'},
+        Import_kWh: { type: DataTypes.DOUBLE, field: 'Import_kWh'},
+        Export_kWh: { type: DataTypes.DOUBLE, field: 'Export_kWh'},
+        TotalkWh: { type: DataTypes.DOUBLE, field: 'Total_kWh'},
+        Total_kvarh: { type: DataTypes.FLOAT, field: 'Total_kvarh'},
+        Ind_kvarh: { type: DataTypes.FLOAT, field: 'Ind_kvarh'},
+        Cap_kvarh: { type: DataTypes.FLOAT, field: 'Cap_kvarh'},
+        kVAh: { type: DataTypes.FLOAT, field: 'kVAh'},
+        V1: { type: DataTypes.FLOAT, field: 'V1'},
+        V2: { type: DataTypes.FLOAT, field: 'V2'},
+        V3: { type: DataTypes.FLOAT, field: 'V3'},
+        V12: { type: DataTypes.FLOAT, field: 'V12'},
+        V23: { type: DataTypes.FLOAT, field: 'V23'},
+        V31: { type: DataTypes.FLOAT, field: 'V31'},
+        I1: { type: DataTypes.FLOAT, field: 'I1'},
+        I2: { type: DataTypes.FLOAT, field: 'I2'},
+        I3: { type: DataTypes.FLOAT, field: 'I3'},
+        P1: { type: DataTypes.FLOAT, field: 'P1'},
+        P2: { type: DataTypes.FLOAT, field: 'P2'},
+        P3: { type: DataTypes.FLOAT, field: 'P3'},
+        P_Sum: { type: DataTypes.FLOAT, field: 'P_Sum'},
+        Q1: { type: DataTypes.FLOAT, field: 'Q1'},
+        Q2: { type: DataTypes.FLOAT, field: 'Q2'},
+        Q3: { type: DataTypes.FLOAT, field: 'Q3'},
+        Q_Sum: { type: DataTypes.FLOAT, field: 'Q_Sum'},
+        S1: { type: DataTypes.FLOAT, field: 'S1'},
+        S2: { type: DataTypes.FLOAT, field: 'S2'},
+        S3: { type: DataTypes.FLOAT, field: 'S3'},
+        S_Sum: { type: DataTypes.FLOAT, field: 'S_Sum'},
+        PF1: { type: DataTypes.FLOAT, field: 'PF1'},
+        PF2: { type: DataTypes.FLOAT, field: 'PF2'},
+        PF3: { type: DataTypes.FLOAT, field: 'PF3'},
+        PF_Sum: { type: DataTypes.FLOAT, field: 'PF_Sum'},
+        THD_U1: { type: DataTypes.FLOAT, field: 'THD_U1'},
+        THD_U2: { type: DataTypes.FLOAT, field: 'THD_U2'},
+        THD_U3: { type: DataTypes.FLOAT, field: 'THD_U3'},
+        THD_I1: { type: DataTypes.FLOAT, field: 'THD_I1'},
+        THD_I2: { type: DataTypes.FLOAT, field: 'THD_I2'},
+        THD_I3: { type: DataTypes.FLOAT, field: 'THD_I3'},
+        Frequency: { type: DataTypes.FLOAT, field: 'Frequency'},
+        kWdemand: { type: DataTypes.DOUBLE, field: 'kWdemand'},
+      },
+      {
+          tableName: 'energy' 
+      }
+    );
+  
+    sequelize.sync().then(() => {
+      last['message'] = 'Database table synced.';
+      last['time'] = new Date();
+      last['status'] = 'success';
+      console.log('Table synced');
+    }).catch((err) => {
+      last['message'] = 'Cannot sync database table.';
+      last['time'] = new Date();
+      last['status'] = 'error';
+      console.log('Cannot sync table: ', err);
+
+      return;
+    });
+  }
+  else
+  {
+    last['message'] = 'Database is not set up.';
     last['time'] = new Date();
     last['status'] = 'error';
-    console.log("Cannot connect to DB: ", err);
-  });
+    console.log('Database is not set up.');
 
-  energy = sequelize.define(
-    'energy',
-    {
-      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
-      Meter_ID: { type: DataTypes.INTEGER, field: 'Meter_ID' },
-      DateTimeUpdate: { type: DataTypes.DATE, field: 'DateTimeUpdate'},
-      Import_kWh: { type: DataTypes.DOUBLE, field: 'Import_kWh'},
-      Export_kWh: { type: DataTypes.DOUBLE, field: 'Export_kWh'},
-      TotalkWh: { type: DataTypes.DOUBLE, field: 'Total_kWh'},
-      Total_kvarh: { type: DataTypes.FLOAT, field: 'Total_kvarh'},
-      Ind_kvarh: { type: DataTypes.FLOAT, field: 'Ind_kvarh'},
-      Cap_kvarh: { type: DataTypes.FLOAT, field: 'Cap_kvarh'},
-      kVAh: { type: DataTypes.FLOAT, field: 'kVAh'},
-      V1: { type: DataTypes.FLOAT, field: 'V1'},
-      V2: { type: DataTypes.FLOAT, field: 'V2'},
-      V3: { type: DataTypes.FLOAT, field: 'V3'},
-      V12: { type: DataTypes.FLOAT, field: 'V12'},
-      V23: { type: DataTypes.FLOAT, field: 'V23'},
-      V31: { type: DataTypes.FLOAT, field: 'V31'},
-      I1: { type: DataTypes.FLOAT, field: 'I1'},
-      I2: { type: DataTypes.FLOAT, field: 'I2'},
-      I3: { type: DataTypes.FLOAT, field: 'I3'},
-      P1: { type: DataTypes.FLOAT, field: 'P1'},
-      P2: { type: DataTypes.FLOAT, field: 'P2'},
-      P3: { type: DataTypes.FLOAT, field: 'P3'},
-      P_Sum: { type: DataTypes.FLOAT, field: 'P_Sum'},
-      Q1: { type: DataTypes.FLOAT, field: 'Q1'},
-      Q2: { type: DataTypes.FLOAT, field: 'Q2'},
-      Q3: { type: DataTypes.FLOAT, field: 'Q3'},
-      Q_Sum: { type: DataTypes.FLOAT, field: 'Q_Sum'},
-      S1: { type: DataTypes.FLOAT, field: 'S1'},
-      S2: { type: DataTypes.FLOAT, field: 'S2'},
-      S3: { type: DataTypes.FLOAT, field: 'S3'},
-      S_Sum: { type: DataTypes.FLOAT, field: 'S_Sum'},
-      PF1: { type: DataTypes.FLOAT, field: 'PF1'},
-      PF2: { type: DataTypes.FLOAT, field: 'PF2'},
-      PF3: { type: DataTypes.FLOAT, field: 'PF3'},
-      PF_Sum: { type: DataTypes.FLOAT, field: 'PF_Sum'},
-      THD_U1: { type: DataTypes.FLOAT, field: 'THD_U1'},
-      THD_U2: { type: DataTypes.FLOAT, field: 'THD_U2'},
-      THD_U3: { type: DataTypes.FLOAT, field: 'THD_U3'},
-      THD_I1: { type: DataTypes.FLOAT, field: 'THD_I1'},
-      THD_I2: { type: DataTypes.FLOAT, field: 'THD_I2'},
-      THD_I3: { type: DataTypes.FLOAT, field: 'THD_I3'},
-      Frequency: { type: DataTypes.FLOAT, field: 'Frequency'},
-      kWdemand: { type: DataTypes.DOUBLE, field: 'kWdemand'},
-    },
-    {
-        tableName: 'energy' 
-    }
-  );
-
-  sequelize.sync().then(() => {
-    last['message'] = 'Database table synced.';
-    last['time'] = new Date();
-    last['status'] = 'success';
-    console.log('Table synced');
-  }).catch((err) => {
-    last['message'] = 'Cannot sync database table.';
-    last['time'] = new Date();
-    last['status'] = 'error';
-    console.log('Cannot sync table: ', err);
-  });
-
-  return energy;
+    return;
+  }
 }
 
 syncDB();
@@ -131,6 +150,7 @@ const BN_CFG_PATH = path.resolve(app.getPath('appData'), 'blacknode.info');
 interface Meter {
   id: Number;
   name: string;
+  type: Number;
   status: string;
   last_update: Date;
 }
@@ -138,6 +158,9 @@ interface Meter {
 interface Blacknode {
   name: string;
   clientid: string;
+  mqtt: string;
+  clientip: string;
+  period: Number;
   serial: string;
   siteid: string;
   nodeid: string;
@@ -146,9 +169,7 @@ interface Blacknode {
   last_update: Date;
 }
 
-var DISCOVERY = true;
 var blacknode = {};
-var bn_list: Blacknode[] = [];
 
 var bn_cb_registered = false;
 
@@ -205,54 +226,162 @@ function readFile(path, flag)
 function startMQTT()
 {
   aedesInst = new Aedes()
-  httpServer = wsCreateServer(aedesInst, {ws: true})
+  httpServer = wsCreateServer(aedesInst/*, {ws: true}*/)
 
   loadBNInfoFromLocal()
 
   aedesInst.on('clientDisconnect', function(client) {
-    for(let bn of bn_list)
+    for(let sn of Object.keys(blacknode))
     {
-      if(bn['clientid'] == client.id)
+      if(blacknode[sn].clientid == client.id)
       {
-        bn['status'] = 'off';
-        bn['last_update'] = new Date();
-        blacknode[bn['name']]['status'] = 'off';
-        blacknode[bn['name']]['last_update'] = new Date();
+        blacknode[sn].status = 'off';
+        blacknode[sn].last_update = new Date();
       }
     }
+
+    writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
   });
 
   aedesInst.on('clientError', function(client, _err) {
-    for(let bn of bn_list)
+    for(let sn of Object.keys(blacknode))
     {
-      if(bn['clientid'] == client.id)
+      if(blacknode[sn].clientid == client.id)
       {
-        bn['status'] = 'error';
-        bn['last_update'] = new Date();
-        blacknode[bn['name']]['status'] = 'error';
-        blacknode[bn['name']]['last_update'] = new Date();
-
-        console.log(_err);
+        blacknode[sn].status = 'error';
+        blacknode[sn].last_update = new Date();
       }
     }
+
+    writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
   });
 
   aedesInst.on('publish', function(pkt, _client) {
     //console.log(_client);
-    if(DISCOVERY)
-    {
-      const re = /LOG\/(DATABASE|REALTIME)\/(.*?)\/(.*?)\/(\d*)/;
-      let m = pkt.topic.match(re);
 
-      if(m)
+    const data_re = /^(DATABASE|REALTIME)\/(.*?)\/(.*?)\/(.*?)\/(\d*)$/;
+    const cfg_re = /^CFG\/([^\/]*)$/;
+
+    let cfg_m = pkt.topic.match(cfg_re);
+    let data_m = pkt.topic.match(data_re);
+
+    if(cfg_m)
+    {
+      // Configuration topic
+
+      let sn = cfg_m[1];
+      let cmd = pkt.payload.toString();
+
+      console.log('SN: ', sn, cfg_m);
+
+      if(cmd == 'request_config')
       {
-        const pkt_re = /(\d{4})-(\d{2})-(\d{2})\+(\d{2}):(\d{2}):(\d{2})&d=(.*)/;
+        if(!blacknode.hasOwnProperty(sn))
+        {
+          let obj: Blacknode = {
+            'name': 'undefined',
+            'clientid': _client.id,
+            'mqtt': 'undefined',
+            'clientip': '0.0.0.0',
+            'period': 15,
+            'serial': sn,
+            'siteid': 'undefined',
+            'nodeid': 'undefined',
+            'meter_list': [],
+            'status': 'setup',
+            'last_update': new Date()
+          }
+
+          for(let i=0; i<30; i++)
+          {
+            let initMeter: Meter = {
+              id: i,
+              name: 'undefined',
+              type: 0,
+              status: 'off',
+              last_update: new Date()
+            }
+
+            obj.meter_list.push(initMeter);
+          }
+
+          blacknode[sn] = obj;
+        }
+        else
+        {
+          blacknode[sn].last_update = new Date();
+          blacknode[sn].status = 'setup';
+          blacknode[sn].clientid = _client.id;
+        }
+
+        writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
+
+        last['message'] = 'Blacknode ' + sn + ' connected. Please initialize the blacknode.';
+        last['time'] = new Date();
+        last['status'] = 'success';
+      }
+      else if(cmd == 'ack_config')
+      {
+        blacknode[sn].last_update = new Date();
+        blacknode[sn].status = 'on';
+        blacknode[sn].clientid = _client.id;
+
+        writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
+
+        last['message'] = 'Blacknode ' + sn + ' is successfully configured.';
+        last['time'] = new Date();
+        last['status'] = 'success';
+      }
+    }
+    else if(data_m)
+    {
+      // Data topic
+
+      console.log(data_m);
+      let dtype = data_m[1];
+      let sn = data_m[2];
+      let siteid = data_m[3];
+      let nodeid = data_m[4];
+      let modbusid = parseInt(data_m[5]);
+
+      if(blacknode.hasOwnProperty(sn))
+      {
+        if(blacknode[sn].status == 'setup')
+        {
+          last['message'] = 'Received data from blacknode ' + sn + ' that is not initilized. Ignored.';
+          last['time'] = new Date();
+          last['status'] = 'error';
+          console.log('Received data from a blacknode that is not initilized. Ignored.');
+        }
+        else
+        {
+          blacknode[sn].last_update = new Date();
+          blacknode[sn].status = 'on';
+          blacknode[sn].clientid = _client.id;
+
+          blacknode[sn].meter_list[modbusid].last_update = blacknode[sn].last_update;
+          blacknode[sn].meter_list[modbusid].status = 'on';
+        }
+        
+      }
+      else
+      {
+        last['message'] = 'Received data from blacknode ' + sn + ' that is not initilized. Ignored.';
+        last['time'] = new Date();
+        last['status'] = 'error';
+        console.log('Received data from a blacknode that is not initilized. Ignored.');
+      }
+
+      if(dtype == 'DATABASE')
+      {
+        const pkt_re = /^t=(\d{4})-(\d{2})-(\d{2})\+(\d{2}):(\d{2}):(\d{2})&d=(.*)$/;
 
         let d = pkt.payload.toString().match(pkt_re);
 
         if(d)
         {
-          console.log(d);
+          // Payload pattern matched.
+
           let dt = new Date(d[1], d[2], d[3], d[4], d[5], d[6]);
           let e = d[7].split("|");
 
@@ -260,7 +389,10 @@ function startMQTT()
           {
             try{
               energy.create({
-                Meter_ID: Number(m[4]),
+                SerialNo: sn,
+                SiteID: siteid,
+                NodeID: nodeid,
+                ModbusID: String(modbusid),
                 DateTimeUpdate: dt,
                 Import_kWh: parseFloat(e[0]),
                 Export_kWh: parseFloat(e[1]),
@@ -309,119 +441,17 @@ function startMQTT()
             }
           }
         }
-
-        let meterKey = m[2] + '-' + m[3] + '-' + m[4];
-        let bnKey = m[2] + "-" + m[3];
-        let meterID = Number(m[4]);
-  
-        if(!blacknode.hasOwnProperty(bnKey))
-        {
-          let obj: Blacknode = {
-            'name': bnKey,
-            'clientid': _client.id,
-            'serial': bnKey,
-            'siteid': m[2],
-            'nodeid': m[3],
-            'meter_list': [],
-            'status': 'on',
-            'last_update': new Date()
-          }
-
-          for(let i=0; i<30; i++)
-          {
-            let initMeter: Meter = {
-              id: i,
-              name: 'undefined',
-              status: 'off',
-              last_update: new Date()
-            }
-
-            obj.meter_list.push(initMeter);
-          }
-
-          let meterObj: Meter = {
-            id: meterID,
-            name: meterKey,
-            status: 'on',
-            last_update: new Date()
-          }
-
-          if(meterID >=0 && meterID < 30)
-          {
-            obj.meter_list[meterID] = meterObj;
-          }
-          else
-          {
-            obj.meter_list[0] = meterObj;
-          }
-
-          bn_list.push(obj);
-
-          blacknode[bnKey] = obj;
-
-          writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
-        }
         else
         {
-          let meterID = Number(m[4]);
-
-          let meterObj: Meter = {
-            id: meterID,
-            name: meterKey,
-            status: 'on',
-            last_update: new Date()
-          }
-
-          if(meterID >=0 && meterID < 30)
-          {
-            blacknode[bnKey].meter_list[meterID] = meterObj;
-          }
-          else
-          {
-            blacknode[bnKey].meter_list[0] = meterObj;
-          }
-          
-          blacknode[bnKey].clientid = _client.id;
-          blacknode[bnKey].status = 'on';
-          blacknode[bnKey].last_update = new Date();
-          blacknode[bnKey].meter_list[meterID] = meterObj;
-
-          for(let bn of bn_list)
-          {
-            if(bn.name == bnKey)
-            {
-              bn.clientid = blacknode[bnKey].clientid;
-              bn.status = 'on';
-              bn.last_update = blacknode[bnKey].last_update;
-              bn.meter_list[meterID] = blacknode[bnKey].meter_list[meterID];
-
-              break;
-            }
-          }
-
-          // console.log(bn_list);
-
-          writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
+          // Payload not matched. Ignored.
         }
       }
     }
-  
-    if(pkt.topic == 'bn_comm')
+    else
     {
-      // let jsonData;
-  
-      // try
-      // {
-      //   jsonData = JSON.parse(pkt.payload.toString());
-      //   // handleComm(jsonData);
-      // }
-      // catch(err)
-      // {
-      //   // Not a JSON
-      // } 
-      
+      // Invalid topic
     }
-  
+
     // console.log(pkt.topic, pkt.payload.toString(), client);
   });
   
@@ -436,95 +466,11 @@ function loadBNInfoFromLocal()
 
   blacknode = JSON.parse(data);
 
-  bn_list = [];
-
-  for(let key in blacknode)
+  for(let sn of Object.keys(blacknode))
   {
-    let obj: Blacknode = {
-      'name': blacknode[key]['name'],
-      'clientid': '',//blacknode[key]['clientid'],
-      'serial': blacknode[key]['serial'],
-      'siteid': blacknode[key]['siteid'],
-      'nodeid': blacknode[key]['nodeid'],
-      'meter_list': blacknode[key]['meter_list'],
-      'status': 'off',//blacknode[key]['status'],
-      'last_update': blacknode[key]['last_update']
-    }
-
-    bn_list.push(obj)
+    blacknode[sn].status = 'off';
   }
 }
-
-// function resetMeterList()
-// {
-//   writeFileSync(__dirname + '\\meters.info', '{}', {flag: 'w' });
-// }
-
-// function handleComm(payload)
-// {
-//   console.log('handleComm: ', payload);
-
-//   // if(payload['cmd'] == 'get_meter_cfg')
-//   // {
-//   //   let pkt = {
-//   //     'cmd': 'get_meter_cfg_response',
-//   //     'data': meters
-//   //   };
-
-//   //   aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
-
-//   //   return true;
-//   // }
-//   // else if(payload['cmd'] == 'set_meter_cfg')
-//   // {
-//   //   meters = payload['data'];
-//   //   meterCount = Object.keys(payload['data']).length;
-
-//   //   writeFileSync('meters.info', JSON.stringify(meters), {flag: 'w' });
-
-//   //   let pkt = {
-//   //     'cmd': 'set_meter_cfg_response',
-//   //     'data': 'success'
-//   //   };
-
-//   //   aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
-//   // }
-//   // else if(payload['cmd'] == 'get_bn_cfg')
-//   // {
-//   //   let pkt = {
-//   //     'cmd': 'get_bn_cfg_response',
-//   //     'data': blacknode
-//   //   };
-
-//   //   aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
-
-//   //   return true;
-//   // }
-//   // else if(payload['cmd'] == 'set_bn_cfg')
-//   // {
-
-//   //   blacknode = payload['data'];
-
-//   //   writeFileSync('blacknode.info', JSON.stringify(payload['data']), {flag: 'w' });
-
-//   //   let pkt = {
-//   //     'cmd': 'set_bn_cfg_response',
-//   //     'data': 'success'
-//   //   };
-
-//   //   aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
-//   // }
-//   // else if(payload['cmd'] == 'reboot')
-//   // {
-//   //   console.log('Reboot blacknode server');
-//   // }
-//   // else
-//   // {
-//   //   return false;
-//   // }
-
-//   return false;
-// }
 
 /* End of MQTT Broker Section */
 
@@ -589,51 +535,57 @@ app.whenReady().then(async () => {
     return bn_cb_registered;
   });
 
-  ipcMain.handle('cmd:updateBN', (_event, cfg) => {
+  ipcMain.handle('cmd:updateBN', (_event, cfg, sn) => {
     console.log('Update: ', cfg);
 
-    let pkt = {
-      'cmd': 'update_bn_cfg',
-      'data': cfg
-    };
+    let pkt = "t=" + cfg.period + "|ips=" + cfg.mqtt + "|ipc=" + cfg.clientip + "|key=" + cfg.siteid + "/" + cfg.nodeid + "|user=admin|pass=password|tal=30|";
 
-    aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
+    blacknode[sn].name = cfg.name;
+    blacknode[sn].period = cfg.period;
+    blacknode[sn].siteid = cfg.siteid;
+    blacknode[sn].nodeid = cfg.nodeid;
+    blacknode[sn].clientip = cfg.clientip;
+    blacknode[sn].mqtt = cfg.mqtt;
 
+    for(let i=0; i<30; i++)
+    {
+      blacknode[sn].meter_list[i].name = cfg.meter_list[i].name;
+      blacknode[sn].meter_list[i].type = cfg.meter_list[i].type;
+
+      if(cfg.meter_list[i].type != "")
+      {
+        pkt += String(i+1).padStart(2, '0') + ":" + cfg.meter_list[i].type.padStart(2, '0');
+      }
+      else
+      {
+        pkt += String(i+1).padStart(2, '0') + ":00";
+      }
+      
+      if(i != 29)
+      {
+        pkt += "|";
+      }
+    }
+
+    writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
+
+    aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'ACK/' + sn, 'payload': pkt}, function() {});
   });
 
   ipcMain.handle('cmd:resetBN', (_event, key) => {
     // Reset based on command or topic
     console.log('Reset: ', key);
-    let pkt = {
-      'cmd': 'reset',
-      'data': key
-    };
+    let pkt = "reset"
 
-    aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'bn_comm', 'payload': JSON.stringify(pkt)}, function() {});
+    aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'RESET/' + key, 'payload': pkt}, function() {});
+    last['message'] = 'Reset command was sent to ' + key + '.';
+    last['time'] = new Date();
+    last['status'] = 'success';
   });
 
   ipcMain.handle('cmd:removeBN', (_event, key) => {
-    console.log('Removing key ', key, bn_list);
+
     delete blacknode[key];
-    
-    let found = -1;
-    for(let i=0; i<bn_list.length; i++)
-    {
-      console.log(bn_list[i].name);
-      if(bn_list[i].name == key)
-      {
-        found = i;
-        console.log(found);
-        break;
-      }
-    }
-
-    if(found != -1)
-    {
-      bn_list.splice(found, 1);
-    }
-
-    console.log('After: ', bn_list);
 
     writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
   });
@@ -662,6 +614,8 @@ app.whenReady().then(async () => {
       'username': dbCFG.username,
       'password': dbCFG.password
     };
+
+    console.log(database);
     
     writeFile(DB_CFG_PATH, JSON.stringify(database), {flag: 'w'});
 
@@ -711,7 +665,7 @@ ipcMain.on('authenticate', (_event, args) => {
 
   //console.log(event);
 
-  if(data['username'] == '' && data['password'] == '')
+  if((data['username'] == '' && data['password'] == '') || (data['username'] == 'admin' && data['password'] == 'password'))
   {
     last['message'] = 'Logged in successfully.';
     last['time'] = new Date();
@@ -751,16 +705,7 @@ ipcMain.on('registerCB', (_event, _args) => {
 });
 
 setInterval(() => {
-  // const obj: Blacknode = {
-  //   'name': 'sitename' + String(iteration),
-  //   'siteid': String(iteration),
-  //   'nodeid': String(iteration),
-  //   'meteron': 0,
-  //   'meteroff': 0,
-  //   'metercount': 0,
-  //   'meter_list': []
-  // }
-  // bn_list.push(obj);
+  // Send Blacknode info to front-end every 1 second.
 
   let now = new Date();
   if(now.getTime() - last['time'].getTime() > 5000)
@@ -770,6 +715,23 @@ setInterval(() => {
     last['status'] = '';
   }
 
-  mainWindow.webContents.send('update-bn', bn_list);
-  mainWindow.webContents.send('last-message', last);
-}, 1000)
+  if(mainWindow && mainWindow.webContents)
+  {
+    mainWindow.webContents.send('update-bn', blacknode);
+    mainWindow.webContents.send('last-message', last);
+  }
+  
+}, 1000);
+
+setInterval(() => {
+  // Save Blacknode every 5 minutes
+  if(mainWindow && mainWindow.webContents)
+  {
+    mainWindow.webContents.send('update-bn', blacknode);
+    mainWindow.webContents.send('last-message', last);
+
+    writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
+  }
+
+  
+}, 5*60*1000);
