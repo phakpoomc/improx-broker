@@ -4,6 +4,8 @@ import cors from 'cors';
 
 export const api = express();
 api.use(cors());
+api.use(express.json());
+api.use(express.urlencoded({extended: true}));
 
 /* Dashboard API */
 
@@ -107,6 +109,37 @@ api.get('/dashboard', (req, res) => {
 });
 
 /* Monitoring API */
+api.post('/rt_chart', (req, res) => {
+    let ret = {};
+
+    let p = req.body;
+
+    for(let k of p)
+    {
+        // Get data and fill
+        ret[k] = {
+            time: new Date(),
+            value: Math.random() * 50 - 25
+        };
+    }
+
+    res.json(ret);
+});
+
+api.get('/rt_chart', (req, res) => {
+    let ret = [
+        { value: "MDB-1.Active power L1..L3 (kW)", actual: 7.3398, min: 6.6700, max: 7.4341 },
+        { value: "MDB-1.Cos-phi L1..L3", actual: 8.3998, min: 8.6700, max: 9.4941 },
+        { value: "MDB-1.Active power L1 (kW)", actual: 5.998, min: 6.6700, max: 7.4941 },
+        { value: "MDB-1.Active power L2 (kW)", actual: 5.3298, min: 8.8500, max: 9.4241 },
+        { value: "MDB-1.Active power L3 (kW)", actual: 9.3098, min: 8.6500, max: 5.4041 },
+    ];
+
+    // calculate value and return
+
+    res.json(ret);
+});
+
 api.get('/meter_data_table', (req, res) => {
     let ret = [];
 

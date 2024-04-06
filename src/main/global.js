@@ -1,5 +1,4 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
-import * as path from 'path'
 
 // interface Meter {
 //     id: Number;
