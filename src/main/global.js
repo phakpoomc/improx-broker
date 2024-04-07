@@ -34,6 +34,9 @@ export var db_cfg = {};
 
 export var blacknode = {};
 
+export var lastUpdateTime = {};
+export var lastUpdateData = {};
+
 export function loadBNInfoFromLocal(BN_CFG_PATH)
 {
   const data = readFile(BN_CFG_PATH, { encoding: 'utf-8', flag: 'r' });

@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-// import { last } from './global.js';
+import { lastUpdateData, blacknode } from './global.js';
 
 export const api = express();
 api.use(cors());
@@ -143,6 +143,76 @@ api.get('/rt_chart', (req, res) => {
 api.get('/meter_data_table', (req, res) => {
     let ret = [];
 
+    let pmap = [
+        'Import_kWh',
+        'Export_kWh',
+        'TotalkWh',
+        'Total_kvarh',
+        'Ind_kvarh',
+        'Cap_kvarh',
+        'kVAh',
+        'V1',
+        'V2',
+        'V3',
+        'V12',
+        'V23',
+        'V31',
+        'I1',
+        'I2',
+        'I3',
+        'P1',
+        'P2',
+        'P3',
+        'P_Sum',
+        'Q1',
+        'Q2',
+        'Q3',
+        'Q_Sum',
+        'S1',
+        'S2',
+        'S3',
+        'S_Sum',
+        'PF1',
+        'PF2',
+        'PF3',
+        'PF_Sum',
+        'THD_U1',
+        'THD_U2',
+        'THD_U3',
+        'THD_I1',
+        'THD_I2',
+        'THD_I3',
+        'Frequency',
+        'kWdemand',
+    ];
+
+    // await db.energy.findAll({
+    //     group: ['SiteID', 'NodeID', 'ModbusID'],
+    //     order: [['DateTimeUpdate', 'DESC']]
+    // });
+
+    // REAL
+    // let keys = Object.keys(lastUpdateData);
+    // let now = new Date();
+
+    // for(let i=0; i<40; i++)
+    // {
+    //     ret[i] = {};
+
+    //     ret[i]['parameter'] = pmap[i];
+        
+    //     for(let k of keys)
+    //     {
+    //         // Do not show stale data
+    //         if(now.getTime() - lastUpdateData[k].DateTimeUpdate.getTime() < 3600000)
+    //         {
+    //             ret[i][lastUpdateData[k].SerialNo] = lastUpdateData[k][pmap[i]];
+    //         }
+    //     }
+    // }
+
+    
+    // MOCK
     let total_params = Math.floor(Math.random() * 20);
 
     for(let i=0; i<total_params; i++)
@@ -157,8 +227,6 @@ api.get('/meter_data_table', (req, res) => {
         ret[i]['chiller2'] = (Math.random() * 1000).toFixed(2); 
     }
 
-    // calculate value and return
-
     res.json(ret);
 });
 
@@ -166,7 +234,33 @@ api.get('/node_monitor', (req, res) => {
     let ret = {};
 
     let status_list = ['on', 'off', 'error'];
+    let keys = Object.keys(blacknode);
 
+    console.log(blacknode);
+    // REAL
+    // for(let k of keys)
+    // {
+    //     let bn = blacknode[k];
+
+    //     ret[bn.serial] = {
+    //         'id': 'Node ' + String(bn.nodeid),
+    //         'location': bn.name,
+    //         'status': bn.status,
+    //         'meter_list': []
+    //     };
+
+    //     for(let i=0; i<30; i++)
+    //     {
+    //         ret[bn.serial].meter_list[i] = {
+    //             'id': i+1,
+    //             'address': bn.meter_list[i].id,
+    //             'name': bn.meter_list[i].name,
+    //             'status': bn.meter_list[i].status,
+    //         };
+    //     }
+    // }
+
+    // MOCK
     let total_nodes = Math.floor(Math.random() * 20);
 
     for(let i=0; i<total_nodes; i++)
