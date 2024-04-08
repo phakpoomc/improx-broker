@@ -175,7 +175,7 @@ export function startMQTT(BN_CFG_PATH)
         {
           // Payload pattern matched.
 
-          let dt = new Date(d[1], d[2], d[3], d[4], d[5], d[6]);
+          let dt = new Date(d[1], parseInt(d[2]) - 1, d[3], d[4], d[5], d[6]);
           let e = d[7].split("|");
 
           if(e.length == 40)
@@ -268,7 +268,7 @@ export function startMQTT(BN_CFG_PATH)
         {
           // Payload pattern matched.
 
-          let dt = new Date(d[1], d[2], d[3], d[4], d[5], d[6]);
+          let dt = new Date(d[1], parseInt(d[2]) - 1, d[3], d[4], d[5], d[6]);
           let e = d[7].split("|");
 
           if(e.length == 40)

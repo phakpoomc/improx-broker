@@ -1,44 +1,178 @@
 import express from 'express';
 import cors from 'cors';
-import { lastUpdateData, blacknode } from './global.js';
+import { Op } from 'sequelize';
+import { lastUpdateData, blacknode, db } from './global.js';
 
 export const api = express();
 api.use(cors());
 api.use(express.json());
 api.use(express.urlencoded({extended: true}));
 
+function isOnPeak(dt)
+{
+    return true;
+}
+
 /* Dashboard API */
 
-api.get('/dashboard_card', (req, res) => {
+api.get('/dashboard_card', async (req, res) => {
+    // calculate value and return
+    let now = new Date();
+    let tLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    let tThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    let tYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    let tToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    let energyLastMonth = 0;
+    let energyThisMonth = 0;
+    let energyYesterday = 0;
+    let energyToday = 0;
+
+    let maxDemandLastMonth = 0;
+    let maxDemandThisMonth = 0;
+    let maxDemandYesterday = 0;
+    let maxDemandToday = 0;
+
+    let eData = await db.energy.findAll({
+        where: {
+            DateTimeUpdate: {
+                [Op.and]: {
+                    [Op.gte]: tLastMonth,
+                    [Op.lt]: now
+                }
+            }
+        },
+    });
+
+    let prevEnergy = 0;
+
+    for(let e of eData)
+    {
+        if(prevEnergy == 0)
+        {
+            prevEnergy = e.TotalkWh;
+            continue;
+        }
+
+        let absEnergy = e.TotalkWh - prevEnergy;
+        prevEnergy = e.TotalkWh;
+
+        if(e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate < tThisMonth)
+        {
+            // Last month
+            energyLastMonth += absEnergy;
+
+            if(isOnPeak(e.DateTimeUpdate) && absEnergy*4 > maxDemandLastMonth)
+            {
+                maxDemandLastMonth = absEnergy*4;
+            }
+        }
+        else
+        {
+            // This month
+            energyThisMonth += absEnergy;
+
+            if(isOnPeak(e.DateTimeUpdate) && absEnergy*4 > maxDemandThisMonth)
+            {
+                maxDemandThisMonth = absEnergy*4;
+            }
+
+            if(e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate < tToday)
+            {
+                // Yesterday
+                energyYesterday += absEnergy;
+
+                if(isOnPeak(e.DateTimeUpdate) && absEnergy*4 > maxDemandYesterday)
+                {
+                    maxDemandYesterday = absEnergy*4;
+                }
+            }
+            else if(e.DateTimeUpdate >= tToday)
+            {
+                energyToday += absEnergy;
+
+                if(isOnPeak(e.DateTimeUpdate) && absEnergy*4 > maxDemandToday)
+                {
+                    maxDemandToday = absEnergy*4;
+                }
+            }
+        }
+    }
+
     let ret = {
-        't_last_month': Math.floor(Math.random() * 1000), //0,
-        't_this_month': Math.floor(Math.random() * 1000), //0,
-        't_yesterday': Math.floor(Math.random() * 1000), //0,
-        't_today': Math.floor(Math.random() * 1000), //0,
-        'b_last_month': Math.floor(Math.random() * 1000), //0,
-        'b_this_month': Math.floor(Math.random() * 1000), //0,
-        'b_yesterday': Math.floor(Math.random() * 1000), //0,
-        'b_today': Math.floor(Math.random() * 1000), //0,
+        't_last_month': energyLastMonth, 
+        't_this_month': energyThisMonth, 
+        't_yesterday': energyYesterday, 
+        't_today': energyToday, 
+        'b_last_month': maxDemandLastMonth, 
+        'b_this_month': maxDemandThisMonth, 
+        'b_yesterday': maxDemandYesterday, 
+        'b_today': maxDemandToday, 
     };
 
-    // calculate value and return
+    // MOCK
+    // let ret = {
+    //     't_last_month': Math.floor(Math.random() * 1000), //0,
+    //     't_this_month': Math.floor(Math.random() * 1000), //0,
+    //     't_yesterday': Math.floor(Math.random() * 1000), //0,
+    //     't_today': Math.floor(Math.random() * 1000), //0,
+    //     'b_last_month': Math.floor(Math.random() * 1000), //0,
+    //     'b_this_month': Math.floor(Math.random() * 1000), //0,
+    //     'b_yesterday': Math.floor(Math.random() * 1000), //0,
+    //     'b_today': Math.floor(Math.random() * 1000), //0,
+    // };
 
     res.json(ret);
 });
 
-api.get('/dashboard/:year/:month/:day', (req, res) => {
+api.get('/dashboard/:year/:month/:day', async (req, res) => {
     let ret = [];
-
-    let year = req.params.year;
-    let month = req.params.month;
-    let day = req.params.day;
 
     for(let i=0; i<24; i++)
     {
         ret[i] = {
                     'category': String(i+1), 
-                    'value1': Math.floor(Math.random() * 1000)
+                    'value1': 0
                 };
+    }
+
+    let year = req.params.year;
+    let month = parseInt(req.params.month) - 1;
+    let day = req.params.day;
+
+    let startTime = new Date(year, month, day);
+    let endTime = new Date(year, month, day, 23, 59, 59);
+
+    let eData = await db.energy.findAll({
+        where: {
+            DateTimeUpdate: {
+                [Op.and]: {
+                    [Op.gte]: startTime,
+                    [Op.lte]: endTime
+                }
+            }
+        },
+    });
+
+    let prevEnergy = 0;
+
+    for(let e of eData)
+    {
+        if(prevEnergy == 0)
+        {
+            prevEnergy = e.TotalkWh;
+            continue;
+        }
+
+        let absEnergy = e.TotalkWh - prevEnergy;
+        prevEnergy = e.TotalkWh;
+
+        let adjustedTime = new Date(e.DateTimeUpdate);
+        adjustedTime.setMinutes(adjustedTime.getMinutes() - 1);
+
+        let hour = adjustedTime.getHours()-1;
+
+        ret[hour].value1 += absEnergy;
     }
 
     // calculate value and return
@@ -46,29 +180,62 @@ api.get('/dashboard/:year/:month/:day', (req, res) => {
     res.json(ret);
 });
 
-api.get('/dashboard/:year/:month', (req, res) => {
+api.get('/dashboard/:year/:month', async (req, res) => {
     let ret = [];
 
     let year = req.params.year;
-    let month = req.params.month;
+    let month = parseInt(req.params.month) - 1;
 
-    let d = new Date(year, month, 0);
+    let d = new Date(year, month+1, 0);
     let totalDays = d.getDate();
 
     for(let i=0; i<totalDays; i++)
     {
         ret[i] = {
                     'category': String(i+1), 
-                    'value1': Math.floor(Math.random() * 1000)
+                    'value1': 0
                 };
     }
 
     // calculate value and return
+    let startTime = new Date(year, month, 1);
+    let endTime = new Date(year, month, totalDays, 23, 59, 59);
+
+    let eData = await db.energy.findAll({
+        where: {
+            DateTimeUpdate: {
+                [Op.and]: {
+                    [Op.gte]: startTime,
+                    [Op.lte]: endTime
+                }
+            }
+        },
+    });
+
+    let prevEnergy = 0;
+
+    for(let e of eData)
+    {
+        if(prevEnergy == 0)
+        {
+            prevEnergy = e.TotalkWh;
+            continue;
+        }
+
+        let absEnergy = e.TotalkWh - prevEnergy;
+        prevEnergy = e.TotalkWh;
+
+        let adjustedTime = new Date(e.DateTimeUpdate);
+        adjustedTime.setMinutes(adjustedTime.getMinutes() - 1);
+
+        let day = adjustedTime.getDate()-1;
+        ret[day].value1 += absEnergy;
+    }
 
     res.json(ret);
 });
 
-api.get('/dashboard/:year', (req, res) => {
+api.get('/dashboard/:year', async (req, res) => {
     let ret = [];
 
     let year = req.params.year;
@@ -77,33 +244,95 @@ api.get('/dashboard/:year', (req, res) => {
     {
         ret[i] = {
                     'category': String(i+1), 
-                    'value1': Math.floor(Math.random() * 1000)
+                    'value1': 0
                 };
     }
 
     // calculate value and return
+    let startTime = new Date(year, 0, 1);
+    let endTime = new Date(year, 11, 31, 59, 59, 59);
+
+    let eData = await db.energy.findAll({
+        where: {
+            DateTimeUpdate: {
+                [Op.and]: {
+                    [Op.gte]: startTime,
+                    [Op.lte]: endTime
+                }
+            }
+        },
+    });
+
+    let prevEnergy = 0;
+
+    for(let e of eData)
+    {
+        if(prevEnergy == 0)
+        {
+            prevEnergy = e.TotalkWh;
+            continue;
+        }
+
+        let absEnergy = e.TotalkWh - prevEnergy;
+        prevEnergy = e.TotalkWh;
+
+        let adjustedTime = new Date(e.DateTimeUpdate);
+        adjustedTime.setMinutes(adjustedTime.getMinutes() - 1);
+
+        let month = adjustedTime.getMonth();
+        ret[month].value1 += absEnergy;
+    }
 
     res.json(ret);
 });
 
-api.get('/dashboard', (req, res) => {
+api.get('/dashboard', async (req, res) => {
     let ret = [];
 
-    let d = new Date();
-
-    let year = d.getFullYear();
-    let month = d.getMonth() + 1;
-    let day = d.getDate();
+    let now = new Date();
 
     for(let i=0; i<24; i++)
     {
         ret[i] = {
                     'category': String(i+1), 
-                    'value1': Math.floor(Math.random() * 1000)
+                    'value1': 0
                 };
     }
 
     // calculate value and return
+    let startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let endTime = new Date(year, month, day, 0, 0, 0);
+
+    let eData = await db.energy.findAll({
+        where: {
+            DateTimeUpdate: {
+                [Op.and]: {
+                    [Op.gte]: startTime,
+                    [Op.lte]: endTime
+                }
+            }
+        },
+    });
+
+    let prevEnergy = 0;
+
+    for(let e of eData)
+    {
+        if(prevEnergy == 0)
+        {
+            prevEnergy = e.TotalkWh;
+            continue;
+        }
+
+        let absEnergy = e.TotalkWh - prevEnergy;
+        prevEnergy = e.TotalkWh;
+
+        let adjustedTime = new Date(e.DateTimeUpdate);
+        adjustedTime.setMinutes(adjustedTime.getMinutes() - 1);
+
+        let hour = adjustedTime.getHours()-1;
+        ret[hour].value1 += absEnergy;
+    }
 
     res.json(ret);
 });
