@@ -39,3 +39,18 @@
 #app {
     font-family: 'Montserrat', sans-serif;
 }
+
+.status-success {
+    background-color: #E2FFE6;
+    border-radius: 50px;
+}
+
+.status-danger {
+    background-color: #FFC3C3;
+    border-radius: 50px;
+}
+
+.status-warning {
+    background-color: #FFF3C1;
+    border-radius: 50px;
+}

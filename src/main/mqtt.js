@@ -352,6 +352,6 @@ export function startMQTT(BN_CFG_PATH)
   });
   
   httpServer.listen(WS_PORT, function () {
-    console.log('websocket server listening on port ', WS_PORT)
+    console.log('MQTT server is running at ', WS_PORT);
   })
 }

@@ -4,25 +4,11 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import { last, db_cfg, blacknode, readFile, writeFile, BN_CFG_PATH } from './global.js';
 
-/* API Server Section */
-import { api } from './api.js';
-
-api.listen(8888, () => {
-  console.log('API Server is running.');
-});
-
-/* WEB Server Section */
-import { web, initWeb } from './web.js';
+import { api_server, initAPI } from './api.js';
+import { web_server, initWeb } from './web.js';
+import { syncEnergyDB } from './db.js';
 
 // const WEB_SERVER_PATH = path.resolve(app.getAppPath(), 'webserver');
-
-initWeb();
-
-// console.log(WEB_SERVER_PATH);
-console.log(app.getAppPath());
-web.listen(8844, () => {
-  console.log('Web server is running.');
-});
 
 /* DB Section */
 const DB_CFG_PATH = path.resolve(app.getPath('appData'), 'db.info');
@@ -40,12 +26,6 @@ function loadDBCFG()
   db_cfg.username = loadedCFG.username;
   db_cfg.password = loadedCFG.password;
 }
-
-loadDBCFG();
-
-import { syncEnergyDB } from './db.js';
-
-syncEnergyDB();
 
 /* MQTT Broker Section */
 import { aedesInst, httpServer, startMQTT } from './mqtt.js';
@@ -235,6 +215,11 @@ app.on('window-all-closed', () => {
 app.on('before-quit', function () {
   clearInterval(secondInterval);
   clearInterval(minuteInterval);
+
+  aedesInst.close(function(){});
+  httpServer.close(function(){});
+  api_server.close(function(){});
+  web_server.close(function(){});
 })
 
 // In this file you can include the rest of your app"s specific main process
@@ -258,7 +243,11 @@ ipcMain.on('authenticate', (_event, args) => {
 
     if(!aedesInst || aedesInst.closed)
     {
-      startMQTT(BN_CFG_PATH)
+      startMQTT(BN_CFG_PATH);
+      initWeb();
+      initAPI();
+      loadDBCFG();
+      syncEnergyDB();
     }
   }
   else
@@ -281,6 +270,9 @@ ipcMain.on('logout', (_event, _args) => {
   httpServer.close(function(){})
   
   //console.log(event, args);
+
+  api_server.close(function(){});
+  web_server.close(function(){});
 });
 
 ipcMain.on('registerCB', (_event, _args) => {
