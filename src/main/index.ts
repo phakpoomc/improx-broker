@@ -306,15 +306,16 @@ let secondInterval = setInterval(() => {
   
 }, 1000);
 
-// let minuteInterval = setInterval(() => {
-//   // Save Blacknode every 5 minutes
-//   if(mainWindow && mainWindow.webContents)
-//   {
-//     mainWindow.webContents.send('update-bn', blacknode);
-//     mainWindow.webContents.send('last-message', last);
+let minuteInterval = setInterval(() => {
+  // Save Blacknode every 5 minutes
+  if(mainWindow && mainWindow.webContents)
+  {
+    mainWindow.webContents.send('update-bn', blacknode);
+    mainWindow.webContents.send('last-message', last);
 
-//     writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
-//   }
-
-  
-// }, 5*60*1000);
+    if(Object.keys(blacknode).length > 0)
+    {
+      writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
+    }
+  }
+}, 5*60*1000);
