@@ -59,6 +59,7 @@ export function writeFile(path, data, flag)
   // {
   //   writeFileSync(path, data);
   // }
+  console.log('Writing ', path, data);
   writeFileSync(path, data, flag);
 }
 

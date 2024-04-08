@@ -38,7 +38,7 @@ function save() {
   let nodeid = document.getElementById('nodeid').value;
   let meters_info = [];
 
-  for (let i = 0; i < 30; i++) {
+  for (let i = 1; i <= 30; i++) {
     let mname = document.getElementById('meter-' + String(i) + '-name').value;
     let mtype = document.getElementById('meter-' + String(i) + '-type').value;
 
@@ -192,7 +192,7 @@ var nodes = [
             <tbody class="">
               <template v-for="m in bnCFG.meter_list">
                 <tr>
-                    <td class="align-middle" style="text-align: center"> {{ m.id+1 }}</td>
+                    <td class="align-middle" style="text-align: center"> {{ m.id }}</td>
                     <td>
                       <input :id="'meter-' + m.id + '-name'" type="text" class="form-control border-1 mt-1 mb-1"
                         :name="'meter-' + m.id + '-name'" :value="m.name" required autofocus>

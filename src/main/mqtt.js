@@ -1,6 +1,6 @@
 import Aedes from 'aedes'
 import { createServer as wsCreateServer } from 'aedes-server-factory'
-import { blacknode, loadBNInfoFromLocal, writeFile, last, lastUpdateTime, lastUpdateData } from './global.js';
+import { blacknode, loadBNInfoFromLocal, writeFile, last, lastUpdateTime, lastUpdateData, db } from './global.js';
 
 export var aedesInst; 
 export var httpServer; 
@@ -186,6 +186,7 @@ export function startMQTT(BN_CFG_PATH)
               last['time'] = new Date();
               last['status'] = 'error';
 
+              aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'LOG/DATABASE/' + sn + "/" + siteid + "/" + nodeid + "/" + String(modbusid+1), 'payload': "ERROR: database"}, function() {});
               return;
             }
 
@@ -237,15 +238,23 @@ export function startMQTT(BN_CFG_PATH)
                 Frequency: parseFloat(e[38]),
                 kWdemand: parseFloat(e[39]),
               });
+
+              
+              aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'LOG/DATABASE/' + sn + "/" + siteid + "/" + nodeid + "/" + String(modbusid+1), 'payload': "OK"}, function() {});
             }
             catch(err){
+              aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'LOG/DATABASE/' + sn + "/" + siteid + "/" + nodeid + "/" + String(modbusid+1), 'payload': "ERROR: database"}, function() {});
               console.log(err);
             }
+          }
+          else
+          {
+            aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'LOG/DATABASE/' + sn + "/" + siteid + "/" + nodeid + "/" + String(modbusid+1), 'payload': "ERROR: parameter"}, function() {});
           }
         }
         else
         {
-          // Payload not matched. Ignored.
+          aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'LOG/DATABASE/' + sn + "/" + siteid + "/" + nodeid + "/" + String(modbusid+1), 'payload': "ERROR: time"}, function() {});
         }
       }
       else if(dtype == 'REALTIME')
