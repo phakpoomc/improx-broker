@@ -36,6 +36,7 @@ const BN_CFG_PATH = path.resolve(app.getPath('appData'), 'blacknode.info');
 /* End of MQTT Broker Section */
 
 let mainWindow;
+var gettimeTimeout;
 
 function createWindow(): void {
   // Create the browser window.
@@ -215,6 +216,12 @@ app.on('window-all-closed', () => {
 app.on('before-quit', function () {
   clearInterval(secondInterval);
   clearInterval(minuteInterval);
+  clearInterval(gettimeInterval);
+
+  if(gettimeTimeout)
+  {
+    clearTimeout(gettimeTimeout);
+  }
 
   aedesInst.close(function(){});
   httpServer.close(function(){});
@@ -282,32 +289,73 @@ ipcMain.on('registerCB', (_event, _args) => {
 let secondInterval = setInterval(() => {
   // Send Blacknode info to front-end every 1 second.
 
-  let now = new Date();
-  if(now.getTime() - last['time'].getTime() > 10000)
+  if(authenticated)
   {
-    last['message'] = '';
-    last['time'] = now;
-    last['status'] = '';
-  }
+    let now = new Date();
+    if(now.getTime() - last['time'].getTime() > 10000)
+    {
+      last['message'] = '';
+      last['time'] = now;
+      last['status'] = '';
+    }
 
-  if(mainWindow && mainWindow.webContents)
-  {
-    mainWindow.webContents.send('update-bn', blacknode);
-    mainWindow.webContents.send('last-message', last);
+    if(mainWindow && mainWindow.webContents)
+    {
+      mainWindow.webContents.send('update-bn', blacknode);
+      mainWindow.webContents.send('last-message', last);
+    }
   }
-  
 }, 1000);
 
 let minuteInterval = setInterval(() => {
   // Save Blacknode every 5 minutes
-  if(mainWindow && mainWindow.webContents)
+  if(authenticated)
   {
-    mainWindow.webContents.send('update-bn', blacknode);
-    mainWindow.webContents.send('last-message', last);
-
-    if(Object.keys(blacknode).length > 0)
+    if(mainWindow && mainWindow.webContents)
     {
-      writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
+      mainWindow.webContents.send('update-bn', blacknode);
+      mainWindow.webContents.send('last-message', last);
+  
+      if(Object.keys(blacknode).length > 0)
+      {
+        writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
+      }
     }
   }
+  
 }, 5*60*1000);
+
+let gettimeInterval = setInterval(() => {
+  // sendtime every minute on the 0-9th second
+  if(authenticated)
+  {
+    let now = new Date();
+    let elapsedSecond = now.getTime() % (60*1000);
+
+    if(elapsedSecond < 9*1000)
+    {
+      // Send immediately
+      if(aedesInst && !aedesInst.closed)
+      {
+        let pkt = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0') + '-' + String(now.getHours()).padStart(2, '0') + '-' + String(now.getMinutes()).padStart(2, '0') + '-' + String(now.getSeconds()).padStart(2, '0');
+
+        aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'gettime', 'payload': pkt}, function() {});
+      }
+      
+    }
+    else
+    {
+      // Send later
+      gettimeTimeout = setTimeout(() => {
+        if(aedesInst && !aedesInst.closed)
+        {
+          let now = new Date();
+          let pkt = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0') + '-' + String(now.getHours()).padStart(2, '0') + '-' + String(now.getMinutes()).padStart(2, '0') + '-' + String(now.getSeconds()).padStart(2, '0');
+
+          aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'gettime', 'payload': pkt}, function() {});
+        }
+        
+      }, 65*1000 - elapsedSecond);
+    }
+  }
+}, 60*1000);

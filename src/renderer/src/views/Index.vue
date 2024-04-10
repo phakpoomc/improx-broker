@@ -99,10 +99,10 @@ function getIconClasses(status) {
                 <div class="card-body">
                   <!-- <h5 class="card-title"> ข้อมูล </h5> -->
                   <!-- <p class="card-text">ClientID: {{ b.clientid }} </p> -->
-                  <p class="card-text">SerialNo: {{ b.serial }} </p>
-                  <p class="card-text">SiteID: {{ b.siteid }} </p>
-                  <p class="card-text">NodeID: {{ b.nodeid }} </p>
-                  <p class="node-status d-flex mt-2"> Status:
+                  <p class="card-text"> <b>SerialNo:</b> {{ b.serial }} </p>
+                  <p class="card-text"> <b>SiteID:</b> {{ b.siteid }} </p>
+                  <p class="card-text"> <b>NodeID:</b> {{ b.nodeid }} </p>
+                  <p class="node-status d-flex mt-2"> <b>Status</b>:
                     <div :class="getStatusClasses(status_map[b.status])">
                       <i v-if="b.status == 'on'" :class="getIconClasses(status_map[b.status])">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-circle-fill" viewBox="0 0 16 16">
@@ -125,7 +125,7 @@ function getIconClasses(status) {
                     </div>
                   </p>
                   
-                  <p class="card-text">Last: {{ b.last_update.toLocaleString().replace('T', ' || ') }}</p>
+                  <p class="card-text"> <b>Last:</b> {{ b.last_update.toLocaleString().replace('T', ' || ') }}</p>
                   <div v-if="b.status === 'on' || b.status === 'setup'" class="d-flex justify-content-between">
                     <router-link :to="'/black_node_edit/' + b.serial" type='button'
                       class="btn btn-primary float-end">Connect</router-link>
