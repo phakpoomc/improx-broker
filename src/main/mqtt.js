@@ -71,23 +71,24 @@ export function startMQTT(BN_CFG_PATH)
             'serial': sn,
             'siteid': 'undefined',
             'nodeid': 'undefined',
+            'maxmeter': 0,
             'meter_list': [],
             'status': 'setup',
             'last_update': new Date()
           }
 
-          for(let i=0; i<30; i++)
-          {
-            let initMeter = {
-              id: i+1,
-              name: 'undefined',
-              type: 0,
-              status: 'off',
-              last_update: new Date()
-            }
+          // for(let i=0; i<30; i++)
+          // {
+          //   let initMeter = {
+          //     id: i+1,
+          //     name: 'undefined',
+          //     type: 0,
+          //     status: 'off',
+          //     last_update: new Date()
+          //   }
 
-            obj.meter_list.push(initMeter);
-          }
+          //   obj.meter_list.push(initMeter);
+          // }
 
           blacknode[sn] = obj;
         }

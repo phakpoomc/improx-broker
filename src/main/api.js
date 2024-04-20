@@ -537,7 +537,7 @@ export function initAPI()
     api.get('/node_monitor', (req, res) => {
         let ret = {};
 
-        let status_list = ['on', 'off', 'error'];
+        let status_list = ['on', 'off', 'error', 'setup'];
         let keys = Object.keys(blacknode);
 
         if(MOCK)
@@ -578,10 +578,11 @@ export function initAPI()
                     'id': 'Node ' + String(bn.nodeid),
                     'location': bn.name,
                     'status': bn.status,
+                    'maxmeter': bn.maxmeter,
                     'meter_list': []
                 };
 
-                for(let i=0; i<30; i++)
+                for(let i=0; i<bn.maxmeter; i++)
                 {
                     ret[bn.serial].meter_list[i] = {
                         'id': i+1,

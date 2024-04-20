@@ -100,7 +100,10 @@ app.whenReady().then(async () => {
   ipcMain.handle('cmd:updateBN', (_event, cfg, sn) => {
     console.log('Update: ', cfg);
 
-    let pkt = "t=" + cfg.period + "|ips=" + cfg.mqtt + "|ipc=" + cfg.clientip + "|key=" + cfg.siteid + "/" + cfg.nodeid + "|user=admin|pass=password|tal=30|";
+    let prev_max = parseInt(blacknode[sn].maxmeter);
+    let curr_max = parseInt(cfg.maxmeter);
+
+    let pkt = "t=" + cfg.period + "|ips=" + cfg.mqtt + "|ipc=" + cfg.clientip + "|key=" + cfg.siteid + "/" + cfg.nodeid + "|user=admin|pass=password|tal=" + cfg.maxmeter + "|";
 
     blacknode[sn].name = cfg.name;
     blacknode[sn].period = cfg.period;
@@ -108,22 +111,48 @@ app.whenReady().then(async () => {
     blacknode[sn].nodeid = cfg.nodeid;
     blacknode[sn].clientip = cfg.clientip;
     blacknode[sn].mqtt = cfg.mqtt;
+    blacknode[sn].maxmeter = curr_max;
 
-    for(let i=0; i<30; i++)
+    blacknode[sn].meter_list.length = curr_max;
+
+    if(curr_max > prev_max)
     {
-      blacknode[sn].meter_list[i].name = cfg.meter_list[i].name;
-      blacknode[sn].meter_list[i].type = cfg.meter_list[i].type;
-
-      if(cfg.meter_list[i].type != "")
+      for(let i=prev_max; i<curr_max; i++)
       {
-        pkt += String(i+1).padStart(2, '0') + ":" + cfg.meter_list[i].type.padStart(2, '0');
+        let initMeter = {
+          id: i+1,
+          name: 'undefined',
+          type: 0,
+          status: 'off',
+          last_update: new Date()
+        };
+
+        blacknode[sn].meter_list[i] = initMeter;
+      }
+    }
+
+    for(let i=0; i<curr_max; i++)
+    {
+      if(i < prev_max)
+      {
+        blacknode[sn].meter_list[i].name = cfg.meter_list[i].name;
+        blacknode[sn].meter_list[i].type = cfg.meter_list[i].type;
+
+        if(cfg.meter_list[i].type != "")
+        {
+          pkt += String(i+1).padStart(2, '0') + ":" + cfg.meter_list[i].type.padStart(2, '0');
+        }
+        else
+        {
+          pkt += String(i+1).padStart(2, '0') + ":00";
+        }
       }
       else
       {
         pkt += String(i+1).padStart(2, '0') + ":00";
       }
-      
-      if(i != 29)
+
+      if(i != curr_max - 1)
       {
         pkt += "|";
       }
@@ -339,7 +368,7 @@ let gettimeInterval = setInterval(() => {
       {
         let pkt = 'Y' + now.getFullYear() + 'M' + String(now.getMonth() + 1).padStart(2, '0') + 'D' + String(now.getDate()).padStart(2, '0') + 'h' + String(now.getHours()).padStart(2, '0') + 'm' + String(now.getMinutes()).padStart(2, '0') + 's' + String(now.getSeconds()).padStart(2, '0');
 
-        aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'gettime', 'payload': pkt}, function() {});
+        aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'GETTIME', 'payload': pkt}, function() {});
       }
       
     }
@@ -352,7 +381,7 @@ let gettimeInterval = setInterval(() => {
           let now = new Date();
           let pkt = 'Y' + now.getFullYear() + 'M' + String(now.getMonth() + 1).padStart(2, '0') + 'D' + String(now.getDate()).padStart(2, '0') + 'h' + String(now.getHours()).padStart(2, '0') + 'm' + String(now.getMinutes()).padStart(2, '0') + 's' + String(now.getSeconds()).padStart(2, '0');
 
-          aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'gettime', 'payload': pkt}, function() {});
+          aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'GETTIME', 'payload': pkt}, function() {});
         }
         
       }, 65*1000 - elapsedSecond);

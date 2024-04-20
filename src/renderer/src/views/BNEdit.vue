@@ -28,6 +28,7 @@ let period_choices = [{value: '1', text: '1 Minute'},
                   {value: '10', text: '10 Minutes'},
                   {value: '15', text: '15 Minutes'},
                   {value: '30', text: '30 Minutes'},]
+                  
 
 function save() {
   let bnName = document.getElementById('bn-name').value;
@@ -36,9 +37,10 @@ function save() {
   let clientip = document.getElementById('clientip').value;
   let siteid = document.getElementById('siteid').value;
   let nodeid = document.getElementById('nodeid').value;
+  let maxmeter = document.getElementById('maxmeter').value;
   let meters_info = [];
 
-  for (let i = 1; i <= 30; i++) {
+  for (let i = 1; i <= Math.min(maxmeter, bnCFG.value.maxmeter); i++) {
     let mname = document.getElementById('meter-' + String(i) + '-name').value;
     let mtype = document.getElementById('meter-' + String(i) + '-type').value;
 
@@ -57,6 +59,7 @@ function save() {
     'clientip': clientip,
     'siteid': siteid,
     'nodeid': nodeid,
+    'maxmeter': maxmeter,
     'meter_list': meters_info
   };
 
@@ -141,6 +144,14 @@ var nodes = [
               <label class="mb-2 text-muted" for="bn-lastupdate">Last Update</label>
               <input id="bn-lastupdate" type="text" class="form-control" name="bn-lastupdate"
                 :value="bnCFG.last_update.toLocaleString()" disabled>
+            </div>
+          </div>
+
+          <div class="col-3">
+            <div class="setting-input mb-2">
+              <label class="mb-2 text-muted" for="nodeid">Read Meter</label>
+              <input id="maxmeter" type="text" class="form-control" name="maxmeter" :value="bnCFG.maxmeter" required
+                autofocus>
             </div>
           </div>
         </div>
