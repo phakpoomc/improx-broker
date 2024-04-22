@@ -179,7 +179,7 @@ export function startMQTT(BN_CFG_PATH)
           let dt = new Date(d[1], parseInt(d[2]) - 1, d[3], d[4], d[5], d[6]);
           let e = d[7].split("|");
 
-          if(e.length == 40)
+          if(e.length == 39)
           {
             if(db.energy == null)
             {
@@ -237,7 +237,7 @@ export function startMQTT(BN_CFG_PATH)
                 THD_I2: parseFloat(e[36]),
                 THD_I3: parseFloat(e[37]),
                 Frequency: parseFloat(e[38]),
-                kWdemand: parseFloat(e[39]),
+                kWdemand: parseFloat(e[2])*4,
               });
 
               
@@ -261,18 +261,16 @@ export function startMQTT(BN_CFG_PATH)
       else if(dtype == 'REALTIME')
       {
 
-        const pkt_re = /^t=(\d{4})-(\d{2})-(\d{2})\+(\d{2}):(\d{2}):(\d{2})&d=(.*)$/;
+        const pkt_re = /^d=(.*)$/;
 
         let d = pkt.payload.toString().match(pkt_re);
 
         if(d)
         {
           // Payload pattern matched.
+          let e = d[1].split("|");
 
-          let dt = new Date(d[1], parseInt(d[2]) - 1, d[3], d[4], d[5], d[6]);
-          let e = d[7].split("|");
-
-          if(e.length == 40)
+          if(e.length == 39)
           {
             // Avoid updating too often
             let first = false;
@@ -297,7 +295,7 @@ export function startMQTT(BN_CFG_PATH)
                 SiteID: siteid,
                 NodeID: nodeid,
                 ModbusID: String(modbusid),
-                DateTimeUpdate: dt,
+                DateTimeUpdate: now,
                 Import_kWh: parseFloat(e[0]),
                 Export_kWh: parseFloat(e[1]),
                 TotalkWh: parseFloat(e[2]),
@@ -337,7 +335,7 @@ export function startMQTT(BN_CFG_PATH)
                 THD_I2: parseFloat(e[36]),
                 THD_I3: parseFloat(e[37]),
                 Frequency: parseFloat(e[38]),
-                kWdemand: parseFloat(e[39]),
+                kWdemand: parseFloat(e[2])*4,
               });
             }
           }

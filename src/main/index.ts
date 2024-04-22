@@ -6,7 +6,7 @@ import { last, db_cfg, blacknode, readFile, writeFile, BN_CFG_PATH } from './glo
 
 import { api_server, initAPI } from './api.js';
 import { web_server, initWeb } from './web.js';
-import { syncEnergyDB } from './db.js';
+import { syncDB } from './db.js';
 
 // const WEB_SERVER_PATH = path.resolve(app.getAppPath(), 'webserver');
 
@@ -206,7 +206,7 @@ app.whenReady().then(async () => {
     
     writeFile(DB_CFG_PATH, JSON.stringify(db_cfg), {flag: 'w'});
 
-    syncEnergyDB();
+    syncDB();
   });
 
   ipcMain.handle('data:clearMessage', (_event) => {
@@ -283,7 +283,7 @@ ipcMain.on('authenticate', (_event, args) => {
       initWeb();
       initAPI();
       loadDBCFG();
-      syncEnergyDB();
+      syncDB();
     }
   }
   else

@@ -1,7 +1,7 @@
 import { Sequelize, DataTypes } from 'sequelize';
 import { last, db, db_cfg } from './global.js';
 
-export async function syncEnergyDB()
+export async function syncDB()
 {
     if(db_cfg['dbname'] && db_cfg['dbname'] != '' && db_cfg['host'] && db_cfg['host'] != '' && db_cfg['port'] && db_cfg['port'] != '' && db_cfg['dialect'] && db_cfg['dialect'] != '')
     {
@@ -27,6 +27,9 @@ export async function syncEnergyDB()
             console.log('DB Connected');
         }).catch(err => {
             db.energy = null;
+            db.group = null;
+            db.gmember = null;
+            // db.meter = null;
 
             last['message'] = 'Cannot connect to database.';
             last['time'] = new Date();
@@ -37,59 +40,101 @@ export async function syncEnergyDB()
         });
     
         db.energy = sequelize.define(
-        'energy',
-        {
-            id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
-            SerialNo: { type: DataTypes.STRING, field: 'SerialNo' },
-            SiteID: { type: DataTypes.STRING, field: 'SiteID' },
-            NodeID: { type: DataTypes.STRING, field: 'NodeID' },
-            ModbusID: { type: DataTypes.STRING, field: 'ModbusID' },
-            DateTimeUpdate: { type: DataTypes.DATE, field: 'DateTimeUpdate'},
-            Import_kWh: { type: DataTypes.DOUBLE, field: 'Import_kWh'},
-            Export_kWh: { type: DataTypes.DOUBLE, field: 'Export_kWh'},
-            TotalkWh: { type: DataTypes.DOUBLE, field: 'Total_kWh'},
-            Total_kvarh: { type: DataTypes.FLOAT, field: 'Total_kvarh'},
-            Ind_kvarh: { type: DataTypes.FLOAT, field: 'Ind_kvarh'},
-            Cap_kvarh: { type: DataTypes.FLOAT, field: 'Cap_kvarh'},
-            kVAh: { type: DataTypes.FLOAT, field: 'kVAh'},
-            V1: { type: DataTypes.FLOAT, field: 'V1'},
-            V2: { type: DataTypes.FLOAT, field: 'V2'},
-            V3: { type: DataTypes.FLOAT, field: 'V3'},
-            V12: { type: DataTypes.FLOAT, field: 'V12'},
-            V23: { type: DataTypes.FLOAT, field: 'V23'},
-            V31: { type: DataTypes.FLOAT, field: 'V31'},
-            I1: { type: DataTypes.FLOAT, field: 'I1'},
-            I2: { type: DataTypes.FLOAT, field: 'I2'},
-            I3: { type: DataTypes.FLOAT, field: 'I3'},
-            P1: { type: DataTypes.FLOAT, field: 'P1'},
-            P2: { type: DataTypes.FLOAT, field: 'P2'},
-            P3: { type: DataTypes.FLOAT, field: 'P3'},
-            P_Sum: { type: DataTypes.FLOAT, field: 'P_Sum'},
-            Q1: { type: DataTypes.FLOAT, field: 'Q1'},
-            Q2: { type: DataTypes.FLOAT, field: 'Q2'},
-            Q3: { type: DataTypes.FLOAT, field: 'Q3'},
-            Q_Sum: { type: DataTypes.FLOAT, field: 'Q_Sum'},
-            S1: { type: DataTypes.FLOAT, field: 'S1'},
-            S2: { type: DataTypes.FLOAT, field: 'S2'},
-            S3: { type: DataTypes.FLOAT, field: 'S3'},
-            S_Sum: { type: DataTypes.FLOAT, field: 'S_Sum'},
-            PF1: { type: DataTypes.FLOAT, field: 'PF1'},
-            PF2: { type: DataTypes.FLOAT, field: 'PF2'},
-            PF3: { type: DataTypes.FLOAT, field: 'PF3'},
-            PF_Sum: { type: DataTypes.FLOAT, field: 'PF_Sum'},
-            THD_U1: { type: DataTypes.FLOAT, field: 'THD_U1'},
-            THD_U2: { type: DataTypes.FLOAT, field: 'THD_U2'},
-            THD_U3: { type: DataTypes.FLOAT, field: 'THD_U3'},
-            THD_I1: { type: DataTypes.FLOAT, field: 'THD_I1'},
-            THD_I2: { type: DataTypes.FLOAT, field: 'THD_I2'},
-            THD_I3: { type: DataTypes.FLOAT, field: 'THD_I3'},
-            Frequency: { type: DataTypes.FLOAT, field: 'Frequency'},
-            kWdemand: { type: DataTypes.DOUBLE, field: 'kWdemand'},
-        },
-        {
-            tableName: 'energy' 
-        }
+            'energy',
+            {
+                id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
+                SerialNo: { type: DataTypes.STRING, field: 'SerialNo' },
+                SiteID: { type: DataTypes.STRING, field: 'SiteID' },
+                NodeID: { type: DataTypes.STRING, field: 'NodeID' },
+                ModbusID: { type: DataTypes.STRING, field: 'ModbusID' },
+                DateTimeUpdate: { type: DataTypes.DATE, field: 'DateTimeUpdate'},
+                Import_kWh: { type: DataTypes.DOUBLE, field: 'Import_kWh'},
+                Export_kWh: { type: DataTypes.DOUBLE, field: 'Export_kWh'},
+                TotalkWh: { type: DataTypes.DOUBLE, field: 'Total_kWh'},
+                Total_kvarh: { type: DataTypes.FLOAT, field: 'Total_kvarh'},
+                Ind_kvarh: { type: DataTypes.FLOAT, field: 'Ind_kvarh'},
+                Cap_kvarh: { type: DataTypes.FLOAT, field: 'Cap_kvarh'},
+                kVAh: { type: DataTypes.FLOAT, field: 'kVAh'},
+                V1: { type: DataTypes.FLOAT, field: 'V1'},
+                V2: { type: DataTypes.FLOAT, field: 'V2'},
+                V3: { type: DataTypes.FLOAT, field: 'V3'},
+                V12: { type: DataTypes.FLOAT, field: 'V12'},
+                V23: { type: DataTypes.FLOAT, field: 'V23'},
+                V31: { type: DataTypes.FLOAT, field: 'V31'},
+                I1: { type: DataTypes.FLOAT, field: 'I1'},
+                I2: { type: DataTypes.FLOAT, field: 'I2'},
+                I3: { type: DataTypes.FLOAT, field: 'I3'},
+                P1: { type: DataTypes.FLOAT, field: 'P1'},
+                P2: { type: DataTypes.FLOAT, field: 'P2'},
+                P3: { type: DataTypes.FLOAT, field: 'P3'},
+                P_Sum: { type: DataTypes.FLOAT, field: 'P_Sum'},
+                Q1: { type: DataTypes.FLOAT, field: 'Q1'},
+                Q2: { type: DataTypes.FLOAT, field: 'Q2'},
+                Q3: { type: DataTypes.FLOAT, field: 'Q3'},
+                Q_Sum: { type: DataTypes.FLOAT, field: 'Q_Sum'},
+                S1: { type: DataTypes.FLOAT, field: 'S1'},
+                S2: { type: DataTypes.FLOAT, field: 'S2'},
+                S3: { type: DataTypes.FLOAT, field: 'S3'},
+                S_Sum: { type: DataTypes.FLOAT, field: 'S_Sum'},
+                PF1: { type: DataTypes.FLOAT, field: 'PF1'},
+                PF2: { type: DataTypes.FLOAT, field: 'PF2'},
+                PF3: { type: DataTypes.FLOAT, field: 'PF3'},
+                PF_Sum: { type: DataTypes.FLOAT, field: 'PF_Sum'},
+                THD_U1: { type: DataTypes.FLOAT, field: 'THD_U1'},
+                THD_U2: { type: DataTypes.FLOAT, field: 'THD_U2'},
+                THD_U3: { type: DataTypes.FLOAT, field: 'THD_U3'},
+                THD_I1: { type: DataTypes.FLOAT, field: 'THD_I1'},
+                THD_I2: { type: DataTypes.FLOAT, field: 'THD_I2'},
+                THD_I3: { type: DataTypes.FLOAT, field: 'THD_I3'},
+                Frequency: { type: DataTypes.FLOAT, field: 'Frequency'},
+                kWdemand: { type: DataTypes.DOUBLE, field: 'kWdemand'},
+            },
+            {
+                tableName: 'energy' 
+            }
         );
+
+        db.group = sequelize.define(
+            'group',
+            {
+                id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
+                name: { type: DataTypes.STRING, field: 'name' }
+            },
+            {
+                tableName: 'group' 
+            }
+        );
+
+        db.gmember = sequelize.define(
+            'gmember',
+            {
+                id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
+                GroupID: { type: DataTypes.INTEGER, field: 'GroupID' },
+                SiteID: { type: DataTypes.STRING, field: 'SiteID' },
+                NodeID: { type: DataTypes.STRING, field: 'NodeID' },
+                ModbusID: { type: DataTypes.STRING, field: 'ModbusID' },
+                multiplier: { type: DataTypes.DOUBLE, field: 'multiplier'}
+            },
+            {
+                tableName: 'gmember' 
+            }
+        );
+
+        // db.meter = sequelize.define(
+        //     'meter',
+        //     {
+        //         id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
+        //         SerialNo: { type: DataTypes.STRING, field: 'SerialNo' },
+        //         SiteID: { type: DataTypes.STRING, field: 'SiteID' },
+        //         NodeID: { type: DataTypes.STRING, field: 'NodeID' },
+        //         ModbusID: { type: DataTypes.STRING, field: 'ModbusID' },
+        //         name: { type: DataTypes.STRING, field: 'name' },
+        //         type: { type: DataTypes.STRING, field: 'type' }
+        //     },
+        //     {
+        //         tableName: 'meter' 
+        //     }
+        // );
     
         try{
             await sequelize.sync();
@@ -102,6 +147,9 @@ export async function syncEnergyDB()
         }
         catch(err) {
             db.energy = null;
+            db.group = null;
+            db.gmember = null;
+            // db.meter = null;
 
             last['message'] = 'Cannot sync database table.';
             last['time'] = new Date();
@@ -114,6 +162,9 @@ export async function syncEnergyDB()
     else
     {
         db.energy = null;
+        db.group = null;
+        db.gmember = null;
+        // db.meter = null;
 
         last['message'] = 'Database is not set up.';
         last['time'] = new Date();
