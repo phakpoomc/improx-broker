@@ -103,7 +103,7 @@ app.whenReady().then(async () => {
     let prev_max = parseInt(blacknode[sn].maxmeter);
     let curr_max = parseInt(cfg.maxmeter);
 
-    let pkt = "t=" + cfg.period + "|ips=" + cfg.mqtt + "|ipc=" + cfg.clientip + "|key=" + cfg.siteid + "/" + cfg.nodeid + "|user=admin|pass=password|tal=" + cfg.maxmeter + "|";
+    let pkt = "t=" + cfg.period + "|ips=" + cfg.mqtt + "|ipc=" + cfg.clientip + "|key=" + cfg.siteid + "/" + cfg.nodeid + "|user=admin|pass=password|tal=" + String(cfg.maxmeter).padStart(2, '0') + "|";
 
     blacknode[sn].name = cfg.name;
     blacknode[sn].period = cfg.period;

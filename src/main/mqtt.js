@@ -196,7 +196,7 @@ export function startMQTT(BN_CFG_PATH)
                 SerialNo: sn,
                 SiteID: siteid,
                 NodeID: nodeid,
-                ModbusID: String(modbusid),
+                ModbusID: String(modbusid+1),
                 DateTimeUpdate: dt,
                 Import_kWh: parseFloat(e[0]),
                 Export_kWh: parseFloat(e[1]),
@@ -290,11 +290,20 @@ export function startMQTT(BN_CFG_PATH)
               // Update object if last update is more than 5 secs away, ignore otherwise
               lastUpdateTime[sn] = now;
 
+              let lastFifteenTime = new Date();
+              lastFifteenTime.setMinutes(parseInt(Math.floor(lastFifteenTime.getMinutes()/15)*15));
+              let lastFifteenData = parseFloat(e[2]);
+
+              if(lastUpdateData[sn] && lastUpdateData[sn].lastFifteenTime && lastUpdateData[sn].lastFifteenTime == lastFifteenTime)
+              {
+                lastFifteenData = lastUpdateData[sn].lastFifteenData;
+              }
+
               Object.assign(lastUpdateData[sn], {
                 SerialNo: sn,
                 SiteID: siteid,
                 NodeID: nodeid,
-                ModbusID: String(modbusid),
+                ModbusID: String(modbusid+1),
                 DateTimeUpdate: now,
                 Import_kWh: parseFloat(e[0]),
                 Export_kWh: parseFloat(e[1]),
@@ -336,6 +345,8 @@ export function startMQTT(BN_CFG_PATH)
                 THD_I3: parseFloat(e[37]),
                 Frequency: parseFloat(e[38]),
                 kWdemand: parseFloat(e[2])*4,
+                lastFifteenTime: lastFifteenTime,
+                lastFifteenData: lastFifteenData
               });
             }
           }
