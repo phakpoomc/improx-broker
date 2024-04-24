@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain/*, safeStorage*/ } from 'electron'
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
-import { last, db_cfg, blacknode, readFile, writeFile, BN_CFG_PATH } from './global.js';
+import { last, db_cfg, blacknode, readFile, writeFile, paths, loadDBCFG } from './global.js';
 
 import { api_server, initAPI } from './api.js';
 import { web_server, initWeb } from './web.js';
@@ -12,26 +12,14 @@ import { syncDB } from './db.js';
 
 /* DB Section */
 const DB_CFG_PATH = path.resolve(app.getPath('appData'), 'db.info');
-
-const db_data = readFile(DB_CFG_PATH, { encoding: 'utf-8', flag: 'r' });
-
-function loadDBCFG()
-{
-  let loadedCFG = JSON.parse(db_data);
-
-  db_cfg.host = loadedCFG.host;
-  db_cfg.port = loadedCFG.port;
-  db_cfg.dialect = loadedCFG.dialect;
-  db_cfg.dbname = loadedCFG.dbname;
-  db_cfg.username = loadedCFG.username;
-  db_cfg.password = loadedCFG.password;
-}
+paths['DB_CFG_PATH'] = DB_CFG_PATH;
 
 /* MQTT Broker Section */
 import { aedesInst, httpServer, startMQTT } from './mqtt.js';
 var bn_cb_registered = false;
 
 const BN_CFG_PATH = path.resolve(app.getPath('appData'), 'blacknode.info');
+paths['BN_CFG_PATH'] = BN_CFG_PATH;
 
 /* End of MQTT Broker Section */
 

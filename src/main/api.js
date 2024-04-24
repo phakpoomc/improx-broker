@@ -1,7 +1,10 @@
 import express from 'express';
+import fileUpload from 'express-fileupload';
 import cors from 'cors';
 import { Op } from 'sequelize';
-import { lastUpdateData, blacknode, db } from './global.js';
+import { lastUpdateData, blacknode, db, paths, writeFile, loadBNInfoFromLocal, loadDBCFG } from './global.js';
+import { createReadStream } from 'fs';
+import { syncDB } from './db.js';
 
 export var api_server;
 
@@ -18,6 +21,7 @@ export function initAPI()
     api.use(cors());
     api.use(express.json());
     api.use(express.urlencoded({extended: true}));
+    api.use(fileUpload());
 
     api.get('/dashboard_card', async (req, res) => {
         let ret = {};
@@ -879,6 +883,78 @@ export function initAPI()
         // calculate value and return
 
         res.json(ret);
+    });
+
+    // Management Section
+    api.get('/backup_impro', (req, res) => {
+        if(paths && paths['DB_CFG_PATH'])
+        {
+            res.setHeader('Content-disposition', 'attachment; filename=db.info');
+            res.setHeader('Content-type', 'application/json');
+
+            var filestream = createReadStream(paths['DB_CFG_PATH']);
+            filestream.pipe(res);
+        }
+    });
+
+    api.post('/backup_impro', (req, res) => {
+        if(paths && paths['DB_CFG_PATH'])
+        {
+            try{
+                JSON.parse(req.files.file.data.toString());
+
+                writeFile(paths['DB_CFG_PATH'], req.files.file.data, {flag: 'w'});
+
+                loadDBCFG();
+                syncDB();
+
+                res.send('SUCCESS');
+            } catch(e) {
+                res.send('Not a JSON file');
+            }
+            
+
+        }
+        else
+        {
+            res.send('Paths is not configured.');
+        }
+
+    });
+
+    api.get('/backup_bn', (req, res) => {
+        if(paths && paths['BN_CFG_PATH'])
+        {
+            res.setHeader('Content-disposition', 'attachment; filename=blacknode.info');
+            res.setHeader('Content-type', 'application/json');
+
+            var filestream = createReadStream(paths['BN_CFG_PATH']);
+            filestream.pipe(res);
+        }
+    });
+
+    api.post('/backup_bn', (req, res) => {
+        if(paths && paths['BN_CFG_PATH'])
+        {
+            try{
+                JSON.parse(req.files.file.data.toString());
+
+                writeFile(paths['BN_CFG_PATH'], req.files.file.data, {flag: 'w'});
+
+                loadBNInfoFromLocal(paths['BN_CFG_PATH']);
+
+                res.send('SUCCESS');
+            } catch(e) {
+                res.send('Not a JSON file');
+            }
+            
+
+        }
+        else
+        {
+            res.send('Paths is not configured.');
+        }
+
     });
 
     api_server = api.listen(8888, () => {

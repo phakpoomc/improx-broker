@@ -37,6 +37,8 @@ export var blacknode = {};
 export var lastUpdateTime = {};
 export var lastUpdateData = {};
 
+export var paths = {};
+
 export function loadBNInfoFromLocal(BN_CFG_PATH)
 {
   const data = readFile(BN_CFG_PATH, { encoding: 'utf-8', flag: 'r' });
@@ -46,6 +48,26 @@ export function loadBNInfoFromLocal(BN_CFG_PATH)
   for(let sn of Object.keys(blacknode))
   {
     blacknode[sn].status = 'off';
+  }
+}
+
+export function loadDBCFG()
+{
+  if(paths && paths.DB_CFG_PATH)
+  {
+    const db_data = readFile(paths.DB_CFG_PATH, { encoding: 'utf-8', flag: 'r' });
+    let loadedCFG = JSON.parse(db_data);
+
+    db_cfg.host = loadedCFG.host;
+    db_cfg.port = loadedCFG.port;
+    db_cfg.dialect = loadedCFG.dialect;
+    db_cfg.dbname = loadedCFG.dbname;
+    db_cfg.username = loadedCFG.username;
+    db_cfg.password = loadedCFG.password;
+  }
+  else
+  {
+    console.log("Fail to load DB Config.");
   }
 }
 
