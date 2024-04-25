@@ -137,6 +137,7 @@ export function startMQTT(BN_CFG_PATH)
       let siteid = data_m[3];
       let nodeid = data_m[4];
       let modbusid = parseInt(data_m[5])-1;
+      let snid = sn + "-" + String(modbusid);
 
       if(blacknode.hasOwnProperty(sn))
       {
@@ -275,35 +276,35 @@ export function startMQTT(BN_CFG_PATH)
             // Avoid updating too often
             let first = false;
 
-            if(!(sn in lastUpdateTime))
+            if(!(snid in lastUpdateTime))
             {
-              lastUpdateTime[sn] = new Date();
-              lastUpdateData[sn] = {};
+              lastUpdateTime[snid] = new Date();
+              lastUpdateData[snid] = {};
 
               first = true;
             }
 
             let now = new Date();
 
-            if(first || now.getTime() - lastUpdateTime[sn].getTime() > 5000)
+            if(first || now.getTime() - lastUpdateTime[snid].getTime() > 5000)
             {
               // Update object if last update is more than 5 secs away, ignore otherwise
-              lastUpdateTime[sn] = now;
+              lastUpdateTime[snid] = now;
 
               let lastFifteenTime = new Date();
               lastFifteenTime.setMinutes(parseInt(Math.floor(lastFifteenTime.getMinutes()/15)*15));
               let lastFifteenData = parseFloat(e[2]);
 
-              if(lastUpdateData[sn] && lastUpdateData[sn].lastFifteenTime && lastUpdateData[sn].lastFifteenTime == lastFifteenTime)
+              if(lastUpdateData[snid] && lastUpdateData[snid].lastFifteenTime && lastUpdateData[snid].lastFifteenTime == lastFifteenTime)
               {
-                lastFifteenData = lastUpdateData[sn].lastFifteenData;
+                lastFifteenData = lastUpdateData[snid].lastFifteenData;
               }
 
-              Object.assign(lastUpdateData[sn], {
+              Object.assign(lastUpdateData[snid], {
                 SerialNo: sn,
                 SiteID: siteid,
                 NodeID: nodeid,
-                ModbusID: String(modbusid+1),
+                ModbusID: String(modbusid),
                 DateTimeUpdate: now,
                 Import_kWh: parseFloat(e[0]),
                 Export_kWh: parseFloat(e[1]),

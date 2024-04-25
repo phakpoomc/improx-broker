@@ -2,7 +2,7 @@ import express from 'express';
 import fileUpload from 'express-fileupload';
 import cors from 'cors';
 import { Op } from 'sequelize';
-import { lastUpdateData, blacknode, db, paths, writeFile, loadBNInfoFromLocal, loadDBCFG, group, dashboard } from './global.js';
+import { lastUpdateData, lastUpdateTime, blacknode, db, paths, writeFile, loadBNInfoFromLocal, loadDBCFG, group, dashboard } from './global.js';
 import { createReadStream } from 'fs';
 import { syncDB } from './db.js';
 
@@ -799,9 +799,12 @@ export function initAPI()
                 for(let k of keys)
                 {
                     // Do not show stale data
-                    if(now.getTime() - lastUpdateData[k].DateTimeUpdate.getTime() < 3600000)
+                    if(now.getTime() - lastUpdateData[k].DateTimeUpdate.getTime() < 60*1000)
                     {
-                        ret[i][lastUpdateData[k].SerialNo] = lastUpdateData[k][pmap[i]];
+                        let modbusid = parseInt(lastUpdateData[k].ModbusID);
+                        let sn = lastUpdateData[k].SerialNo;
+
+                        ret[i][blacknode[sn].meter_list[modbusid].name] = lastUpdateData[k][pmap[i]];
                     }
                 }
             }
@@ -873,10 +876,41 @@ export function initAPI()
         res.json(ret);
     });
 
-    api.get('/phasor_graph', (req, res) => {
-        let pf1 = Math.random();
-        let pf2 = Math.random();
-        let pf3 = Math.random();
+    api.get('/meter_list', (req, res) => {
+        let ret = {};
+        let keys = Object.keys(lastUpdateData);
+        let now = new Date();
+
+        for(let k of keys)
+        {
+            if(now.getTime() - lastUpdateTime[k].getTime() < 60*1000)
+            {
+                let m = lastUpdateData[k];
+                ret[k] = {value: blacknode[m.SerialNo].meter_list[parseInt(m.ModbusID)].name + " (" + m.SerialNo + "-" + String(parseInt(m.ModbusID) + 1) + ")"};
+            }
+            
+        }
+
+        res.json(ret);
+    });
+
+    api.get('/phasor_graph/:m', (req, res) => {
+        let arr = req.params.m.split("-");
+        let sn = arr[0];
+        let modbusid = parseInt(arr[1]) - 1;
+        let snid = sn + "-" + String(modbusid);
+        let now = new Date();
+
+        let pf1 = 0;
+        let pf2 = 0;
+        let pf3 = 0;
+
+        if(now.getTime() - lastUpdateTime[snid].getTime() < 60*1000)
+        {
+            pf1 = lastUpdateData[snid].PF1;
+            pf2 = lastUpdateData[snid].PF2;
+            pf3 = lastUpdateData[snid].PF3;
+        }
 
         let ret = {
             i1: 180/Math.PI*Math.acos(pf1),
