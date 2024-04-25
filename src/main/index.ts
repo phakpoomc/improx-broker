@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain/*, safeStorage*/ } from 'electron'
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
-import { last, db_cfg, blacknode, readFile, writeFile, paths, loadDBCFG } from './global.js';
+import { last, db_cfg, blacknode, loadGroup, loadDashboard, writeFile, paths, loadDBCFG } from './global.js';
 
 import { api_server, initAPI } from './api.js';
 import { web_server, initWeb } from './web.js';
@@ -13,6 +13,9 @@ import { syncDB } from './db.js';
 /* DB Section */
 const DB_CFG_PATH = path.resolve(app.getPath('appData'), 'db.info');
 paths['DB_CFG_PATH'] = DB_CFG_PATH;
+
+const DASHBOARD_CFG_PATH = path.resolve(app.getPath('appData'), 'dashboard.info');
+paths['DASHBOARD_CFG_PATH'] = DASHBOARD_CFG_PATH;
 
 /* MQTT Broker Section */
 import { aedesInst, httpServer, startMQTT } from './mqtt.js';
@@ -251,7 +254,7 @@ app.on('before-quit', function () {
 
 
 
-ipcMain.on('authenticate', (_event, args) => {
+ipcMain.on('authenticate', async (_event, args) => {
   let data = JSON.parse(args);
 
   //console.log(event);
@@ -271,7 +274,9 @@ ipcMain.on('authenticate', (_event, args) => {
       initWeb();
       initAPI();
       loadDBCFG();
-      syncDB();
+      loadDashboard();
+      await syncDB();
+      await loadGroup();
     }
   }
   else

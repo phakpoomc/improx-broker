@@ -110,6 +110,7 @@ export async function syncDB()
             {
                 id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
                 GroupID: { type: DataTypes.INTEGER, field: 'GroupID' },
+                SerialNo: { type: DataTypes.STRING, field: 'SerialNo' },
                 SiteID: { type: DataTypes.STRING, field: 'SiteID' },
                 NodeID: { type: DataTypes.STRING, field: 'NodeID' },
                 ModbusID: { type: DataTypes.STRING, field: 'ModbusID' },

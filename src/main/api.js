@@ -2,7 +2,7 @@ import express from 'express';
 import fileUpload from 'express-fileupload';
 import cors from 'cors';
 import { Op } from 'sequelize';
-import { lastUpdateData, blacknode, db, paths, writeFile, loadBNInfoFromLocal, loadDBCFG } from './global.js';
+import { lastUpdateData, blacknode, db, paths, writeFile, loadBNInfoFromLocal, loadDBCFG, group, dashboard } from './global.js';
 import { createReadStream } from 'fs';
 import { syncDB } from './db.js';
 
@@ -874,10 +874,14 @@ export function initAPI()
     });
 
     api.get('/phasor_graph', (req, res) => {
+        let pf1 = Math.random();
+        let pf2 = Math.random();
+        let pf3 = Math.random();
+
         let ret = {
-            i1: Math.random() * 360,
-            i2: Math.random() * 360,
-            i3: Math.random() * 360
+            i1: 180/Math.PI*Math.acos(pf1),
+            i2: 180/Math.PI*Math.acos(pf2) + 120,
+            i3: 180/Math.PI*Math.acos(pf3) + 240
         };
 
         // calculate value and return
@@ -955,6 +959,97 @@ export function initAPI()
             res.send('Paths is not configured.');
         }
 
+    });
+
+    api.get('/group', async (_req, res) => {
+        res.json(group);
+    });
+
+    api.get('/update_group', async (req, res) => {
+        try{
+            let id = await db.group.update({
+                name: req.params.name
+            }, {
+                where: {id: req.params.id}
+            }); 
+
+            group[id].name = req.params.name;
+
+            res.send("SUCCESS");
+        } catch(err) {
+            res.send("Cannot create group.");
+        }
+    });
+
+    api.get('/create_group', async (req, res) => {
+        try{
+            let id = await db.group.create({name: req.params.name}); 
+
+            group[id] = {name: req.params.name, member: []};
+
+            res.send("SUCCESS");
+        } catch(err) {
+            res.send("Cannot create group.");
+        }
+    });
+
+    api.get('/delete_group', async (req, res) => {
+        try{
+            await db.gmember.destroy({
+                where: {GroupID: req.params.id}
+            });
+
+            await db.group.destroy({
+                where: {id: req.params.id}
+            }); 
+
+            delete group[id];
+
+            res.send("SUCCESS");
+        } catch(err) {
+            res.send("Cannot delete group.");
+        }
+    });
+
+    api.post('/update_member', async (req, res) => {
+        let groupid = req.body.id;
+        let member = req.body.member;
+
+        try{
+            await db.gmember.destroy({
+                where: {GroupID: groupid}
+            });
+
+            await db.gmember.bulkCreate(member);
+            res.send("SUCCESS");
+        } catch (err) {
+            res.send("Cannot update group members");
+        }
+    });
+
+    api.get('/set_dashboard', (req, res) => {
+        let use_group = req.params.group;
+
+        if(use_group == "true")
+        {
+            dashboard.group = true;
+            dashboard.id = req.params.id;
+        }
+        else
+        {
+            dashboard.group = false;
+            dashboard.id = req.params.id;
+        }
+
+        if(paths && paths.DASHBOARD_CFG_PATH)
+        {
+            writeFile(paths.DASHBOARD_CFG_PATH, JSON.stringify(dashboard), {flag: 'w'});
+            res.send("SUCCESS");
+        }
+        else
+        {
+            res.send("Cannot save dashboard configuration.");
+        }
     });
 
     api_server = api.listen(8888, () => {

@@ -34,6 +34,12 @@ export var db_cfg = {};
 
 export var blacknode = {};
 
+export var group = {};
+export var dashboard = {
+  group: false,
+  id: 1
+};
+
 export var lastUpdateTime = {};
 export var lastUpdateData = {};
 
@@ -48,6 +54,60 @@ export function loadBNInfoFromLocal(BN_CFG_PATH)
   for(let sn of Object.keys(blacknode))
   {
     blacknode[sn].status = 'off';
+  }
+}
+
+export async function loadGroup()
+{
+  if(db && db.group && db.gmember)
+  {
+    let groups = await db.group.findAll();
+
+    for(let g of groups)
+    {
+      group[g.id] = {name: g.name, member: []};
+    }
+
+    let gmembers = await db.gmember.findAll();
+
+    for(let g of gmembers)
+    {
+      let m = {
+        serial: g.SerialNo,
+        siteid: g.SiteID,
+        nodeid: g.NodeID,
+        modbusid: g.ModbusID,
+        multiplier: g.multiplier
+      };
+
+      group[g.GroupID].member.push(m);
+    }
+  }
+  else
+  {
+    console.log("Fail to load Group info.");
+    last.message = "Fail to load Group info.";
+    last.time = new Date();
+    last.status = "error";
+  }
+}
+
+export function loadDashboard()
+{
+  if(paths && paths.DASHBOARD_CFG_PATH)
+  {
+    const dashboard_data = readFile(paths.DASHBOARD_CFG_PATH, { encoding: 'utf-8', flag: 'r' });
+    let loadedCFG = JSON.parse(dashboard_data);
+
+    dashboard.group = loadedCFG.group;
+    dashboard.id = loadedCFG.id;
+  }
+  else
+  {
+    console.log("Fail to load Dashboard Config.");
+    last.message = "Fail to load Dashboard info.";
+    last.time = new Date();
+    last.status = "error";
   }
 }
 
@@ -68,6 +128,9 @@ export function loadDBCFG()
   else
   {
     console.log("Fail to load DB Config.");
+    last.message = "Fail to load DB info.";
+    last.time = new Date();
+    last.status = "error";
   }
 }
 
