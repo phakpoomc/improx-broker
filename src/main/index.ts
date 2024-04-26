@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain/*, safeStorage*/ } from 'electron'
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
-import { last, db_cfg, blacknode, loadGroup, loadDashboard, writeFile, paths, loadDBCFG } from './global.js';
+import { last, db_cfg, blacknode, loadGroup, writeFile, paths, loadDBCFG } from './global.js';
 
 import { api_server, initAPI } from './api.js';
 import { web_server, initWeb } from './web.js';
@@ -274,7 +274,6 @@ ipcMain.on('authenticate', async (_event, args) => {
       initWeb();
       initAPI();
       loadDBCFG();
-      loadDashboard();
       await syncDB();
       await loadGroup();
     }
@@ -352,32 +351,48 @@ let gettimeInterval = setInterval(() => {
   if(authenticated)
   {
     let now = new Date();
-    let elapsedSecond = now.getTime() % (60*1000);
 
-    if(elapsedSecond < 9*1000)
+    if(aedesInst && !aedesInst.closed)
     {
-      // Send immediately
-      if(aedesInst && !aedesInst.closed)
-      {
-        let pkt = 'Y' + now.getFullYear() + 'M' + String(now.getMonth() + 1).padStart(2, '0') + 'D' + String(now.getDate()).padStart(2, '0') + 'h' + String(now.getHours()).padStart(2, '0') + 'm' + String(now.getMinutes()).padStart(2, '0') + 's' + String(now.getSeconds()).padStart(2, '0');
+      let pkt = 'Y' + now.getFullYear() + 'M' + String(now.getMonth() + 1).padStart(2, '0') + 'D' + String(now.getDate()).padStart(2, '0') + 'h' + String(now.getHours()).padStart(2, '0') + 'm' + String(now.getMinutes()).padStart(2, '0') + 's' + String(now.getSeconds()).padStart(2, '0');
 
-        aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'GETTIME', 'payload': pkt}, function() {});
-      }
-      
+      aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'GETTIME', 'payload': pkt}, function() {});
     }
-    else
-    {
-      // Send later
-      gettimeTimeout = setTimeout(() => {
-        if(aedesInst && !aedesInst.closed)
-        {
-          let now = new Date();
-          let pkt = 'Y' + now.getFullYear() + 'M' + String(now.getMonth() + 1).padStart(2, '0') + 'D' + String(now.getDate()).padStart(2, '0') + 'h' + String(now.getHours()).padStart(2, '0') + 'm' + String(now.getMinutes()).padStart(2, '0') + 's' + String(now.getSeconds()).padStart(2, '0');
 
-          aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'GETTIME', 'payload': pkt}, function() {});
-        }
-        
-      }, 65*1000 - elapsedSecond);
-    }
   }
-}, 60*1000);
+}, 5*1000);
+
+// let gettimeInterval = setInterval(() => {
+//   // sendtime every minute on the 0-9th second
+//   if(authenticated)
+//   {
+//     let now = new Date();
+//     let elapsedSecond = now.getTime() % (60*1000);
+
+//     if(elapsedSecond < 9*1000)
+//     {
+//       // Send immediately
+//       if(aedesInst && !aedesInst.closed)
+//       {
+//         let pkt = 'Y' + now.getFullYear() + 'M' + String(now.getMonth() + 1).padStart(2, '0') + 'D' + String(now.getDate()).padStart(2, '0') + 'h' + String(now.getHours()).padStart(2, '0') + 'm' + String(now.getMinutes()).padStart(2, '0') + 's' + String(now.getSeconds()).padStart(2, '0');
+
+//         aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'GETTIME', 'payload': pkt}, function() {});
+//       }
+      
+//     }
+//     else
+//     {
+//       // Send later
+//       gettimeTimeout = setTimeout(() => {
+//         if(aedesInst && !aedesInst.closed)
+//         {
+//           let now = new Date();
+//           let pkt = 'Y' + now.getFullYear() + 'M' + String(now.getMonth() + 1).padStart(2, '0') + 'D' + String(now.getDate()).padStart(2, '0') + 'h' + String(now.getHours()).padStart(2, '0') + 'm' + String(now.getMinutes()).padStart(2, '0') + 's' + String(now.getSeconds()).padStart(2, '0');
+
+//           aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'GETTIME', 'payload': pkt}, function() {});
+//         }
+        
+//       }, 65*1000 - elapsedSecond);
+//     }
+//   }
+// }, 60*1000);

@@ -98,7 +98,8 @@ export async function syncDB()
             'group',
             {
                 id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
-                name: { type: DataTypes.STRING, field: 'name' }
+                name: { type: DataTypes.STRING, field: 'name' },
+                showDashboard: { type: DataTypes.BOOLEAN, field: 'showDashboard' }
             },
             {
                 tableName: 'group' 

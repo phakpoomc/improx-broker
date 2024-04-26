@@ -2,7 +2,7 @@ import express from 'express';
 import fileUpload from 'express-fileupload';
 import cors from 'cors';
 import { Op } from 'sequelize';
-import { lastUpdateData, lastUpdateTime, blacknode, db, paths, writeFile, loadBNInfoFromLocal, loadDBCFG, group, dashboard } from './global.js';
+import { lastUpdateData, lastUpdateTime, blacknode, db, paths, writeFile, loadBNInfoFromLocal, loadDBCFG, group, loadGroup } from './global.js';
 import { createReadStream } from 'fs';
 import { syncDB } from './db.js';
 
@@ -787,24 +787,50 @@ export function initAPI()
         }
         else
         {
-            let keys = Object.keys(lastUpdateData);
+            
             let now = new Date();
+            // let keys = Object.keys(lastUpdateData);
     
+            // for(let i=0; i<40; i++)
+            // {
+            //     ret[i] = {};
+    
+            //     ret[i]['parameter'] = pmap[i];
+                
+            //     for(let k of keys)
+            //     {
+            //         // Do not show stale data
+            //         if(now.getTime() - lastUpdateData[k].DateTimeUpdate.getTime() < 60*1000)
+            //         {
+            //             let modbusid = parseInt(lastUpdateData[k].ModbusID);
+            //             let sn = lastUpdateData[k].SerialNo;
+
+            //             ret[i][blacknode[sn].meter_list[modbusid].name] = lastUpdateData[k][pmap[i]];
+            //         }
+            //     }
+            // }
+
+            let sn = Object.keys(blacknode);
+
             for(let i=0; i<40; i++)
             {
                 ret[i] = {};
-    
                 ret[i]['parameter'] = pmap[i];
-                
-                for(let k of keys)
-                {
-                    // Do not show stale data
-                    if(now.getTime() - lastUpdateData[k].DateTimeUpdate.getTime() < 60*1000)
-                    {
-                        let modbusid = parseInt(lastUpdateData[k].ModbusID);
-                        let sn = lastUpdateData[k].SerialNo;
 
-                        ret[i][blacknode[sn].meter_list[modbusid].name] = lastUpdateData[k][pmap[i]];
+                for(let s of sn)
+                {
+                    for(let j=0; j<blacknode[s].meter_list.length; j++)
+                    {
+                        let k = s + "-" + String(j);
+
+                        if(lastUpdateData[k] && lastUpdateData[k].DateTimeUpdate && now.getTime() - lastUpdateData[k].DateTimeUpdate.getTime() < 60*1000)
+                        {
+                            ret[i][blacknode[s].meter_list[j].name] = lastUpdateData[k][pmap[i]];
+                        }
+                        else
+                        {
+                            ret[i][blacknode[s].meter_list[j].name] = -1;
+                        }
                     }
                 }
             }
@@ -999,15 +1025,43 @@ export function initAPI()
         res.json(group);
     });
 
-    api.get('/update_group', async (req, res) => {
+    api.get('/meter', async (_req, res) => {
+        let ret = [];
+
+        let sn = Object.keys(blacknode);
+
+        for(let s of sn)
+        {
+            for(let i=0; i<blacknode[s].meter_list.length; i++)
+            {
+                ret.push({
+                    sn: s,
+                    siteid: blacknode[s].siteid,
+                    nodeid: blacknode[s].nodeid,
+                    modbusid: i+1,
+                    name: blacknode[s].meter_list[i].name,
+
+                });
+            }
+        }
+
+        res.json(ret);
+    });
+
+    api.post('/update_group', async (req, res) => {
+        let id = req.body.id;
+        let name = req.body.name;
+        let showDashboard = (req.body.name === 'true') ? true: false;
+
         try{
-            let id = await db.group.update({
-                name: req.params.name
+            let g = await db.group.update({
+                name: name,
+                showDashboard: showDashboard
             }, {
-                where: {id: req.params.id}
+                where: {id: id}
             }); 
 
-            group[id].name = req.params.name;
+            loadGroup();
 
             res.send("SUCCESS");
         } catch(err) {
@@ -1015,19 +1069,20 @@ export function initAPI()
         }
     });
 
-    api.get('/create_group', async (req, res) => {
+    api.get('/create_group/:name', async (req, res) => {
         try{
-            let id = await db.group.create({name: req.params.name}); 
+            await db.group.create({name: req.params.name, showDashboard: false}); 
 
-            group[id] = {name: req.params.name, member: []};
+            loadGroup();
 
             res.send("SUCCESS");
         } catch(err) {
+            console.log(err);
             res.send("Cannot create group.");
         }
     });
 
-    api.get('/delete_group', async (req, res) => {
+    api.get('/delete_group/:id', async (req, res) => {
         try{
             await db.gmember.destroy({
                 where: {GroupID: req.params.id}
@@ -1037,7 +1092,7 @@ export function initAPI()
                 where: {id: req.params.id}
             }); 
 
-            delete group[id];
+            loadGroup();
 
             res.send("SUCCESS");
         } catch(err) {
@@ -1055,33 +1110,34 @@ export function initAPI()
             });
 
             await db.gmember.bulkCreate(member);
+
+            loadGroup();
             res.send("SUCCESS");
         } catch (err) {
             res.send("Cannot update group members");
         }
     });
 
-    api.get('/set_dashboard', (req, res) => {
-        let use_group = req.params.group;
+    api.get('/set_dashboard/:group', async (req, res) => {
+        let id = parseInt(req.params.group);
+        
+        try{
+            await db.group.update({showDashboard: false }, {
+                where: {
+                    id: {
+                        [Op.not]: id
+                    }
+                }
+            });
 
-        if(use_group == "true")
-        {
-            dashboard.group = true;
-            dashboard.id = req.params.id;
-        }
-        else
-        {
-            dashboard.group = false;
-            dashboard.id = req.params.id;
-        }
+            await db.group.update({showDashboard: true }, {
+                where: { id: id }
+            });
 
-        if(paths && paths.DASHBOARD_CFG_PATH)
-        {
-            writeFile(paths.DASHBOARD_CFG_PATH, JSON.stringify(dashboard), {flag: 'w'});
             res.send("SUCCESS");
-        }
-        else
-        {
+        } catch(err) {
+            console.log("Cannot save dashboard configuration.");
+
             res.send("Cannot save dashboard configuration.");
         }
     });

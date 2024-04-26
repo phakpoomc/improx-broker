@@ -35,10 +35,6 @@ export var db_cfg = {};
 export var blacknode = {};
 
 export var group = {};
-export var dashboard = {
-  group: false,
-  id: 1
-};
 
 export var lastUpdateTime = {};
 export var lastUpdateData = {};
@@ -65,7 +61,7 @@ export async function loadGroup()
 
     for(let g of groups)
     {
-      group[g.id] = {name: g.name, member: []};
+      group[g.id] = {name: g.name, showDashboard: g.showDashboard, member: []};
     }
 
     let gmembers = await db.gmember.findAll();
@@ -87,25 +83,6 @@ export async function loadGroup()
   {
     console.log("Fail to load Group info.");
     last.message = "Fail to load Group info.";
-    last.time = new Date();
-    last.status = "error";
-  }
-}
-
-export function loadDashboard()
-{
-  if(paths && paths.DASHBOARD_CFG_PATH)
-  {
-    const dashboard_data = readFile(paths.DASHBOARD_CFG_PATH, { encoding: 'utf-8', flag: 'r' });
-    let loadedCFG = JSON.parse(dashboard_data);
-
-    dashboard.group = loadedCFG.group;
-    dashboard.id = loadedCFG.id;
-  }
-  else
-  {
-    console.log("Fail to load Dashboard Config.");
-    last.message = "Fail to load Dashboard info.";
     last.time = new Date();
     last.status = "error";
   }
