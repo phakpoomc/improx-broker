@@ -1120,7 +1120,7 @@ export function initAPI()
 
     api.get('/set_dashboard/:group', async (req, res) => {
         let id = parseInt(req.params.group);
-        
+
         try{
             await db.group.update({showDashboard: false }, {
                 where: {
@@ -1133,6 +1133,8 @@ export function initAPI()
             await db.group.update({showDashboard: true }, {
                 where: { id: id }
             });
+
+            loadGroup();
 
             res.send("SUCCESS");
         } catch(err) {
