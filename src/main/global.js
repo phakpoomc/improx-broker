@@ -57,6 +57,8 @@ export async function loadGroup()
 {
   if(db && db.group && db.gmember)
   {
+    group = {};
+    
     let groups = await db.group.findAll();
 
     for(let g of groups)

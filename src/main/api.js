@@ -58,19 +58,67 @@ export function initAPI()
             let maxDemandYesterday = 0;
             let maxDemandToday = 0;
 
-            let eData = await db.energy.findAll({
-                where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: tLastMonth,
-                            [Op.lt]: now
-                        }
-                    }
-                },
-                order: [
-                    ['DateTimeUpdate', 'ASC']
-                ]
+            let group = await db.group.findOne({
+                where: {showDashboard: true}
             });
+
+            var eData;
+            let all = true;
+            var snmKey = [];
+
+
+            if(group !== null)
+            {
+                let members = await db.gmember.findAll({
+                    where: {GroupID: group.id}
+                });
+
+                if(members !== null)
+                {
+                    for(let m of members)
+                    {
+                        let key = m.SiteID + '-' + m.NodeID + '-' + String(m.ModbusID);
+
+                        snmKey.push(key);
+                    }
+
+                    all = false;
+                }
+            }
+
+            if(all)
+            {
+                eData = await db.energy.findAll({
+                    where: {
+                        DateTimeUpdate: {
+                            [Op.and]: {
+                                [Op.gte]: tLastMonth,
+                                [Op.lt]: now
+                            }
+                        }
+                    },
+                    order: [
+                        ['DateTimeUpdate', 'ASC']
+                    ]
+                });
+            }
+            else
+            {
+                eData = await db.energy.findAll({
+                    where: {
+                        DateTimeUpdate: {
+                            [Op.and]: {
+                                [Op.gte]: tLastMonth,
+                                [Op.lt]: now
+                            }
+                        },
+                        snmKey: snmKey
+                    },
+                    order: [
+                        ['DateTimeUpdate', 'ASC']
+                    ]
+                });
+            }
 
             let prevEnergy = 0;
 
@@ -173,19 +221,67 @@ export function initAPI()
             let startTime = new Date(year, month, day);
             let endTime = new Date(year, month, day, 23, 59, 59);
 
-            let eData = await db.energy.findAll({
-                where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    }
-                },
-                order: [
-                    ['DateTimeUpdate', 'ASC']
-                ]
+            let group = await db.group.findOne({
+                where: {showDashboard: true}
             });
+
+            var eData;
+            let all = true;
+            var snmKey = [];
+
+
+            if(group !== null)
+            {
+                let members = await db.gmember.findAll({
+                    where: {GroupID: group.id}
+                });
+
+                if(members !== null)
+                {
+                    for(let m of members)
+                    {
+                        let key = m.SiteID + '-' + m.NodeID + '-' + String(m.ModbusID);
+
+                        snmKey.push(key);
+                    }
+
+                    all = false;
+                }
+            }
+
+            if(all)
+            {
+                eData = await db.energy.findAll({
+                    where: {
+                        DateTimeUpdate: {
+                            [Op.and]: {
+                                [Op.gte]: startTime,
+                                [Op.lt]: endTime
+                            }
+                        }
+                    },
+                    order: [
+                        ['DateTimeUpdate', 'ASC']
+                    ]
+                });
+            }
+            else
+            {
+                eData = await db.energy.findAll({
+                    where: {
+                        DateTimeUpdate: {
+                            [Op.and]: {
+                                [Op.gte]: startTime,
+                                [Op.lt]: endTime
+                            }
+                        },
+                        snmKey: snmKey
+                    },
+                    order: [
+                        ['DateTimeUpdate', 'ASC']
+                    ]
+                });
+            }
 
             let prevEnergy = 0;
 
@@ -245,19 +341,67 @@ export function initAPI()
             let startTime = new Date(year, month, 1);
             let endTime = new Date(year, month, totalDays, 23, 59, 59);
 
-            let eData = await db.energy.findAll({
-                where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    }
-                },
-                order: [
-                    ['DateTimeUpdate', 'ASC']
-                ]
+            let group = await db.group.findOne({
+                where: {showDashboard: true}
             });
+
+            var eData;
+            let all = true;
+            var snmKey = [];
+
+
+            if(group !== null)
+            {
+                let members = await db.gmember.findAll({
+                    where: {GroupID: group.id}
+                });
+
+                if(members !== null)
+                {
+                    for(let m of members)
+                    {
+                        let key = m.SiteID + '-' + m.NodeID + '-' + String(m.ModbusID);
+
+                        snmKey.push(key);
+                    }
+
+                    all = false;
+                }
+            }
+
+            if(all)
+            {
+                eData = await db.energy.findAll({
+                    where: {
+                        DateTimeUpdate: {
+                            [Op.and]: {
+                                [Op.gte]: startTime,
+                                [Op.lt]: endTime
+                            }
+                        }
+                    },
+                    order: [
+                        ['DateTimeUpdate', 'ASC']
+                    ]
+                });
+            }
+            else
+            {
+                eData = await db.energy.findAll({
+                    where: {
+                        DateTimeUpdate: {
+                            [Op.and]: {
+                                [Op.gte]: startTime,
+                                [Op.lt]: endTime
+                            }
+                        },
+                        snmKey: snmKey
+                    },
+                    order: [
+                        ['DateTimeUpdate', 'ASC']
+                    ]
+                });
+            }
 
             let prevEnergy = 0;
 
@@ -312,19 +456,67 @@ export function initAPI()
             let startTime = new Date(year, 0, 1);
             let endTime = new Date(year, 11, 31, 59, 59, 59);
 
-            let eData = await db.energy.findAll({
-                where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    }
-                },
-                order: [
-                    ['DateTimeUpdate', 'ASC']
-                ]
+            let group = await db.group.findOne({
+                where: {showDashboard: true}
             });
+
+            var eData;
+            let all = true;
+            var snmKey = [];
+
+
+            if(group !== null)
+            {
+                let members = await db.gmember.findAll({
+                    where: {GroupID: group.id}
+                });
+
+                if(members !== null)
+                {
+                    for(let m of members)
+                    {
+                        let key = m.SiteID + '-' + m.NodeID + '-' + String(m.ModbusID);
+
+                        snmKey.push(key);
+                    }
+
+                    all = false;
+                }
+            }
+
+            if(all)
+            {
+                eData = await db.energy.findAll({
+                    where: {
+                        DateTimeUpdate: {
+                            [Op.and]: {
+                                [Op.gte]: startTime,
+                                [Op.lt]: endTime
+                            }
+                        }
+                    },
+                    order: [
+                        ['DateTimeUpdate', 'ASC']
+                    ]
+                });
+            }
+            else
+            {
+                eData = await db.energy.findAll({
+                    where: {
+                        DateTimeUpdate: {
+                            [Op.and]: {
+                                [Op.gte]: startTime,
+                                [Op.lt]: endTime
+                            }
+                        },
+                        snmKey: snmKey
+                    },
+                    order: [
+                        ['DateTimeUpdate', 'ASC']
+                    ]
+                });
+            }
 
             let prevEnergy = 0;
 
@@ -380,19 +572,67 @@ export function initAPI()
             let startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             let endTime = new Date(year, month, day, 0, 0, 0);
 
-            let eData = await db.energy.findAll({
-                where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    }
-                },
-                order: [
-                    ['DateTimeUpdate', 'ASC']
-                ]
+            let group = await db.group.findOne({
+                where: {showDashboard: true}
             });
+
+            var eData;
+            let all = true;
+            var snmKey = [];
+
+
+            if(group !== null)
+            {
+                let members = await db.gmember.findAll({
+                    where: {GroupID: group.id}
+                });
+
+                if(members !== null)
+                {
+                    for(let m of members)
+                    {
+                        let key = m.SiteID + '-' + m.NodeID + '-' + String(m.ModbusID);
+
+                        snmKey.push(key);
+                    }
+
+                    all = false;
+                }
+            }
+
+            if(all)
+            {
+                eData = await db.energy.findAll({
+                    where: {
+                        DateTimeUpdate: {
+                            [Op.and]: {
+                                [Op.gte]: startTime,
+                                [Op.lt]: endTime
+                            }
+                        }
+                    },
+                    order: [
+                        ['DateTimeUpdate', 'ASC']
+                    ]
+                });
+            }
+            else
+            {
+                eData = await db.energy.findAll({
+                    where: {
+                        DateTimeUpdate: {
+                            [Op.and]: {
+                                [Op.gte]: startTime,
+                                [Op.lt]: endTime
+                            }
+                        },
+                        snmKey: snmKey
+                    },
+                    order: [
+                        ['DateTimeUpdate', 'ASC']
+                    ]
+                });
+            }
 
             let prevEnergy = 0;
 
@@ -1051,12 +1291,10 @@ export function initAPI()
     api.post('/update_group', async (req, res) => {
         let id = req.body.id;
         let name = req.body.name;
-        let showDashboard = (req.body.name === 'true') ? true: false;
 
         try{
-            let g = await db.group.update({
+            await db.group.update({
                 name: name,
-                showDashboard: showDashboard
             }, {
                 where: {id: id}
             }); 
@@ -1085,11 +1323,11 @@ export function initAPI()
     api.get('/delete_group/:id', async (req, res) => {
         try{
             await db.gmember.destroy({
-                where: {GroupID: req.params.id}
+                where: {GroupID: parseInt(req.params.id)}
             });
 
             await db.group.destroy({
-                where: {id: req.params.id}
+                where: {id: parseInt(req.params.id)}
             }); 
 
             loadGroup();

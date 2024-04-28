@@ -47,6 +47,7 @@ export async function syncDB()
                 SiteID: { type: DataTypes.STRING, field: 'SiteID' },
                 NodeID: { type: DataTypes.STRING, field: 'NodeID' },
                 ModbusID: { type: DataTypes.STRING, field: 'ModbusID' },
+                snmKey: { type: DataTypes.STRING, field: 'snmKey' },
                 DateTimeUpdate: { type: DataTypes.DATE, field: 'DateTimeUpdate'},
                 Import_kWh: { type: DataTypes.DOUBLE, field: 'Import_kWh'},
                 Export_kWh: { type: DataTypes.DOUBLE, field: 'Export_kWh'},

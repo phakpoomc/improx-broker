@@ -198,6 +198,7 @@ export function startMQTT(BN_CFG_PATH)
                 SiteID: siteid,
                 NodeID: nodeid,
                 ModbusID: String(modbusid+1),
+                snmKey: siteid + '-' + nodeid + '-' + String(modbusid+1),
                 DateTimeUpdate: dt,
                 Import_kWh: parseFloat(e[0]),
                 Export_kWh: parseFloat(e[1]),
