@@ -12,6 +12,24 @@ var MOCK = false;
 
 function isOnPeak(dt)
 {
+    let dayinweek = dt.getDay();
+
+    // Saturday or Sunday
+    if(dayinweek == 0 || dayinweek == 6)
+    {
+        return false;
+    }
+
+    // Mon - Fri
+    let hours = dt.getHours();
+
+    if(hours < 9 || hours >= 22)
+    {
+        return false;
+    }
+
+    // In case of holidays...
+
     return true;
 }
 
@@ -660,274 +678,394 @@ export function initAPI()
     });
 
     /* Monitoring API */
-    api.get('/group_meter_info', (req, res) => {
+    api.get('/group_meter_info', async (req, res) => {
         let ret = {
-            'group': [
+            group: [],
+            meter: []
+        }
+
+        let pmap = [
+            'Import_kWh',
+            'Export_kWh',
+            'TotalkWh',
+            'Total_kvarh',
+            'Ind_kvarh',
+            'Cap_kvarh',
+            'kVAh',
+            'V1',
+            'V2',
+            'V3',
+            'V12',
+            'V23',
+            'V31',
+            'I1',
+            'I2',
+            'I3',
+            'P1',
+            'P2',
+            'P3',
+            'P_Sum',
+            'Q1',
+            'Q2',
+            'Q3',
+            'Q_Sum',
+            'S1',
+            'S2',
+            'S3',
+            'S_Sum',
+            'PF1',
+            'PF2',
+            'PF3',
+            'PF_Sum',
+            'THD_U1',
+            'THD_U2',
+            'THD_U3',
+            'THD_I1',
+            'THD_I2',
+            'THD_I3',
+            'Frequency',
+            'kWdemand',
+        ];
+
+        let initGroup = [];
+        let groups = {};
+
+        let groupInfo = await db.gmember.findAll();
+
+        if(groupInfo !== null)
+        {
+            for(let g of groupInfo)
+            {
+                if(!(g.GroupID in initGroup))
                 {
-                    'id': 1,
-                    'name': 'GroupA',
-                    'parameter': [
-                        {
-                            'name': 'V1',
-                            'display': 'Group A - V1 (volt)',
-                            'selectedSeries': 'G_1-V1'
-                        },
-                        {
-                            'name': 'V2',
-                            'display': 'Group A - V2 (volt)',
-                            'selectedSeries': 'G_1-V2'
-                        },
-                        {
-                            'name': 'V3',
-                            'display': 'Group A - V3 (volt)',
-                            'selectedSeries': 'G_1-V3'
-                        },
-                    ],
-                    'member': [
-                        {
-                            'name': 'Office-1',
-                            'SerialNo': 'BN1'
-                        },
-                        {
-                            'name': 'Office-2',
-                            'SerialNo': 'BN2'
-                        }
-                    ]
-                },
-                {
-                    'id': 2,
-                    'name': 'GroupB',
-                    'parameter': [
-                        {
-                            'name': 'I1',
-                            'display': 'Group B - I1 (Ampere)',
-                            'selectedSeries': 'G_2-I1'
-                        },
-                        {
-                            'name': 'I2',
-                            'display': 'Group B - I2 (Ampere)',
-                            'selectedSeries': 'G_2-I2'
-                        },
-                        {
-                            'name': 'I3',
-                            'display': 'Group B - I3 (Ampere)',
-                            'selectedSeries': 'G_2-I3'
-                        },
-                    ],
-                    'member': [
-                        {
-                            'name': 'Plant-1',
-                            'SerialNo': 'BN3'
-                        },
-                        {
-                            'name': 'Plant-2',
-                            'SerialNo': 'BN4'
-                        },
-                        {
-                            'name': 'Plant-3',
-                            'SerialNo': 'BN5'
-                        }
-                    ]
+                    groups[g.GroupID] = {
+                        id: g.GroupID,
+                        name: group[g.GroupID].name,
+                        parameter: [],
+                        member: []
+                    };
+
+                    for(let i=0; i<pmap.length; i++)
+                    {
+                        groups[g.GroupID].parameter.push(
+                            {
+                                name: pmap[i],
+                                display: group[g.GroupID].name + ' - ' + pmap[i],
+                                selectedSeries: 'G_' + String(g.GroupID) + '-' + pmap[i]
+                            }
+                        );
+                    }
                 }
-            ],
-            'meter': [
+                
+                groups[g.GroupID].member.push({
+                    name: blacknode[g.SerialNo].name,
+                    SerialNo: g.SerialNo
+                });
+            }
+        }
+
+        let gKey = Object.keys(groups);
+
+        for(let k of gKey)
+        {
+            ret.group.push(groups[k]);
+        }
+
+        let bnKey = Object.keys(blacknode);
+
+        for(let sn of bnKey)
+        {
+            for(let i=0; i<blacknode[sn].meter_list.length; i++)
+            {
+                let obj = {
+                    name: blacknode[sn].meter_list[i].name,
+                    SerialNo: blacknode[sn].serial,
+                    SiteID: blacknode[sn].siteid,
+                    NodeID: blacknode[sn].nodeid,
+                    ModbusID: i,
+                    parameter: []
+                };
+
+                for(let j=0; j<pmap.length; j++)
                 {
-                    'name': 'Office-1',
-                    'SerialNo': 'BN1',
-                    'SiteID': 'SCG',
-                    'NodeID': 'Office',
-                    'ModbusID': 1,
-                    'parameter': [
-                        {
-                            'name': 'V1',
-                            'display': 'Office-1 - V1 (Volt)',
-                            'selectedSeries': 'M_BN1_SCG_Office_1-V1'
-                        },
-                        {
-                            'name': 'V2',
-                            'display': 'Office-1 - V2 (Volt)',
-                            'selectedSeries': 'M_BN1_SCG_Office_1-V2'
-                        },
-                        {
-                            'name': 'V3',
-                            'display': 'Office-1 - V3 (Volt)',
-                            'selectedSeries': 'M_BN1_SCG_Office_1-V3'
-                        },
-                        {
-                            'name': 'I1',
-                            'display': 'Office-1 - I1 (Ampere)',
-                            'selectedSeries': 'M_BN1_SCG_Office_1-I1'
-                        },
-                        {
-                            'name': 'I2',
-                            'display': 'Office-1 - I2 (Ampere)',
-                            'selectedSeries': 'M_BN1_SCG_Office_1-I2'
-                        },
-                        {
-                            'name': 'I3',
-                            'display': 'Office-1 - I3 (Ampere)',
-                            'selectedSeries': 'M_BN1_SCG_Office_1-I3'
-                        }
-                    ]
-                },
-                {
-                    'name': 'Office-2',
-                    'SerialNo': 'BN2',
-                    'SiteID': 'SCG',
-                    'NodeID': 'Office',
-                    'ModbusID': 2,
-                    'parameter': [
-                        {
-                            'name': 'V1',
-                            'display': 'Office-2 - V1 (Volt)',
-                            'selectedSeries': 'M_BN2_SCG_Office_2-V1'
-                        },
-                        {
-                            'name': 'V2',
-                            'display': 'Office-2 - V2 (Volt)',
-                            'selectedSeries': 'M_BN2_SCG_Office_2-V2'
-                        },
-                        {
-                            'name': 'V3',
-                            'display': 'Office-2 - V3 (Volt)',
-                            'selectedSeries': 'M_BN2_SCG_Office_2-V3'
-                        },
-                        {
-                            'name': 'I1',
-                            'display': 'Office-2 - I1 (Ampere)',
-                            'selectedSeries': 'M_BN2_SCG_Office_2-I1'
-                        },
-                        {
-                            'name': 'I2',
-                            'display': 'Office-2 - I2 (Ampere)',
-                            'selectedSeries': 'M_BN2_SCG_Office_2-I2'
-                        },
-                        {
-                            'name': 'I3',
-                            'display': 'Office-2 - I3 (Ampere)',
-                            'selectedSeries': 'M_BN2_SCG_Office_2-I3'
-                        }
-                    ]
-                },
-                {
-                    'name': 'Plant-1',
-                    'SerialNo': 'BN3',
-                    'SiteID': 'SCG',
-                    'NodeID': 'Plant',
-                    'ModbusID': 1,
-                    'parameter': [
-                        {
-                            'name': 'V1',
-                            'display': 'Plant-1 - V1 (Volt)',
-                            'selectedSeries': 'M_BN3_SCG_Plant_1-V1'
-                        },
-                        {
-                            'name': 'V2',
-                            'display': 'Plant-1 - V2 (Volt)',
-                            'selectedSeries': 'M_BN3_SCG_Plant_1-V2'
-                        },
-                        {
-                            'name': 'V3',
-                            'display': 'Plant-1 - V3 (Volt)',
-                            'selectedSeries': 'M_BN3_SCG_Plant_1-V3'
-                        },
-                        {
-                            'name': 'I1',
-                            'display': 'Plant-1 - I1 (Ampere)',
-                            'selectedSeries': 'M_BN3_SCG_Plant_1-I1'
-                        },
-                        {
-                            'name': 'I2',
-                            'display': 'Plant-1 - I2 (Ampere)',
-                            'selectedSeries': 'M_BN3_SCG_Plant_1-I2'
-                        },
-                        {
-                            'name': 'I3',
-                            'display': 'Plant-1 - I3 (Ampere)',
-                            'selectedSeries': 'M_BN3_SCG_Plant_1-I3'
-                        }
-                    ]
-                },
-                {
-                    'name': 'Plant-2',
-                    'SerialNo': 'BN4',
-                    'SiteID': 'SCG',
-                    'NodeID': 'Plant',
-                    'ModbusID': 2,
-                    'parameter': [
-                        {
-                            'name': 'V1',
-                            'display': 'Plant-2 - V1 (Volt)',
-                            'selectedSeries': 'M_BN4_SCG_Plant_2-V1'
-                        },
-                        {
-                            'name': 'V2',
-                            'display': 'Plant-2 - V2 (Volt)',
-                            'selectedSeries': 'M_BN4_SCG_Plant_2-V2'
-                        },
-                        {
-                            'name': 'V3',
-                            'display': 'Plant-2 - V3 (Volt)',
-                            'selectedSeries': 'M_BN4_SCG_Plant_2-V3'
-                        },
-                        {
-                            'name': 'I1',
-                            'display': 'Plant-2 - I1 (Ampere)',
-                            'selectedSeries': 'M_BN4_SCG_Plant_2-I1'
-                        },
-                        {
-                            'name': 'I2',
-                            'display': 'Plant-2 - I2 (Ampere)',
-                            'selectedSeries': 'M_BN4_SCG_Plant_2-I2'
-                        },
-                        {
-                            'name': 'I3',
-                            'display': 'Plant-2 - I3 (Ampere)',
-                            'selectedSeries': 'M_BN4_SCG_Plant_2-I3'
-                        }
-                    ]
-                },
-                {
-                    'name': 'Plant-3',
-                    'SerialNo': 'BN5',
-                    'SiteID': 'SCG',
-                    'NodeID': 'Plant',
-                    'ModbusID': 3,
-                    'parameter': [
-                        {
-                            'name': 'V1',
-                            'display': 'Plant-3 - V1 (Volt)',
-                            'selectedSeries': 'M_BN5_SCG_Plant_3-V1'
-                        },
-                        {
-                            'name': 'V2',
-                            'display': 'Plant-3 - V2 (Volt)',
-                            'selectedSeries': 'M_BN5_SCG_Plant_3-V2'
-                        },
-                        {
-                            'name': 'V3',
-                            'display': 'Plant-3 - V3 (Volt)',
-                            'selectedSeries': 'M_BN5_SCG_Plant_3-V3'
-                        },
-                        {
-                            'name': 'I1',
-                            'display': 'Plant-3 - I1 (Ampere)',
-                            'selectedSeries': 'M_BN5_SCG_Plant_3-I1'
-                        },
-                        {
-                            'name': 'I2',
-                            'display': 'Plant-3 - I2 (Ampere)',
-                            'selectedSeries': 'M_BN5_SCG_Plant_3-I2'
-                        },
-                        {
-                            'name': 'I3',
-                            'display': 'Plant-3 - I3 (Ampere)',
-                            'selectedSeries': 'M_BN5_SCG_Plant_3-I3'
-                        }
-                    ]
-                },
-            ]
-        };
+                    obj.parameter.push({
+                        name: pmap[j],
+                        display: blacknode[sn].meter_list[i].name + ' - ' + pmap[j],
+                        selectedSeries: 'M_' + sn + '_' + blacknode[sn].siteid + '_' + blacknode[sn].nodeid + '_' + String(i) + '-' + pmap[j]
+                    });
+                }
+
+                ret.meter.push(obj);
+            }
+        }
+
+        // let ret = {
+        //     'group': [
+        //         {
+        //             'id': 1,
+        //             'name': 'GroupA',
+        //             'parameter': [
+        //                 {
+        //                     'name': 'V1',
+        //                     'display': 'Group A - V1 (volt)',
+        //                     'selectedSeries': 'G_1-V1'
+        //                 },
+        //                 {
+        //                     'name': 'V2',
+        //                     'display': 'Group A - V2 (volt)',
+        //                     'selectedSeries': 'G_1-V2'
+        //                 },
+        //                 {
+        //                     'name': 'V3',
+        //                     'display': 'Group A - V3 (volt)',
+        //                     'selectedSeries': 'G_1-V3'
+        //                 },
+        //             ],
+        //             'member': [
+        //                 {
+        //                     'name': 'Office-1',
+        //                     'SerialNo': 'BN1'
+        //                 },
+        //                 {
+        //                     'name': 'Office-2',
+        //                     'SerialNo': 'BN2'
+        //                 }
+        //             ]
+        //         },
+        //         {
+        //             'id': 2,
+        //             'name': 'GroupB',
+        //             'parameter': [
+        //                 {
+        //                     'name': 'I1',
+        //                     'display': 'Group B - I1 (Ampere)',
+        //                     'selectedSeries': 'G_2-I1'
+        //                 },
+        //                 {
+        //                     'name': 'I2',
+        //                     'display': 'Group B - I2 (Ampere)',
+        //                     'selectedSeries': 'G_2-I2'
+        //                 },
+        //                 {
+        //                     'name': 'I3',
+        //                     'display': 'Group B - I3 (Ampere)',
+        //                     'selectedSeries': 'G_2-I3'
+        //                 },
+        //             ],
+        //             'member': [
+        //                 {
+        //                     'name': 'Plant-1',
+        //                     'SerialNo': 'BN3'
+        //                 },
+        //                 {
+        //                     'name': 'Plant-2',
+        //                     'SerialNo': 'BN4'
+        //                 },
+        //                 {
+        //                     'name': 'Plant-3',
+        //                     'SerialNo': 'BN5'
+        //                 }
+        //             ]
+        //         }
+        //     ],
+        //     'meter': [
+        //         {
+        //             'name': 'Office-1',
+        //             'SerialNo': 'BN1',
+        //             'SiteID': 'SCG',
+        //             'NodeID': 'Office',
+        //             'ModbusID': 1,
+        //             'parameter': [
+        //                 {
+        //                     'name': 'V1',
+        //                     'display': 'Office-1 - V1 (Volt)',
+        //                     'selectedSeries': 'M_BN1_SCG_Office_1-V1'
+        //                 },
+        //                 {
+        //                     'name': 'V2',
+        //                     'display': 'Office-1 - V2 (Volt)',
+        //                     'selectedSeries': 'M_BN1_SCG_Office_1-V2'
+        //                 },
+        //                 {
+        //                     'name': 'V3',
+        //                     'display': 'Office-1 - V3 (Volt)',
+        //                     'selectedSeries': 'M_BN1_SCG_Office_1-V3'
+        //                 },
+        //                 {
+        //                     'name': 'I1',
+        //                     'display': 'Office-1 - I1 (Ampere)',
+        //                     'selectedSeries': 'M_BN1_SCG_Office_1-I1'
+        //                 },
+        //                 {
+        //                     'name': 'I2',
+        //                     'display': 'Office-1 - I2 (Ampere)',
+        //                     'selectedSeries': 'M_BN1_SCG_Office_1-I2'
+        //                 },
+        //                 {
+        //                     'name': 'I3',
+        //                     'display': 'Office-1 - I3 (Ampere)',
+        //                     'selectedSeries': 'M_BN1_SCG_Office_1-I3'
+        //                 }
+        //             ]
+        //         },
+        //         {
+        //             'name': 'Office-2',
+        //             'SerialNo': 'BN2',
+        //             'SiteID': 'SCG',
+        //             'NodeID': 'Office',
+        //             'ModbusID': 2,
+        //             'parameter': [
+        //                 {
+        //                     'name': 'V1',
+        //                     'display': 'Office-2 - V1 (Volt)',
+        //                     'selectedSeries': 'M_BN2_SCG_Office_2-V1'
+        //                 },
+        //                 {
+        //                     'name': 'V2',
+        //                     'display': 'Office-2 - V2 (Volt)',
+        //                     'selectedSeries': 'M_BN2_SCG_Office_2-V2'
+        //                 },
+        //                 {
+        //                     'name': 'V3',
+        //                     'display': 'Office-2 - V3 (Volt)',
+        //                     'selectedSeries': 'M_BN2_SCG_Office_2-V3'
+        //                 },
+        //                 {
+        //                     'name': 'I1',
+        //                     'display': 'Office-2 - I1 (Ampere)',
+        //                     'selectedSeries': 'M_BN2_SCG_Office_2-I1'
+        //                 },
+        //                 {
+        //                     'name': 'I2',
+        //                     'display': 'Office-2 - I2 (Ampere)',
+        //                     'selectedSeries': 'M_BN2_SCG_Office_2-I2'
+        //                 },
+        //                 {
+        //                     'name': 'I3',
+        //                     'display': 'Office-2 - I3 (Ampere)',
+        //                     'selectedSeries': 'M_BN2_SCG_Office_2-I3'
+        //                 }
+        //             ]
+        //         },
+        //         {
+        //             'name': 'Plant-1',
+        //             'SerialNo': 'BN3',
+        //             'SiteID': 'SCG',
+        //             'NodeID': 'Plant',
+        //             'ModbusID': 1,
+        //             'parameter': [
+        //                 {
+        //                     'name': 'V1',
+        //                     'display': 'Plant-1 - V1 (Volt)',
+        //                     'selectedSeries': 'M_BN3_SCG_Plant_1-V1'
+        //                 },
+        //                 {
+        //                     'name': 'V2',
+        //                     'display': 'Plant-1 - V2 (Volt)',
+        //                     'selectedSeries': 'M_BN3_SCG_Plant_1-V2'
+        //                 },
+        //                 {
+        //                     'name': 'V3',
+        //                     'display': 'Plant-1 - V3 (Volt)',
+        //                     'selectedSeries': 'M_BN3_SCG_Plant_1-V3'
+        //                 },
+        //                 {
+        //                     'name': 'I1',
+        //                     'display': 'Plant-1 - I1 (Ampere)',
+        //                     'selectedSeries': 'M_BN3_SCG_Plant_1-I1'
+        //                 },
+        //                 {
+        //                     'name': 'I2',
+        //                     'display': 'Plant-1 - I2 (Ampere)',
+        //                     'selectedSeries': 'M_BN3_SCG_Plant_1-I2'
+        //                 },
+        //                 {
+        //                     'name': 'I3',
+        //                     'display': 'Plant-1 - I3 (Ampere)',
+        //                     'selectedSeries': 'M_BN3_SCG_Plant_1-I3'
+        //                 }
+        //             ]
+        //         },
+        //         {
+        //             'name': 'Plant-2',
+        //             'SerialNo': 'BN4',
+        //             'SiteID': 'SCG',
+        //             'NodeID': 'Plant',
+        //             'ModbusID': 2,
+        //             'parameter': [
+        //                 {
+        //                     'name': 'V1',
+        //                     'display': 'Plant-2 - V1 (Volt)',
+        //                     'selectedSeries': 'M_BN4_SCG_Plant_2-V1'
+        //                 },
+        //                 {
+        //                     'name': 'V2',
+        //                     'display': 'Plant-2 - V2 (Volt)',
+        //                     'selectedSeries': 'M_BN4_SCG_Plant_2-V2'
+        //                 },
+        //                 {
+        //                     'name': 'V3',
+        //                     'display': 'Plant-2 - V3 (Volt)',
+        //                     'selectedSeries': 'M_BN4_SCG_Plant_2-V3'
+        //                 },
+        //                 {
+        //                     'name': 'I1',
+        //                     'display': 'Plant-2 - I1 (Ampere)',
+        //                     'selectedSeries': 'M_BN4_SCG_Plant_2-I1'
+        //                 },
+        //                 {
+        //                     'name': 'I2',
+        //                     'display': 'Plant-2 - I2 (Ampere)',
+        //                     'selectedSeries': 'M_BN4_SCG_Plant_2-I2'
+        //                 },
+        //                 {
+        //                     'name': 'I3',
+        //                     'display': 'Plant-2 - I3 (Ampere)',
+        //                     'selectedSeries': 'M_BN4_SCG_Plant_2-I3'
+        //                 }
+        //             ]
+        //         },
+        //         {
+        //             'name': 'Plant-3',
+        //             'SerialNo': 'BN5',
+        //             'SiteID': 'SCG',
+        //             'NodeID': 'Plant',
+        //             'ModbusID': 3,
+        //             'parameter': [
+        //                 {
+        //                     'name': 'V1',
+        //                     'display': 'Plant-3 - V1 (Volt)',
+        //                     'selectedSeries': 'M_BN5_SCG_Plant_3-V1'
+        //                 },
+        //                 {
+        //                     'name': 'V2',
+        //                     'display': 'Plant-3 - V2 (Volt)',
+        //                     'selectedSeries': 'M_BN5_SCG_Plant_3-V2'
+        //                 },
+        //                 {
+        //                     'name': 'V3',
+        //                     'display': 'Plant-3 - V3 (Volt)',
+        //                     'selectedSeries': 'M_BN5_SCG_Plant_3-V3'
+        //                 },
+        //                 {
+        //                     'name': 'I1',
+        //                     'display': 'Plant-3 - I1 (Ampere)',
+        //                     'selectedSeries': 'M_BN5_SCG_Plant_3-I1'
+        //                 },
+        //                 {
+        //                     'name': 'I2',
+        //                     'display': 'Plant-3 - I2 (Ampere)',
+        //                     'selectedSeries': 'M_BN5_SCG_Plant_3-I2'
+        //                 },
+        //                 {
+        //                     'name': 'I3',
+        //                     'display': 'Plant-3 - I3 (Ampere)',
+        //                     'selectedSeries': 'M_BN5_SCG_Plant_3-I3'
+        //                 }
+        //             ]
+        //         },
+        //     ]
+        // };
 
         res.json(ret);
     });
@@ -937,10 +1075,12 @@ export function initAPI()
 
         let p = req.body;
 
-        for(let k of p)
+        console.log(p);
+
+        for(let k in p)
         {
             // Get data and fill
-            ret[k] = {
+            ret[p[k]] = {
                 time: new Date(),
                 value: Math.random() * 50 - 25
             };
@@ -1144,15 +1284,13 @@ export function initAPI()
 
     api.get('/meter_list', (req, res) => {
         let ret = {};
-        let keys = Object.keys(lastUpdateData);
-        let now = new Date();
+        let keys = Object.keys(blacknode);
 
         for(let k of keys)
         {
-            if(now.getTime() - lastUpdateTime[k].getTime() < 60*1000)
+            for(let i=0; i<blacknode[k].meter_list.length; i++)
             {
-                let m = lastUpdateData[k];
-                ret[k] = {value: blacknode[m.SerialNo].meter_list[parseInt(m.ModbusID)].name + " (" + m.SerialNo + "-" + String(parseInt(m.ModbusID) + 1) + ")"};
+                ret[k+'-'+String(i)] = {value: blacknode[k].meter_list[i].name + " (" + k + "-" + String(i + 1) + ")"};
             }
             
         }
@@ -1171,11 +1309,17 @@ export function initAPI()
         let pf2 = 0;
         let pf3 = 0;
 
-        if(now.getTime() - lastUpdateTime[snid].getTime() < 60*1000)
+        if(lastUpdateTime && lastUpdateTime[snid] && now.getTime() - lastUpdateTime[snid].getTime() < 60*1000)
         {
             pf1 = lastUpdateData[snid].PF1;
             pf2 = lastUpdateData[snid].PF2;
             pf3 = lastUpdateData[snid].PF3;
+        }
+        else
+        {
+            pf1 = 0;
+            pf2 = 0;
+            pf3 = 0;
         }
 
         let ret = {
@@ -1369,6 +1513,24 @@ export function initAPI()
             });
 
             await db.group.update({showDashboard: true }, {
+                where: { id: id }
+            });
+
+            loadGroup();
+
+            res.send("SUCCESS");
+        } catch(err) {
+            console.log("Cannot save dashboard configuration.");
+
+            res.send("Cannot save dashboard configuration.");
+        }
+    });
+
+    api.get('/unset_dashboard/:group', async (req, res) => {
+        let id = parseInt(req.params.group);
+
+        try{
+            await db.group.update({showDashboard: false }, {
                 where: { id: id }
             });
 
