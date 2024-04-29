@@ -133,7 +133,7 @@ function getIconClasses(status) {
                   </div>
                   <div v-else class="d-flex justify-content-between">
                     <router-link :to="'/black_node_edit/' + b.serial" type='button'
-                      class="btn btn-secondary float-end disabled">Connect</router-link>
+                      class="btn btn-secondary float-end">Connect</router-link>
                   </div>
                 </div>
               </div>

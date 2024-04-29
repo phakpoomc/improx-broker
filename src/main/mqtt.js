@@ -165,6 +165,8 @@ export function startMQTT(BN_CFG_PATH)
         last['time'] = new Date();
         last['status'] = 'error';
         console.log('Received data from a blacknode that is not initilized. Ignored.');
+
+        return;
       }
 
       if(dtype == 'DATABASE')

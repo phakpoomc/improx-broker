@@ -10,6 +10,282 @@ export var api_server;
 
 var MOCK = false;
 
+const pmap = [
+    {
+        name: 'Import_kWh',
+        unit: '',
+        group: 'sum',
+        weight: true,
+        alarm: false
+    },
+    {
+        name: 'Export_kWh',
+        unit: '',
+        group: 'sum',
+        weight: true,
+        alarm: false
+    },
+    {
+        name: 'TotalkWh',
+        unit: '',
+        group: 'sum',
+        weight: true,
+        alarm: false
+    },
+    {
+        name: 'Total_kvarh',
+        unit: '',
+        group: 'sum',
+        weight: true,
+        alarm: false
+    },
+    {
+        name: 'Ind_kvarh',
+        unit: '',
+        group: 'sum',
+        weight: true,
+        alarm: false
+    },
+    {
+        name: 'Cap_kvarh',
+        unit: '',
+        group: 'sum',
+        weight: true,
+        alarm: false
+    },
+    {
+        name: 'kVAh',
+        unit: '',
+        group: 'sum',
+        weight: true,
+        alarm: false
+    },
+    {
+        name: 'V1',
+        unit: '(V)',
+        group: 'avg',
+        weight: false,
+        alarm: true
+    },
+    {
+        name: 'V2',
+        unit: '(V)',
+        group: 'avg',
+        weight: false,
+        alarm: true
+    },
+    {
+        name: 'V3',
+        unit: '(V)',
+        group: 'avg',
+        weight: false,
+        alarm: true
+    },
+    {
+        name: 'V12',
+        unit: '(V)',
+        group: 'avg',
+        weight: false,
+        alarm: true
+    },
+    {
+        name: 'V23',
+        unit: '(V)',
+        group: 'avg',
+        weight: false,
+        alarm: true
+    },
+    {
+        name: 'V31',
+        unit: '(V)',
+        group: 'avg',
+        weight: false,
+        alarm: true
+    },
+    {
+        name: 'I1',
+        unit: '(A)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'I2',
+        unit: '(A)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'I3',
+        unit: '(A)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'P1',
+        unit: '(kW)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'P2',
+        unit: '(kW)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'P3',
+        unit: '(kW)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'P_Sum',
+        unit: '(kW)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'Q1',
+        unit: '(kvar)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'Q2',
+        unit: '(kvar)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'Q3',
+        unit: '(kvar)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'Q_Sum',
+        unit: '(kvar)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'S1',
+        unit: '(kVA)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'S2',
+        unit: '(kVA)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'S3',
+        unit: '(kVA)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'S_Sum',
+        unit: '(kVA)',
+        group: 'sum',
+        weight: true,
+        alarm: true
+    },
+    {
+        name: 'PF1',
+        unit: '',
+        group: 'avg',
+        weight: false,
+        alarm: true
+    },
+    {
+        name: 'PF2',
+        unit: '',
+        group: 'avg',
+        weight: false,
+        alarm: true
+    },
+    {
+        name: 'PF3',
+        unit: '',
+        group: 'avg',
+        weight: false,
+        alarm: true
+    },
+    {
+        name: 'PF_Sum',
+        unit: '',
+        group: 'avg',
+        weight: false,
+        alarm: true
+    },
+    {
+        name: 'THD_U1',
+        unit: '(%)',
+        group: 'avg',
+        weight: false,
+        alarm: false
+    },
+    {
+        name: 'THD_U2',
+        unit: '(%)',
+        group: 'avg',
+        weight: false,
+        alarm: false
+    },
+    {
+        name: 'THD_U3',
+        unit: '(%)',
+        group: 'avg',
+        weight: false,
+        alarm: false
+    },
+    {
+        name: 'THD_I1',
+        unit: '(%)',
+        group: 'avg',
+        weight: false,
+        alarm: false
+    },
+    {
+        name: 'THD_I2',
+        unit: '(%)',
+        group: 'avg',
+        weight: false,
+        alarm: false
+    },
+    {
+        name: 'THD_I3',
+        unit: '(%)',
+        group: 'avg',
+        weight: false,
+        alarm: false
+    },
+    {
+        name: 'Frequency',
+        unit: '(Hz)',
+        group: 'avg',
+        weight: false,
+        alarm: true
+    },
+];
+
 function isOnPeak(dt)
 {
     let dayinweek = dt.getDay();
@@ -684,49 +960,6 @@ export function initAPI()
             meter: []
         }
 
-        let pmap = [
-            'Import_kWh',
-            'Export_kWh',
-            'TotalkWh',
-            'Total_kvarh',
-            'Ind_kvarh',
-            'Cap_kvarh',
-            'kVAh',
-            'V1',
-            'V2',
-            'V3',
-            'V12',
-            'V23',
-            'V31',
-            'I1',
-            'I2',
-            'I3',
-            'P1',
-            'P2',
-            'P3',
-            'P_Sum',
-            'Q1',
-            'Q2',
-            'Q3',
-            'Q_Sum',
-            'S1',
-            'S2',
-            'S3',
-            'S_Sum',
-            'PF1',
-            'PF2',
-            'PF3',
-            'PF_Sum',
-            'THD_U1',
-            'THD_U2',
-            'THD_U3',
-            'THD_I1',
-            'THD_I2',
-            'THD_I3',
-            'Frequency',
-            'kWdemand',
-        ];
-
         let initGroup = [];
         let groups = {};
 
@@ -749,9 +982,9 @@ export function initAPI()
                     {
                         groups[g.GroupID].parameter.push(
                             {
-                                name: pmap[i],
-                                display: group[g.GroupID].name + ' - ' + pmap[i],
-                                selectedSeries: 'G_' + String(g.GroupID) + '-' + pmap[i]
+                                name: pmap[i].name + ' ' + pmap[i].unit,
+                                display: group[g.GroupID].name + ' - ' + pmap[i].name + ' ' + pmap[i].unit,
+                                selectedSeries: 'G_' + String(g.GroupID) + '-' + pmap[i].name
                             }
                         );
                     }
@@ -789,9 +1022,9 @@ export function initAPI()
                 for(let j=0; j<pmap.length; j++)
                 {
                     obj.parameter.push({
-                        name: pmap[j],
-                        display: blacknode[sn].meter_list[i].name + ' - ' + pmap[j],
-                        selectedSeries: 'M_' + sn + '_' + blacknode[sn].siteid + '_' + blacknode[sn].nodeid + '_' + String(i) + '-' + pmap[j]
+                        name: pmap[j].name + ' ' + pmap[j].unit,
+                        display: blacknode[sn].meter_list[i].name + ' - ' + pmap[j].name + ' ' + pmap[j].unit,
+                        selectedSeries: 'M_' + sn + '_' + blacknode[sn].siteid + '_' + blacknode[sn].nodeid + '_' + String(i) + '-' + pmap[j].name
                     });
                 }
 
@@ -1075,8 +1308,6 @@ export function initAPI()
 
         let p = req.body;
 
-        console.log(p);
-
         for(let k in p)
         {
             // Get data and fill
@@ -1105,49 +1336,6 @@ export function initAPI()
 
     api.get('/meter_data_table', (req, res) => {
         let ret = [];
-
-        let pmap = [
-            'Import_kWh',
-            'Export_kWh',
-            'TotalkWh',
-            'Total_kvarh',
-            'Ind_kvarh',
-            'Cap_kvarh',
-            'kVAh',
-            'V1',
-            'V2',
-            'V3',
-            'V12',
-            'V23',
-            'V31',
-            'I1',
-            'I2',
-            'I3',
-            'P1',
-            'P2',
-            'P3',
-            'P_Sum',
-            'Q1',
-            'Q2',
-            'Q3',
-            'Q_Sum',
-            'S1',
-            'S2',
-            'S3',
-            'S_Sum',
-            'PF1',
-            'PF2',
-            'PF3',
-            'PF_Sum',
-            'THD_U1',
-            'THD_U2',
-            'THD_U3',
-            'THD_I1',
-            'THD_I2',
-            'THD_I3',
-            'Frequency',
-            'kWdemand',
-        ];
 
         if(MOCK)
         {
@@ -1192,10 +1380,10 @@ export function initAPI()
 
             let sn = Object.keys(blacknode);
 
-            for(let i=0; i<40; i++)
+            for(let i=0; i<pmap.length; i++)
             {
                 ret[i] = {};
-                ret[i]['parameter'] = pmap[i];
+                ret[i]['parameter'] = pmap[i].name + ' ' + pmap[i].unit;
 
                 for(let s of sn)
                 {
@@ -1205,7 +1393,7 @@ export function initAPI()
 
                         if(lastUpdateData[k] && lastUpdateData[k].DateTimeUpdate && now.getTime() - lastUpdateData[k].DateTimeUpdate.getTime() < 60*1000)
                         {
-                            ret[i][blacknode[s].meter_list[j].name] = lastUpdateData[k][pmap[i]];
+                            ret[i][blacknode[s].meter_list[j].name] = lastUpdateData[k][pmap[i].name];
                         }
                         else
                         {
