@@ -89,10 +89,13 @@ app.whenReady().then(async () => {
   });
 
   ipcMain.handle('cmd:updateBN', (_event, cfg, sn) => {
-    console.log('Update: ', cfg);
+    // console.log('Update: ', cfg);
 
     let prev_max = parseInt(blacknode[sn].maxmeter);
     let curr_max = parseInt(cfg.maxmeter);
+
+    // let prev_siteid = blacknode[sn].siteid;
+    // let prev_nodeid = blacknode[sn].nodeid;
 
     let pkt = "t=" + cfg.period + "|ips=" + cfg.mqtt + "|ipc=" + cfg.clientip + "|key=" + cfg.siteid + "/" + cfg.nodeid + "|user=admin|pass=password|tal=" + String(cfg.maxmeter).padStart(2, '0') + "|";
 
@@ -149,6 +152,19 @@ app.whenReady().then(async () => {
       }
     }
 
+    // if(db && db.gmember)
+    // {
+    //   db.gmember.update({
+    //     SiteID: cfg.siteid,
+    //     NodeID: cfg.nodeid
+    //   }, {
+    //     where: {
+    //       SiteID: prev_siteid,
+    //       NodeID: prev_nodeid,
+    //     }
+    //   });
+    // }
+
     writeFile(BN_CFG_PATH, JSON.stringify(blacknode), {flag: 'w'});
 
     aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'ACK/' + sn, 'payload': pkt}, function() {});
@@ -156,7 +172,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('cmd:resetBN', (_event, key) => {
     // Reset based on command or topic
-    console.log('Reset: ', key);
+    // console.log('Reset: ', key);
     let pkt = "reset"
 
     aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'RESET/' + key, 'payload': pkt}, function() {});

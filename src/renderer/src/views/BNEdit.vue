@@ -57,8 +57,8 @@ function save() {
     'period': period,
     'mqtt': mqtt,
     'clientip': clientip,
-    'siteid': siteid,
-    'nodeid': nodeid,
+    'siteid': siteid.replaceAll(/[^\w\d\(\)-]/g, ""),
+    'nodeid': nodeid.replaceAll(/[^\w\d\(\)-]/g, ""),
     'maxmeter': maxmeter,
     'meter_list': meters_info
   };

@@ -137,7 +137,7 @@ export function startMQTT(BN_CFG_PATH)
       let siteid = data_m[3];
       let nodeid = data_m[4];
       let modbusid = parseInt(data_m[5])-1;
-      let snid = sn + "-" + String(modbusid);
+      let snid = sn + "%" + String(modbusid);
 
       if(blacknode.hasOwnProperty(sn))
       {
@@ -194,13 +194,15 @@ export function startMQTT(BN_CFG_PATH)
               return;
             }
 
+            // console.log(siteid + '%' + nodeid + '%' + String(modbusid+1));
+
             try{
               db.energy.create({
                 SerialNo: sn,
                 SiteID: siteid,
                 NodeID: nodeid,
                 ModbusID: String(modbusid+1),
-                snmKey: siteid + '-' + nodeid + '-' + String(modbusid+1),
+                snmKey: siteid + '%' + nodeid + '%' + String(modbusid+1),
                 DateTimeUpdate: dt,
                 Import_kWh: parseFloat(e[0]),
                 Export_kWh: parseFloat(e[1]),
