@@ -1,7 +1,7 @@
 import express from 'express';
 import * as path from 'path'
 
-// import { last } from './global.js';
+import { api_cfg } from './global.js';
 
 // console.log(__dirname);
 
@@ -11,11 +11,15 @@ export function initWeb()
 {
     var web = express();
     let webpath = path.join(process.cwd(), 'webserver');
-    // webpath = "D:\\project\\improx-broker\\dist\\win-unpacked\\webserver\\"
+
     web.use(express.static(webpath));
 
     web.get('/', (req, res) => {
         res.sendFile(path.join(webpath, 'index.html'));
+    });
+
+    web.get('/api_info', (req, res) => {
+        res.json(api_cfg);
     });
 
     web_server = web.listen(8844, () => {

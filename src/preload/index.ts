@@ -40,6 +40,8 @@ if (process.contextIsolated) {
       getCFG: (key) => ipcRenderer.invoke('data:getBlacknodeCFG', key),
       getDBCFG: () => ipcRenderer.invoke('data:getDatabaseCFG'),
       setDBCFG: (dbCFG) => ipcRenderer.invoke('data:setDatabaseCFG', dbCFG),
+      getAPICFG: () => ipcRenderer.invoke('data:getAPICFG'),
+      setAPICFG: (apiCFG) => ipcRenderer.invoke('data:setAPICFG', apiCFG),
       clearMessage: () => ipcRenderer.invoke('data:clearMessage'),
       isBNCBRegistered: () => ipcRenderer.invoke('handler:isBlacknodeCallbackRegistered'),
       updateBN: (bnCFG, sn) => ipcRenderer.invoke('cmd:updateBN', bnCFG, sn),

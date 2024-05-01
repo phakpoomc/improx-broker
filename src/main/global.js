@@ -31,6 +31,7 @@ export var last = {
 export var db = {};
 
 export var db_cfg = {};
+export var api_cfg = {};
 
 export var blacknode = {};
 
@@ -108,6 +109,26 @@ export function loadDBCFG()
   {
     console.log("Fail to load DB Config.");
     last.message = "Fail to load DB info.";
+    last.time = new Date();
+    last.status = "error";
+  }
+}
+
+export function loadAPICFG()
+{
+  if(paths && paths.API_CFG_PATH)
+  {
+    const api_data = readFile(paths.API_CFG_PATH, { encoding: 'utf-8', flag: 'r' });
+
+    let loadedCFG = JSON.parse(api_data);
+
+    api_cfg.protocol = loadedCFG.protocol;
+    api_cfg.port = loadedCFG.port;
+  }
+  else
+  {
+    console.log("Fail to load API Config.");
+    last.message = "Fail to load API info.";
     last.time = new Date();
     last.status = "error";
   }

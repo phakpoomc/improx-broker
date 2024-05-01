@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain/*, safeStorage*/ } from 'electron'
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
-import { last, db_cfg, blacknode, loadGroup, writeFile, paths, loadDBCFG } from './global.js';
+import { last, db_cfg, api_cfg, blacknode, loadGroup, writeFile, paths, loadDBCFG, loadAPICFG } from './global.js';
 
 import { api_server, initAPI } from './api.js';
 import { web_server, initWeb } from './web.js';
@@ -16,6 +16,9 @@ paths['DB_CFG_PATH'] = DB_CFG_PATH;
 
 const DASHBOARD_CFG_PATH = path.resolve(app.getPath('appData'), 'dashboard.info');
 paths['DASHBOARD_CFG_PATH'] = DASHBOARD_CFG_PATH;
+
+const API_CFG_PATH = path.resolve(app.getPath('appData'), 'api.info');
+paths['API_CFG_PATH'] = API_CFG_PATH;
 
 /* MQTT Broker Section */
 import { aedesInst, httpServer, startMQTT } from './mqtt.js';
@@ -216,6 +219,18 @@ app.whenReady().then(async () => {
     syncDB();
   });
 
+  ipcMain.handle('data:getAPICFG', (_event) => {
+    return api_cfg;
+  });
+
+  ipcMain.handle('data:setAPICFG', (_event, apiCFG) => {
+    api_cfg.protocol = apiCFG.protocol;
+    api_cfg.port = apiCFG.port;
+    api_cfg.key = apiCFG.key;
+    
+    writeFile(API_CFG_PATH, JSON.stringify(api_cfg), {flag: 'w'});
+  });
+
   ipcMain.handle('data:clearMessage', (_event) => {
     last['message'] = '';
     last['time'] = new Date();
@@ -290,6 +305,7 @@ ipcMain.on('authenticate', async (_event, args) => {
       initWeb();
       initAPI();
       loadDBCFG();
+      loadAPICFG();
       await syncDB();
       await loadGroup();
     }

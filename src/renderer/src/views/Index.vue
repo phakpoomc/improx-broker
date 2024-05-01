@@ -153,7 +153,7 @@ function getIconClasses(status) {
       Datetime {{ dt.toLocaleString() }}
       <br>
       <router-link :to="'/sql_edit'" type='button'
-                      class="btn btn-outline-secondary float-end mt-3">Edit DB Connection</router-link>
+                      class="btn btn-outline-secondary float-end mt-3">Edit Connection</router-link>
 
     </template>
       

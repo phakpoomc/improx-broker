@@ -13,9 +13,12 @@ user.value = await window.mainprocess.getUsername();
 var dt = new Date();
 
 const bnCFG = ref();
+const apiCFG = ref();
 
 bnCFG.value = await window.mainprocess.getDBCFG();
 var dialect = bnCFG.value.dialect;
+
+apiCFG.value = await window.mainprocess.getAPICFG();
 
 let db_choices = [{value: 'mysql', text: 'MySQL'},
                   {value: 'sqlite', text: 'SQLite'},
@@ -44,6 +47,22 @@ function save() {
 
   window.mainprocess.setDBCFG(obj);
 
+  router.push('/');
+}
+
+function saveAPI()
+{
+  let protocol = document.getElementById('protocol').value;
+  let port = document.getElementById('api-port').value;
+  let key = document.getElementById('api-key').value;
+
+  let obj = {
+    'protocol': protocol,
+    'port': port,
+    'key': key
+  };
+
+  window.mainprocess.setAPICFG(obj);
   router.push('/');
 }
 
@@ -111,6 +130,46 @@ function save() {
       <div class="row mt-3">
         <div class="col-12 d-flex justify-content-end">
           <button class="btn btn-secondary ms-2" @click="save()">
+            Save
+          </button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-12">
+          <div class="h2 mb-4">
+            API Config
+          </div>
+        </div>
+      </div>
+      <div class="card card-body bg-light border-light mb-4">
+        <div class="row mb-4">
+          <div class="col-4">
+            <div class="setting-input mb-2">
+              <label class="mb-2 text-muted" for="host">Protocol</label>
+              <input id="protocol" type="text" class="form-control" name="protocol" :value="apiCFG.protocol" required
+                autofocus>
+            </div>
+          </div>
+          <div class="col-2">
+            <div class="setting-input mb-2">
+              <label class="mb-2 text-muted" for="port">Port</label>
+              <input id="api-port" type="text" class="form-control" name="api-port" :value="apiCFG.port" required>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="setting-input mb-2">
+              <label class="mb-2 text-muted" for="key">Key</label>
+              <input id="api-key" type="text" class="form-control" name="api-key" :value="apiCFG.key" required>
+            </div>
+          </div>
+        
+        </div>
+      </div>
+
+      <div class="row mt-3">
+        <div class="col-12 d-flex justify-content-end">
+          <button class="btn btn-secondary ms-2" @click="saveAPI()">
             Save
           </button>
         </div>
