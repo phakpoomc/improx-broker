@@ -35,8 +35,8 @@ var gettimeTimeout;
 function createWindow(): void {
   // Create the browser window.
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 1024,
+    width: 1000,
+    height: 700,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux'
