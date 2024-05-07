@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain/*, safeStorage*/ } from 'electron'
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
-import { last, db_cfg, api_cfg, blacknode, loadGroup, writeFile, paths, loadDBCFG, loadAPICFG } from './global.js';
+import { last, db_cfg, api_cfg, blacknode, loadGroup, writeFile, paths, loadDBCFG, loadAPICFG, initAlarm, checkHeartbeat } from './global.js';
 
 import { api_server, initAPI } from './api.js';
 import { web_server, initWeb } from './web.js';
@@ -19,6 +19,9 @@ paths['DASHBOARD_CFG_PATH'] = DASHBOARD_CFG_PATH;
 
 const API_CFG_PATH = path.resolve(app.getPath('appData'), 'api.info');
 paths['API_CFG_PATH'] = API_CFG_PATH;
+
+const PARAM_CFG_PATH = path.resolve(app.getPath('appData'), 'param.info');
+paths['PARAM_CFG_PATH'] = PARAM_CFG_PATH;
 
 /* MQTT Broker Section */
 import { aedesInst, httpServer, startMQTT } from './mqtt.js';
@@ -268,6 +271,7 @@ app.on('before-quit', function () {
   clearInterval(secondInterval);
   clearInterval(minuteInterval);
   clearInterval(gettimeInterval);
+  clearInterval(heartbeatInterval);
 
   if(gettimeTimeout)
   {
@@ -306,6 +310,7 @@ ipcMain.on('authenticate', async (_event, args) => {
       initAPI();
       loadDBCFG();
       loadAPICFG();
+      initAlarm();
       await syncDB();
       await loadGroup();
     }
@@ -393,6 +398,18 @@ let gettimeInterval = setInterval(() => {
 
   }
 }, 5*1000);
+
+let heartbeatInterval = setInterval(() => {
+  // sendtime every minute on the 0-9th second
+  if(authenticated)
+  {
+    if(aedesInst && !aedesInst.closed)
+    {
+      checkHeartbeat();
+    }
+
+  }
+}, 15*60*1000);
 
 // let gettimeInterval = setInterval(() => {
 //   // sendtime every minute on the 0-9th second

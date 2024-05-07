@@ -32,6 +32,11 @@ export var db = {};
 
 export var db_cfg = {};
 export var api_cfg = {};
+export var param_cfg = {};
+export var param_mm = {};
+export var lastAlarm = {};
+
+export var holidays = {};
 
 export var blacknode = {};
 
@@ -41,6 +46,58 @@ export var lastUpdateTime = {};
 export var lastUpdateData = {};
 
 export var paths = {};
+
+var MAX_HEARTBEAT = 20*60*1000;
+
+export async function initHoliday()
+{
+  if(db && db.holiday)
+  {
+    let h = await db.holiday.findAll();
+
+    for(let d of h)
+    {
+      let k = String(d.getFullYear()) + '-' + String(d.getMonth()) + String(d.getDate()); 
+
+      holidays[k] = true;
+    }
+  }
+}
+
+export function checkHeartbeat()
+{
+  let now = new Date();
+
+  let keys = Object.keys(lastUpdateTime);
+
+  for(let k of keys)
+  {
+    if(now.getTime() - lastUpdateTime[k].getTime() > MAX_HEARTBEAT)
+    {
+      if(db && db.alert)
+      {
+        let arr = k.split("%");
+        let sn = arr[0];
+        let modbusid = arr[1];
+
+        let id = blacknode[sn].SiteID + "%" + blacknode[sn].NodeID + "%" + modbusid;
+
+        db.alarm.create({
+          SerialNo: blacknode[sn].SerialNo,
+          SiteID: blacknode[sn].SiteID,
+          NodeID: blacknode[sn].NodeID,
+          ModbusID: modbusid,
+          snmKey: id,
+          DateTime: now,
+          type: 'METER_DC',
+          status: 'unread'
+        });
+
+        lastAlarm[id] = now;
+      }
+    }
+  }
+}
 
 export function loadBNInfoFromLocal(BN_CFG_PATH)
 {
@@ -131,6 +188,115 @@ export function loadAPICFG()
     last.message = "Fail to load API info.";
     last.time = new Date();
     last.status = "error";
+  }
+}
+
+export function initAlarm()
+{
+  if(db && db.alarm)
+  {
+    let latest = db.alarm.findAll({
+      order: ['DateTime', 'DESC'],
+      group: 'snmKey'
+    });
+
+    for(let l of latest)
+    {
+      lastAlarm[l.snmKey] = l.DateTime;
+    }
+  }
+
+  if(paths && paths.PARAM_CFG_PATH)
+  {
+    const param_data = readFile(paths.PARAM_CFG_PATH, { encoding: 'utf-8', flag: 'r' });
+    let loadedCFG = JSON.parse(param_data);
+
+    if(loadedCFG.minimum_realert)
+    {
+      param_cfg.minimum_realert = loadedCFG.minimum_realert;
+    }
+    else
+    {
+      param_cfg.minimum_realert = 14*60*1000;
+    }
+
+    if(loadedCFG.mm)
+    {
+      param_mm = loadedCFG.mm;
+    }
+    else
+    {
+      param_mm = {
+        V1: {min: 0, max:230},
+        V2: {min: 0, max:230},
+        V3: {min: 0, max:230},
+        V12: {min: 0, max:230},
+        V23: {min: 0, max:230},
+        V31: {min: 0, max:230},
+        I1: {min: 0, max:100},
+        I2: {min: 0, max:100},
+        I3: {min: 0, max:100},
+        P1: {min: 0, max:230000},
+        P2: {min: 0, max:230000},
+        P3: {min: 0, max:230000},
+        P_Sum: {min: 0, max:230000},
+        Q1: {min: 0, max:1000000},
+        Q2: {min: 0, max:1000000},
+        Q3: {min: 0, max:1000000},
+        Q_Sum: {min: 0, max:1000000},
+        S1: {min: 0, max:1000000},
+        S2: {min: 0, max:1000000},
+        S3: {min: 0, max:1000000},
+        S_Sum: {min: 0, max:1000000},
+        PF1: {min: -1, max:1},
+        PF2: {min: -1, max:1},
+        PF3: {min: -1, max:1},
+        PF_Sum: {min: -1, max:1},
+        Frequency: {min: 0, max:120},
+      };
+    }
+  }
+  else
+  {
+    console.log("Fail to load Parameter Config.");
+    last.message = "Fail to load Parameter info.";
+    last.time = new Date();
+    last.status = "error";
+  }
+}
+
+export function checkOverRange(obj)
+{
+  let keys = Object.keys(param_mm);
+  let now = new Date();
+
+  let id = obj['SiteID'] + '%' + obj['NodeID'] + '%' + obj['ModbusID'];
+
+  if(lastAlarm[id] && now.getTime() - lastAlarm[id].getTime() < param_cfg['mininum_realert'])
+  {
+    return;
+  }
+
+  for(let k of keys)
+  {
+    if(obj[k] < param_mm[k].min || obj[k] > param_mm[k].max)
+    {
+      if(db && db.alarm)
+      {
+        db.alarm.create({
+          SerialNo: obj.SerialNo,
+          SiteID: obj.SiteID,
+          NodeID: obj.NodeID,
+          ModbusID: obj.ModbusID,
+          snmKey: id,
+          DateTime: now,
+          type: 'OVER_RANGE',
+          status: 'unread'
+        });
+
+        lastAlarm[id] = now;
+      }
+    }
   }
 }
 

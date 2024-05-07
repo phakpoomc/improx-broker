@@ -29,7 +29,7 @@ export async function syncDB()
             db.energy = null;
             db.group = null;
             db.gmember = null;
-            // db.meter = null;
+            db.alarm = null;
 
             last['message'] = 'Cannot connect to database.';
             last['time'] = new Date();
@@ -123,21 +123,23 @@ export async function syncDB()
             }
         );
 
-        // db.meter = sequelize.define(
-        //     'meter',
-        //     {
-        //         id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
-        //         SerialNo: { type: DataTypes.STRING, field: 'SerialNo' },
-        //         SiteID: { type: DataTypes.STRING, field: 'SiteID' },
-        //         NodeID: { type: DataTypes.STRING, field: 'NodeID' },
-        //         ModbusID: { type: DataTypes.STRING, field: 'ModbusID' },
-        //         name: { type: DataTypes.STRING, field: 'name' },
-        //         type: { type: DataTypes.STRING, field: 'type' }
-        //     },
-        //     {
-        //         tableName: 'meter' 
-        //     }
-        // );
+        db.alarm = sequelize.define(
+            'alarm',
+            {
+                id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
+                SerialNo: { type: DataTypes.STRING, field: 'SerialNo' },
+                SiteID: { type: DataTypes.STRING, field: 'SiteID' },
+                NodeID: { type: DataTypes.STRING, field: 'NodeID' },
+                ModbusID: { type: DataTypes.STRING, field: 'ModbusID' },
+                snmKey: { type: DataTypes.STRING, field: 'snmKey' },
+                DateTime: { type: DataTypes.DATE, field: 'DateTime'},
+                type: { type: DataTypes.STRING, field: 'type' },
+                status: { type: DataTypes.STRING, field: 'status'}
+            },
+            {
+                tableName: 'alarm' 
+            }
+        );
     
         try{
             await sequelize.sync();
@@ -152,7 +154,7 @@ export async function syncDB()
             db.energy = null;
             db.group = null;
             db.gmember = null;
-            // db.meter = null;
+            db.alarm = null;
 
             last['message'] = 'Cannot sync database table.';
             last['time'] = new Date();
@@ -167,7 +169,7 @@ export async function syncDB()
         db.energy = null;
         db.group = null;
         db.gmember = null;
-        // db.meter = null;
+        db.alarm = null;
 
         last['message'] = 'Database is not set up.';
         last['time'] = new Date();

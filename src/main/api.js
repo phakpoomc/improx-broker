@@ -1,8 +1,8 @@
 import express from 'express';
 import fileUpload from 'express-fileupload';
 import cors from 'cors';
-import { Op } from 'sequelize';
-import { lastUpdateData, lastUpdateTime, blacknode, db, paths, writeFile, loadBNInfoFromLocal, loadDBCFG, group, loadGroup } from './global.js';
+import { Op, fn, col } from 'sequelize';
+import { lastUpdateData, lastUpdateTime, blacknode, db, paths, writeFile, loadBNInfoFromLocal, loadDBCFG, group, loadGroup, holidays } from './global.js';
 import { createReadStream } from 'fs';
 import { syncDB } from './db.js';
 
@@ -296,6 +296,14 @@ function isOnPeak(dt)
         return false;
     }
 
+    // In case of holidays...
+    let k = String(dt.getFullYear()) + String(dt.getMonth()) + String(dt.getDate());
+
+    if(holidays[k])
+    {
+        return false;
+    }
+
     // Mon - Fri
     let hours = dt.getHours();
     let min = dt.getMinutes();
@@ -312,7 +320,7 @@ function isOnPeak(dt)
         }
     }
 
-    // In case of holidays...
+    
     return true;
 }
 
@@ -1506,6 +1514,95 @@ export function initAPI()
 
             res.send("Cannot save dashboard configuration.");
         }
+    });
+
+    api.get('/alarm/count', async (req, res) => {
+        try {
+            let cnt = await db.alarm.findAll({where: {status: 'unread'}});
+
+            res.send(String(cnt.length));
+        } catch(err) {
+            console.log('Cannot count unread alarms.');
+            res.send("0");
+        }
+    });
+
+    api.get('/alarm/view/:page', async (req, res) => {
+        let limit = 20;
+        let ret = [];
+
+        let typemap = {
+            "BN_DC": "Blacknode Disconnected",
+            "METER_DC": "Meter Disconnected",
+            "OVER_RANGE": "Parameter Over-range"
+        }
+
+        try {
+            let alarms = await db.alarm.findAll({
+                limit: limit, offset: parseInt(req.params.page)*limit
+            });
+
+            for(let a of alarms)
+            {
+                let dev = "";
+
+                if(a.ModbusID != 0)
+                {
+                    dev = blacknode[a.SerialNo].meter_list[a.ModbusID].name;
+                }
+                else
+                {
+                    dev = blacknode[a.SerialNo].name;
+                }
+
+                ret.push({
+                    id: a.id,
+                    time: a.DateTime.toLocaleString(),
+                    event: typemap[a.type],
+                    device: dev,
+                    status: a.status
+                });
+            }
+        } catch (err) {
+            console.log("Cannot retrieve alarm data.");
+        }
+
+        res.json(ret);
+    });
+
+    api.post('/alarm/update/:status', async (req, res) => {
+        if(req.params.status == "delete")
+        {
+            try {
+                await db.alarm.destroy({
+                    where: {id: req.body}
+                });
+    
+                res.send("SUCCESS");
+            } catch (err) {
+                console.log("Cannot delete ", req.body);
+                res.send("Cannot delete.");
+            }
+        }
+        else if(req.params.status == "read" || req.params.status == "unread" || req.params.status == "archive")
+        {
+            try {
+                await db.alarm.update({status: req.params.status}, {
+                    where: {id: req.body}
+                });
+    
+                res.send("SUCCESS");
+            } catch (err) {
+                console.log("Cannot update status ", req.body);
+                res.send("Cannot update status.");
+            }
+        }
+        else
+        {
+            console.log("Receive an invalid alarm API.");
+            res.send("Invalid command.");
+        }
+        
     });
 
     api_server = api.listen(8888, () => {

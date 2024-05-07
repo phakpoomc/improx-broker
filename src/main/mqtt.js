@@ -1,6 +1,6 @@
 import Aedes from 'aedes'
 import { createServer as wsCreateServer } from 'aedes-server-factory'
-import { blacknode, loadBNInfoFromLocal, writeFile, last, lastUpdateTime, lastUpdateData, db } from './global.js';
+import { lastAlarm, checkOverRange, blacknode, loadBNInfoFromLocal, writeFile, last, lastUpdateTime, lastUpdateData, db } from './global.js';
 
 export var aedesInst; 
 export var httpServer; 
@@ -21,6 +21,23 @@ export function startMQTT(BN_CFG_PATH)
       {
         blacknode[sn].status = 'off';
         blacknode[sn].last_update = new Date();
+
+        if(db && db.alert)
+        {
+          let id = blacknode[sn].SiteID + "%" + blacknode[sn].NodeID + "%0";
+          db.alarm.create({
+            SerialNo: blacknode[sn].SerialNo,
+            SiteID: blacknode[sn].SiteID,
+            NodeID: blacknode[sn].NodeID,
+            ModbusID: 0,
+            snmKey: id,
+            DateTime: now,
+            type: 'BN_DC',
+            status: 'unread'
+          });
+
+          lastAlarm[id] = blacknode[sn].last_update;
+        }
       }
     }
 
@@ -34,6 +51,23 @@ export function startMQTT(BN_CFG_PATH)
       {
         blacknode[sn].status = 'error';
         blacknode[sn].last_update = new Date();
+
+        if(db && db.alert)
+        {
+          let id = blacknode[sn].SiteID + "%" + blacknode[sn].NodeID + "%0";
+          db.alarm.create({
+            SerialNo: blacknode[sn].SerialNo,
+            SiteID: blacknode[sn].SiteID,
+            NodeID: blacknode[sn].NodeID,
+            ModbusID: 0,
+            snmKey: id,
+            DateTime: now,
+            type: 'BN_DC',
+            status: 'unread'
+          });
+
+          lastAlarm[id] = blacknode[sn].last_update;
+        }
       }
     }
 
@@ -197,7 +231,7 @@ export function startMQTT(BN_CFG_PATH)
             // console.log(siteid + '%' + nodeid + '%' + String(modbusid+1));
 
             try{
-              db.energy.create({
+              let obj = {
                 SerialNo: sn,
                 SiteID: siteid,
                 NodeID: nodeid,
@@ -244,9 +278,12 @@ export function startMQTT(BN_CFG_PATH)
                 THD_I3: parseFloat(e[37]),
                 Frequency: parseFloat(e[38]),
                 kWdemand: parseFloat(e[2])*4,
-              });
+              };
 
-              
+              checkOverRange(obj);
+
+              db.energy.create(obj);
+
               aedesInst.publish({cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'LOG/DATABASE/' + sn + "/" + siteid + "/" + nodeid + "/" + String(modbusid+1), 'payload': "OK"}, function() {});
             }
             catch(err){
@@ -305,7 +342,7 @@ export function startMQTT(BN_CFG_PATH)
                 lastFifteenData = lastUpdateData[snid].lastFifteenData;
               }
 
-              Object.assign(lastUpdateData[snid], {
+              let obj = {
                 SerialNo: sn,
                 SiteID: siteid,
                 NodeID: nodeid,
@@ -353,7 +390,11 @@ export function startMQTT(BN_CFG_PATH)
                 kWdemand: parseFloat(e[2])*4,
                 lastFifteenTime: lastFifteenTime,
                 lastFifteenData: lastFifteenData
-              });
+              };
+
+              checkOverRange(obj);
+
+              Object.assign(lastUpdateData[snid], obj);
             }
           }
         }
