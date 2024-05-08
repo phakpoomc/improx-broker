@@ -124,7 +124,7 @@ function back() {
 
                 <!-- <router-link to="/" class="nav-link active text-light">Home</router-link> -->
             </div>
-            <div class="" id="navbarNavDropdown">
+            <div class="navbar navbar-expand-sm" id="navbarNavDropdown">
                 <ul class="navbar-nav">
                     <!-- <li class="nav-item d-flex align-items-center me-3">
                         <div class="text text-light">

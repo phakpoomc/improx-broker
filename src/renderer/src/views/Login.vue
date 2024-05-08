@@ -7,7 +7,7 @@
                 <div
                     class="col-md-6 cover-banner d-none d-sm-flex justify-content-center align-items-center"
                 >
-                    <img src="/src/assets/img/black_node_logo_256-01.png" class="logo-inbn" />
+                    <img src="/src/assets/img/black_node_logo_256-01.png" class="logo-inbn" style="width: 400px;"/>
                 </div>
                 <div class="col-12 col-md-6">
                     <div class="card-body p-3 p-md-4 p-xl-5">
