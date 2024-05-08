@@ -15,7 +15,21 @@ const bnCFG = ref()
 const apiCFG = ref()
 
 bnCFG.value = await window.mainprocess.getDBCFG()
-var dialect = bnCFG.value.dialect
+
+var dialect;
+
+if(bnCFG.value)
+{
+    dialect = bnCFG.value.dialect;
+}
+else
+{
+    bnCFG.value = {
+        dialect: "",
+        host: "",
+    }
+}
+
 
 apiCFG.value = await window.mainprocess.getAPICFG()
 

@@ -1,7 +1,7 @@
 import express from 'express'
 import * as path from 'path'
 
-import { api_cfg } from './global.js'
+import { meta_cfg } from './global.js'
 
 // console.log(__dirname);
 
@@ -18,7 +18,7 @@ export function initWeb() {
     })
 
     web.get('/api_info', (req, res) => {
-        res.json(api_cfg)
+        res.json(meta_cfg.api)
     })
 
     web_server = web.listen(8844, () => {

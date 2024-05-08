@@ -4,16 +4,12 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import {
     last,
-    db_cfg,
-    api_cfg,
+    meta_cfg,
     blacknode,
-    loadGroup,
     writeFile,
     paths,
-    loadDBCFG,
-    loadAPICFG,
-    initAlarm,
-    initHoliday,
+    loadMetaCFG,
+    loadMetaDB,
     checkHeartbeat
 } from './global.js'
 
@@ -24,17 +20,11 @@ import { syncDB } from './db.js'
 // const WEB_SERVER_PATH = path.resolve(app.getAppPath(), 'webserver');
 
 /* DB Section */
-const DB_CFG_PATH = path.resolve(app.getPath('appData'), 'db.info')
-paths['DB_CFG_PATH'] = DB_CFG_PATH
+const META_CFG_PATH = path.resolve(app.getPath('appData'), 'meta.cfg')
+paths['META_CFG_PATH'] = META_CFG_PATH
 
 const DASHBOARD_CFG_PATH = path.resolve(app.getPath('appData'), 'dashboard.info')
 paths['DASHBOARD_CFG_PATH'] = DASHBOARD_CFG_PATH
-
-const API_CFG_PATH = path.resolve(app.getPath('appData'), 'api.info')
-paths['API_CFG_PATH'] = API_CFG_PATH
-
-const PARAM_CFG_PATH = path.resolve(app.getPath('appData'), 'param.info')
-paths['PARAM_CFG_PATH'] = PARAM_CFG_PATH
 
 /* MQTT Broker Section */
 import { aedesInst, httpServer, startMQTT } from './mqtt.js'
@@ -234,32 +224,33 @@ app.whenReady().then(async () => {
     })
 
     ipcMain.handle('data:getDatabaseCFG', (_event) => {
-        return db_cfg
+        return meta_cfg.db
     })
 
-    ipcMain.handle('data:setDatabaseCFG', (_event, dbCFG) => {
-        db_cfg.host = dbCFG.host
-        db_cfg.port = dbCFG.port
-        db_cfg.dialect = dbCFG.dialect
-        db_cfg.dbname = dbCFG.dbname
-        db_cfg.username = dbCFG.username
-        db_cfg.password = dbCFG.password
+    ipcMain.handle('data:setDatabaseCFG', async (_event, dbCFG) => {
+        meta_cfg.db.host = dbCFG.host
+        meta_cfg.db.port = dbCFG.port
+        meta_cfg.db.dialect = dbCFG.dialect
+        meta_cfg.db.dbname = dbCFG.dbname
+        meta_cfg.db.username = dbCFG.username
+        meta_cfg.db.password = dbCFG.password
 
-        writeFile(DB_CFG_PATH, JSON.stringify(db_cfg), { flag: 'w' })
+        writeFile(META_CFG_PATH, JSON.stringify(meta_cfg), { flag: 'w' })
 
-        syncDB()
+        await syncDB()
+        await loadMetaDB()
     })
 
     ipcMain.handle('data:getAPICFG', (_event) => {
-        return api_cfg
+        return meta_cfg.api
     })
 
     ipcMain.handle('data:setAPICFG', (_event, apiCFG) => {
-        api_cfg.protocol = apiCFG.protocol
-        api_cfg.port = apiCFG.port
-        api_cfg.key = apiCFG.key
+        meta_cfg.api.protocol = apiCFG.protocol
+        meta_cfg.api.port = apiCFG.port
+        meta_cfg.api.key = apiCFG.key
 
-        writeFile(API_CFG_PATH, JSON.stringify(api_cfg), { flag: 'w' })
+        writeFile(META_CFG_PATH, JSON.stringify(meta_cfg), { flag: 'w' })
     })
 
     ipcMain.handle('data:clearMessage', (_event) => {
@@ -334,13 +325,10 @@ ipcMain.on('authenticate', async (_event, args) => {
             startMQTT(BN_CFG_PATH)
             initWeb()
             initAPI()
-            loadDBCFG()
-            loadAPICFG()
+            loadMetaCFG()
             
             await syncDB()
-            await initAlarm()
-            await initHoliday()
-            await loadGroup()
+            await loadMetaDB()
         }
     } else {
         authenticated = false

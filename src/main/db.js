@@ -1,21 +1,21 @@
 import { Sequelize, DataTypes } from 'sequelize'
-import { last, db, db_cfg } from './global.js'
+import { last, db, meta_cfg } from './global.js'
 
 export async function syncDB() {
     if (
-        db_cfg['dbname'] &&
-        db_cfg['dbname'] != '' &&
-        db_cfg['host'] &&
-        db_cfg['host'] != '' &&
-        db_cfg['port'] &&
-        db_cfg['port'] != '' &&
-        db_cfg['dialect'] &&
-        db_cfg['dialect'] != ''
+        meta_cfg.db['dbname'] &&
+        meta_cfg.db['dbname'] != '' &&
+        meta_cfg.db['host'] &&
+        meta_cfg.db['host'] != '' &&
+        meta_cfg.db['port'] &&
+        meta_cfg.db['port'] != '' &&
+        meta_cfg.db['dialect'] &&
+        meta_cfg.db['dialect'] != ''
     ) {
-        const sequelize = new Sequelize(db_cfg['dbname'], db_cfg['username'], db_cfg['password'], {
-            host: db_cfg['host'],
-            port: db_cfg['port'],
-            dialect: db_cfg['dialect'],
+        const sequelize = new Sequelize(meta_cfg.db['dbname'], meta_cfg.db['username'], meta_cfg.db['password'], {
+            host: meta_cfg.db['host'],
+            port: meta_cfg.db['port'],
+            dialect: meta_cfg.db['dialect'],
             define: {
                 timestamps: false
             },

@@ -9,13 +9,14 @@ import {
     db,
     paths,
     writeFile,
+    meta_cfg,
     loadBNInfoFromLocal,
-    loadDBCFG,
     group,
     loadGroup,
     holidays,
-    param_mm,
-    initHoliday
+    loadHoliday,
+    loadAlarm,
+    loadMetaDB
 } from './global.js'
 import { createReadStream } from 'fs'
 import { syncDB } from './db.js'
@@ -1250,24 +1251,23 @@ export function initAPI() {
 
     // Management Section
     api.get('/backup_impro', (req, res) => {
-        if (paths && paths['DB_CFG_PATH']) {
-            res.setHeader('Content-disposition', 'attachment; filename=db.info')
+
+        if (paths && paths['META_CFG_PATH']) {
+            res.setHeader('Content-disposition', 'attachment; filename=meta.info')
             res.setHeader('Content-type', 'application/json')
 
-            var filestream = createReadStream(paths['DB_CFG_PATH'])
+            var filestream = createReadStream(paths['META_CFG_PATH'])
             filestream.pipe(res)
         }
     })
 
-    api.post('/backup_impro', (req, res) => {
-        if (paths && paths['DB_CFG_PATH']) {
+    api.post('/backup_impro', async (req, res) => {
+        if (paths && paths['META_CFG_PATH']) {
             try {
-                JSON.parse(req.files.file.data.toString())
+                writeFile(paths['META_CFG_PATH'], req.files.file.data, { flag: 'w' })
 
-                writeFile(paths['DB_CFG_PATH'], req.files.file.data, { flag: 'w' })
-
-                loadDBCFG()
-                syncDB()
+                await syncDB();
+                await loadMetaDB();
 
                 res.send('SUCCESS')
             } catch (e) {
@@ -1291,8 +1291,6 @@ export function initAPI() {
     api.post('/backup_bn', (req, res) => {
         if (paths && paths['BN_CFG_PATH']) {
             try {
-                JSON.parse(req.files.file.data.toString())
-
                 writeFile(paths['BN_CFG_PATH'], req.files.file.data, { flag: 'w' })
 
                 loadBNInfoFromLocal(paths['BN_CFG_PATH'])
@@ -1455,14 +1453,14 @@ export function initAPI() {
     })
 
     api.get('/alarm/count', async (req, res) => {
-        // try {
+        try {
             let cnt = await db.alarm.findAll({ where: { status: 'unread' } })
 
             res.send(String(cnt.length))
-        // } catch (err) {
-        //     console.log('Cannot count unread alarms.')
-        //     res.send('0')
-        // }
+        } catch (err) {
+            console.log('Cannot count unread alarms.')
+            res.send('0')
+        }
     })
 
     api.get('/alarm/view/:page', async (req, res) => {
@@ -1512,6 +1510,7 @@ export function initAPI() {
                     where: { id: req.body }
                 })
 
+                await loadAlarm();
                 res.send('SUCCESS')
             } catch (err) {
                 console.log('Cannot delete ', req.body)
@@ -1530,6 +1529,7 @@ export function initAPI() {
                     }
                 )
 
+                await loadAlarm();
                 res.send('SUCCESS')
             } catch (err) {
                 console.log('Cannot update status ', req.body)
@@ -1542,19 +1542,28 @@ export function initAPI() {
     })
 
     api.post('/set_parameter', async (req, res) => {
-        let keys = Object.keys(req.body);
+        if (paths && paths['META_CFG_PATH']) {
+            try {
+                let keys = Object.keys(req.body);
 
-        for(let k of keys)
-        {
-            param_mm[k].min = req.body[k].min;
-            param_mm[k].max = req.body[k].max;
+                for(let k of keys)
+                {
+                    meta_cfg.param.mm[k].min = req.body[k].min;
+                    meta_cfg.param.mm[k].max = req.body[k].max;
+                }
+
+                writeFile(paths['META_CFG_PATH'], JSON.stringify(meta_cfg), { flag: 'w' });
+                res.send("SUCCESS");
+            } catch(err) {
+                console.log("Cannot save parameter.");
+                res.send("Cannot save parameter.");
+            }
+            
         }
-
-        res.send("SUCCESS");
     });
 
     api.get('/parameter', async (req, res) => {
-        res.json(param_mm);
+        res.json(meta_cfg.param.mm);
     });
 
     api.get('/holiday', async (req, res) => {
@@ -1568,7 +1577,7 @@ export function initAPI() {
                 name: req.body.name
             });
 
-            await initHoliday();
+            await loadHoliday();
 
             res.send("SUCCESS");
         } catch (err) {
@@ -1591,7 +1600,7 @@ export function initAPI() {
                     }
                 )
 
-                await initHoliday();
+                await loadHoliday();
                 res.send("SUCCESS");
                 
             } catch (err) {
@@ -1606,7 +1615,7 @@ export function initAPI() {
                     where: { id: parseInt(req.params.id) }
                 });
 
-                await initHoliday();
+                await loadHoliday();
                 res.send("SUCCESS");
 
             } catch (err) {
