@@ -1,14 +1,28 @@
-import express from 'express';
-import fileUpload from 'express-fileupload';
-import cors from 'cors';
-import { Op, fn, col } from 'sequelize';
-import { lastUpdateData, lastUpdateTime, blacknode, db, paths, writeFile, loadBNInfoFromLocal, loadDBCFG, group, loadGroup, holidays } from './global.js';
-import { createReadStream } from 'fs';
-import { syncDB } from './db.js';
+import express from 'express'
+import fileUpload from 'express-fileupload'
+import cors from 'cors'
+import { Op } from 'sequelize'
+import {
+    lastUpdateData,
+    lastUpdateTime,
+    blacknode,
+    db,
+    paths,
+    writeFile,
+    loadBNInfoFromLocal,
+    loadDBCFG,
+    group,
+    loadGroup,
+    holidays,
+    param_mm,
+    initHoliday
+} from './global.js'
+import { createReadStream } from 'fs'
+import { syncDB } from './db.js'
 
-export var api_server;
+export var api_server
 
-var MOCK = false;
+var MOCK = false
 
 const pmap = [
     {
@@ -283,121 +297,104 @@ const pmap = [
         group: 'avg',
         weight: false,
         alarm: true
-    },
-];
+    }
+]
 
-function isOnPeak(dt)
-{
-    let dayinweek = dt.getDay();
+function isOnPeak(dt) {
+    let dayinweek = dt.getDay()
 
     // Saturday or Sunday
-    if(dayinweek == 0 || dayinweek == 6)
-    {
-        return false;
+    if (dayinweek == 0 || dayinweek == 6) {
+        return false
     }
 
     // In case of holidays...
-    let k = String(dt.getFullYear()) + String(dt.getMonth()) + String(dt.getDate());
+    let k = String(dt.getFullYear()) + String(dt.getMonth()) + String(dt.getDate())
 
-    if(holidays[k])
-    {
-        return false;
+    if (holidays[k]) {
+        return false
     }
 
     // Mon - Fri
-    let hours = dt.getHours();
-    let min = dt.getMinutes();
+    let hours = dt.getHours()
+    let min = dt.getMinutes()
 
-    if(hours < 9 || hours > 22)
-    {
-        return false;
-    }
-    else
-    {
-        if((hours == 9 && min == 0) || (hours == 22 && min > 0))
-        {
-            return false;
+    if (hours < 9 || hours > 22) {
+        return false
+    } else {
+        if ((hours == 9 && min == 0) || (hours == 22 && min > 0)) {
+            return false
         }
     }
 
-    
-    return true;
+    return true
 }
 
-export function initAPI()
-{
-    const api = express();
-    api.use(cors());
-    api.use(express.json());
-    api.use(express.urlencoded({extended: true}));
-    api.use(fileUpload());
+export function initAPI() {
+    const api = express()
+    api.use(cors())
+    api.use(express.json())
+    api.use(express.urlencoded({ extended: true }))
+    api.use(fileUpload())
 
     api.get('/dashboard_card', async (req, res) => {
-        let ret = {};
+        let ret = {}
 
-        if(MOCK)
-        {
+        if (MOCK) {
             ret = {
-                't_last_month': Math.floor(Math.random() * 1000), 
-                't_this_month': Math.floor(Math.random() * 1000), 
-                't_yesterday': Math.floor(Math.random() * 1000), 
-                't_today': Math.floor(Math.random() * 1000), 
-                'b_last_month': Math.floor(Math.random() * 1000), 
-                'b_this_month': Math.floor(Math.random() * 1000), 
-                'b_yesterday': Math.floor(Math.random() * 1000), 
-                'b_today': Math.floor(Math.random() * 1000), 
-            };
-        }
-        else
-        {
+                t_last_month: Math.floor(Math.random() * 1000),
+                t_this_month: Math.floor(Math.random() * 1000),
+                t_yesterday: Math.floor(Math.random() * 1000),
+                t_today: Math.floor(Math.random() * 1000),
+                b_last_month: Math.floor(Math.random() * 1000),
+                b_this_month: Math.floor(Math.random() * 1000),
+                b_yesterday: Math.floor(Math.random() * 1000),
+                b_today: Math.floor(Math.random() * 1000)
+            }
+        } else {
             // calculate value and return
-            let now = new Date();
+            let now = new Date()
 
-            let tLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            let tThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-            let tYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-            let tToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            let tLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+            let tThisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+            let tYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+            let tToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
-            let energyLastMonth = 0;
-            let energyThisMonth = 0;
-            let energyYesterday = 0;
-            let energyToday = 0;
+            let energyLastMonth = 0
+            let energyThisMonth = 0
+            let energyYesterday = 0
+            let energyToday = 0
 
-            let maxDemandLastMonth = 0;
-            let maxDemandThisMonth = 0;
-            let maxDemandYesterday = 0;
-            let maxDemandToday = 0;
+            let maxDemandLastMonth = 0
+            let maxDemandThisMonth = 0
+            let maxDemandYesterday = 0
+            let maxDemandToday = 0
 
             let group = await db.group.findOne({
-                where: {showDashboard: true}
-            });
+                where: { showDashboard: true }
+            })
 
-            var eData;
-            let all = true;
-            var snmKey = [];
+            var eData
+            let all = true
+            var snmKey = []
 
-
-            if(group !== null)
-            {
+            if (group !== null) {
                 let members = await db.gmember.findAll({
-                    where: {GroupID: group.id}
-                });
+                    where: { GroupID: group.id }
+                })
 
-                if(members !== null)
-                {
-                    for(let m of members)
-                    {
-                        let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID);
+                if (members !== null) {
+                    for (let m of members) {
+                        let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
 
-                        snmKey.push(key);
+                        snmKey.push(key)
                     }
 
-                    all = false;
+                    all = false
                 }
             }
 
-            if(all)
-            {
+            if (all) {
                 eData = await db.energy.findAll({
                     where: {
                         DateTimeUpdate: {
@@ -407,13 +404,9 @@ export function initAPI()
                             }
                         }
                     },
-                    order: [
-                        ['DateTimeUpdate', 'ASC']
-                    ]
-                });
-            }
-            else
-            {
+                    order: [['DateTimeUpdate', 'ASC']]
+                })
+            } else {
                 eData = await db.energy.findAll({
                     where: {
                         DateTimeUpdate: {
@@ -424,150 +417,124 @@ export function initAPI()
                         },
                         snmKey: snmKey
                     },
-                    order: [
-                        ['DateTimeUpdate', 'ASC']
-                    ]
-                });
+                    order: [['DateTimeUpdate', 'ASC']]
+                })
             }
 
-            let prevEnergy = 0;
+            let prevEnergy = 0
 
-            for(let e of eData)
-            {
-                if(prevEnergy == 0)
-                {
-                    prevEnergy = e.TotalkWh;
-                    continue;
+            for (let e of eData) {
+                if (prevEnergy == 0) {
+                    prevEnergy = e.TotalkWh
+                    continue
                 }
 
-                let absEnergy = e.TotalkWh - prevEnergy;
+                let absEnergy = e.TotalkWh - prevEnergy
 
-                if(absEnergy < 0 )
-                {
-                    absEnergy = 0;
+                if (absEnergy < 0) {
+                    absEnergy = 0
                 }
 
-                prevEnergy = e.TotalkWh;
+                prevEnergy = e.TotalkWh
 
-                if(e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate < tThisMonth)
-                {
+                if (e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate < tThisMonth) {
                     // Last month
-                    energyLastMonth += absEnergy;
+                    energyLastMonth += absEnergy
 
-                    if(isOnPeak(e.DateTimeUpdate) && absEnergy*4 > maxDemandLastMonth)
-                    {
-                        maxDemandLastMonth = absEnergy*4;
+                    if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandLastMonth) {
+                        maxDemandLastMonth = absEnergy * 4
                     }
-                }
-                else
-                {
+                } else {
                     // This month
-                    energyThisMonth += absEnergy;
+                    energyThisMonth += absEnergy
 
-                    if(isOnPeak(e.DateTimeUpdate) && absEnergy*4 > maxDemandThisMonth)
-                    {
-                        maxDemandThisMonth = absEnergy*4;
-                        
+                    if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandThisMonth) {
+                        maxDemandThisMonth = absEnergy * 4
                     }
 
-                    if(e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate < tToday)
-                    {
+                    if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate < tToday) {
                         // Yesterday
-                        energyYesterday += absEnergy;
+                        energyYesterday += absEnergy
 
-                        if(isOnPeak(e.DateTimeUpdate) && absEnergy*4 > maxDemandYesterday)
-                        {
-                            maxDemandYesterday = absEnergy*4;
+                        if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandYesterday) {
+                            maxDemandYesterday = absEnergy * 4
                         }
-                    }
-                    else if(e.DateTimeUpdate >= tToday)
-                    {
-                        energyToday += absEnergy;
+                    } else if (e.DateTimeUpdate >= tToday) {
+                        energyToday += absEnergy
 
-                        if(isOnPeak(e.DateTimeUpdate) && absEnergy*4 > maxDemandToday)
-                        {
-                            maxDemandToday = absEnergy*4;
+                        if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandToday) {
+                            maxDemandToday = absEnergy * 4
                         }
                     }
                 }
             }
 
             ret = {
-                't_last_month': energyLastMonth, 
-                't_this_month': energyThisMonth, 
-                't_yesterday': energyYesterday, 
-                't_today': energyToday, 
-                'b_last_month': maxDemandLastMonth, 
-                'b_this_month': maxDemandThisMonth, 
-                'b_yesterday': maxDemandYesterday, 
-                'b_today': maxDemandToday, 
-            };
+                t_last_month: energyLastMonth,
+                t_this_month: energyThisMonth,
+                t_yesterday: energyYesterday,
+                t_today: energyToday,
+                b_last_month: maxDemandLastMonth,
+                b_this_month: maxDemandThisMonth,
+                b_yesterday: maxDemandYesterday,
+                b_today: maxDemandToday
+            }
         }
 
-        res.json(ret);
-    });
+        res.json(ret)
+    })
 
     api.get('/dashboard/:year/:month/:day', async (req, res) => {
-        let ret = [];
+        let ret = []
 
-        if(MOCK)
-        {
-            for(let i=0; i<24; i++)
-            {
+        if (MOCK) {
+            for (let i = 0; i < 24; i++) {
                 ret[i] = {
-                            'category': String(i), 
-                            'value1': Math.random() * 1000
-                        };
+                    category: String(i),
+                    value1: Math.random() * 1000
+                }
             }
-        }
-        else
-        {
+        } else {
             // calculate value and return
-            for(let i=0; i<24; i++)
-            {
+            for (let i = 0; i < 24; i++) {
                 ret[i] = {
-                            'category': String(i), 
-                            'value1': 0
-                        };
-            }
-
-            let year = req.params.year;
-            let month = parseInt(req.params.month) - 1;
-            let day = req.params.day;
-
-            let startTime = new Date(year, month, day);
-            let endTime = new Date(year, month, day, 23, 59, 59);
-
-            let group = await db.group.findOne({
-                where: {showDashboard: true}
-            });
-
-            var eData;
-            let all = true;
-            var snmKey = [];
-
-
-            if(group !== null)
-            {
-                let members = await db.gmember.findAll({
-                    where: {GroupID: group.id}
-                });
-
-                if(members !== null)
-                {
-                    for(let m of members)
-                    {
-                        let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID);
-
-                        snmKey.push(key);
-                    }
-
-                    all = false;
+                    category: String(i),
+                    value1: 0
                 }
             }
 
-            if(all)
-            {
+            let year = req.params.year
+            let month = parseInt(req.params.month) - 1
+            let day = req.params.day
+
+            let startTime = new Date(year, month, day)
+            let endTime = new Date(year, month, day, 23, 59, 59)
+
+            let group = await db.group.findOne({
+                where: { showDashboard: true }
+            })
+
+            var eData
+            let all = true
+            var snmKey = []
+
+            if (group !== null) {
+                let members = await db.gmember.findAll({
+                    where: { GroupID: group.id }
+                })
+
+                if (members !== null) {
+                    for (let m of members) {
+                        let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
+
+                        snmKey.push(key)
+                    }
+
+                    all = false
+                }
+            }
+
+            if (all) {
                 eData = await db.energy.findAll({
                     where: {
                         DateTimeUpdate: {
@@ -577,13 +544,9 @@ export function initAPI()
                             }
                         }
                     },
-                    order: [
-                        ['DateTimeUpdate', 'ASC']
-                    ]
-                });
-            }
-            else
-            {
+                    order: [['DateTimeUpdate', 'ASC']]
+                })
+            } else {
                 eData = await db.energy.findAll({
                     where: {
                         DateTimeUpdate: {
@@ -594,106 +557,91 @@ export function initAPI()
                         },
                         snmKey: snmKey
                     },
-                    order: [
-                        ['DateTimeUpdate', 'ASC']
-                    ]
-                });
+                    order: [['DateTimeUpdate', 'ASC']]
+                })
             }
 
-            let prevEnergy = 0;
+            let prevEnergy = 0
 
-            for(let e of eData)
-            {
-                if(prevEnergy == 0)
-                {
-                    prevEnergy = e.TotalkWh;
-                    continue;
+            for (let e of eData) {
+                if (prevEnergy == 0) {
+                    prevEnergy = e.TotalkWh
+                    continue
                 }
 
-                let absEnergy = e.TotalkWh - prevEnergy;
+                let absEnergy = e.TotalkWh - prevEnergy
 
-                if(absEnergy < 0 )
-                {
-                    absEnergy = 0;
+                if (absEnergy < 0) {
+                    absEnergy = 0
                 }
 
-                prevEnergy = e.TotalkWh;
+                prevEnergy = e.TotalkWh
 
-                let adjustedTime = new Date(e.DateTimeUpdate);
-                adjustedTime.setMinutes(adjustedTime.getMinutes() - 1);
+                let adjustedTime = new Date(e.DateTimeUpdate)
+                adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
 
-                let hour = adjustedTime.getHours();
+                let hour = adjustedTime.getHours()
 
-                ret[hour].value1 += absEnergy;
+                ret[hour].value1 += absEnergy
             }
         }
 
-        res.json(ret);
-    });
+        res.json(ret)
+    })
 
     api.get('/dashboard/:year/:month', async (req, res) => {
-        let ret = [];
+        let ret = []
 
-        let year = req.params.year;
-        let month = parseInt(req.params.month) - 1;
+        let year = req.params.year
+        let month = parseInt(req.params.month) - 1
 
-        let d = new Date(year, month+1, 0);
-        let totalDays = d.getDate();
+        let d = new Date(year, month + 1, 0)
+        let totalDays = d.getDate()
 
-        if(MOCK)
-        {
-            for(let i=0; i<totalDays; i++)
-            {
+        if (MOCK) {
+            for (let i = 0; i < totalDays; i++) {
                 ret[i] = {
-                            'category': String(i+1), 
-                            'value1': Math.random() * 1000
-                        };
+                    category: String(i + 1),
+                    value1: Math.random() * 1000
+                }
             }
-        }
-        else
-        {
+        } else {
             // calculate value and return
-            for(let i=0; i<totalDays; i++)
-            {
+            for (let i = 0; i < totalDays; i++) {
                 ret[i] = {
-                            'category': String(i+1), 
-                            'value1': 0
-                        };
-            }
-
-            let startTime = new Date(year, month, 1);
-            let endTime = new Date(year, month, totalDays, 23, 59, 59);
-
-            let group = await db.group.findOne({
-                where: {showDashboard: true}
-            });
-
-            var eData;
-            let all = true;
-            var snmKey = [];
-
-
-            if(group !== null)
-            {
-                let members = await db.gmember.findAll({
-                    where: {GroupID: group.id}
-                });
-
-                if(members !== null)
-                {
-                    for(let m of members)
-                    {
-                        let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID);
-
-                        snmKey.push(key);
-                    }
-
-                    all = false;
+                    category: String(i + 1),
+                    value1: 0
                 }
             }
 
-            if(all)
-            {
+            let startTime = new Date(year, month, 1)
+            let endTime = new Date(year, month, totalDays, 23, 59, 59)
+
+            let group = await db.group.findOne({
+                where: { showDashboard: true }
+            })
+
+            var eData
+            let all = true
+            var snmKey = []
+
+            if (group !== null) {
+                let members = await db.gmember.findAll({
+                    where: { GroupID: group.id }
+                })
+
+                if (members !== null) {
+                    for (let m of members) {
+                        let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
+
+                        snmKey.push(key)
+                    }
+
+                    all = false
+                }
+            }
+
+            if (all) {
                 eData = await db.energy.findAll({
                     where: {
                         DateTimeUpdate: {
@@ -703,13 +651,9 @@ export function initAPI()
                             }
                         }
                     },
-                    order: [
-                        ['DateTimeUpdate', 'ASC']
-                    ]
-                });
-            }
-            else
-            {
+                    order: [['DateTimeUpdate', 'ASC']]
+                })
+            } else {
                 eData = await db.energy.findAll({
                     where: {
                         DateTimeUpdate: {
@@ -720,102 +664,87 @@ export function initAPI()
                         },
                         snmKey: snmKey
                     },
-                    order: [
-                        ['DateTimeUpdate', 'ASC']
-                    ]
-                });
+                    order: [['DateTimeUpdate', 'ASC']]
+                })
             }
 
-            let prevEnergy = 0;
+            let prevEnergy = 0
 
-            for(let e of eData)
-            {
-                if(prevEnergy == 0)
-                {
-                    prevEnergy = e.TotalkWh;
-                    continue;
+            for (let e of eData) {
+                if (prevEnergy == 0) {
+                    prevEnergy = e.TotalkWh
+                    continue
                 }
 
-                let absEnergy = e.TotalkWh - prevEnergy;
-                
-                if(absEnergy < 0 )
-                {
-                    absEnergy = 0;
+                let absEnergy = e.TotalkWh - prevEnergy
+
+                if (absEnergy < 0) {
+                    absEnergy = 0
                 }
 
-                prevEnergy = e.TotalkWh;
-                
-                let adjustedTime = new Date(e.DateTimeUpdate);
-                adjustedTime.setMinutes(adjustedTime.getMinutes() - 1);
+                prevEnergy = e.TotalkWh
 
-                let day = adjustedTime.getDate()-1;
+                let adjustedTime = new Date(e.DateTimeUpdate)
+                adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
 
-                ret[day].value1 += absEnergy;
+                let day = adjustedTime.getDate() - 1
+
+                ret[day].value1 += absEnergy
             }
         }
 
-        res.json(ret);
-    });
+        res.json(ret)
+    })
 
     api.get('/dashboard/:year', async (req, res) => {
-        let ret = [];
+        let ret = []
 
-        let year = req.params.year;
+        let year = req.params.year
 
-        if(MOCK)
-        {
-            for(let i=0; i<12; i++)
-            {
+        if (MOCK) {
+            for (let i = 0; i < 12; i++) {
                 ret[i] = {
-                            'category': String(i+1), 
-                            'value1': Math.random() * 1000
-                        };
+                    category: String(i + 1),
+                    value1: Math.random() * 1000
+                }
             }
-        }
-        else
-        {
+        } else {
             // calculate value and return
-            for(let i=0; i<12; i++)
-            {
+            for (let i = 0; i < 12; i++) {
                 ret[i] = {
-                            'category': String(i+1), 
-                            'value1': 0
-                        };
-            }
-            
-            let startTime = new Date(year, 0, 1);
-            let endTime = new Date(year, 11, 31, 59, 59, 59);
-
-            let group = await db.group.findOne({
-                where: {showDashboard: true}
-            });
-
-            var eData;
-            let all = true;
-            var snmKey = [];
-
-
-            if(group !== null)
-            {
-                let members = await db.gmember.findAll({
-                    where: {GroupID: group.id}
-                });
-
-                if(members !== null)
-                {
-                    for(let m of members)
-                    {
-                        let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID);
-
-                        snmKey.push(key);
-                    }
-
-                    all = false;
+                    category: String(i + 1),
+                    value1: 0
                 }
             }
 
-            if(all)
-            {
+            let startTime = new Date(year, 0, 1)
+            let endTime = new Date(year, 11, 31, 59, 59, 59)
+
+            let group = await db.group.findOne({
+                where: { showDashboard: true }
+            })
+
+            var eData
+            let all = true
+            var snmKey = []
+
+            if (group !== null) {
+                let members = await db.gmember.findAll({
+                    where: { GroupID: group.id }
+                })
+
+                if (members !== null) {
+                    for (let m of members) {
+                        let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
+
+                        snmKey.push(key)
+                    }
+
+                    all = false
+                }
+            }
+
+            if (all) {
                 eData = await db.energy.findAll({
                     where: {
                         DateTimeUpdate: {
@@ -825,13 +754,9 @@ export function initAPI()
                             }
                         }
                     },
-                    order: [
-                        ['DateTimeUpdate', 'ASC']
-                    ]
-                });
-            }
-            else
-            {
+                    order: [['DateTimeUpdate', 'ASC']]
+                })
+            } else {
                 eData = await db.energy.findAll({
                     where: {
                         DateTimeUpdate: {
@@ -842,102 +767,86 @@ export function initAPI()
                         },
                         snmKey: snmKey
                     },
-                    order: [
-                        ['DateTimeUpdate', 'ASC']
-                    ]
-                });
+                    order: [['DateTimeUpdate', 'ASC']]
+                })
             }
 
-            let prevEnergy = 0;
+            let prevEnergy = 0
 
-            for(let e of eData)
-            {
-                if(prevEnergy == 0)
-                {
-                    prevEnergy = e.TotalkWh;
-                    continue;
+            for (let e of eData) {
+                if (prevEnergy == 0) {
+                    prevEnergy = e.TotalkWh
+                    continue
                 }
 
-                let absEnergy = e.TotalkWh - prevEnergy;
+                let absEnergy = e.TotalkWh - prevEnergy
 
-                if(absEnergy < 0 )
-                {
-                    absEnergy = 0;
+                if (absEnergy < 0) {
+                    absEnergy = 0
                 }
 
-                prevEnergy = e.TotalkWh;
+                prevEnergy = e.TotalkWh
 
-                let adjustedTime = new Date(e.DateTimeUpdate);
-                adjustedTime.setMinutes(adjustedTime.getMinutes() - 1);
+                let adjustedTime = new Date(e.DateTimeUpdate)
+                adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
 
-                let month = adjustedTime.getMonth();
-                ret[month].value1 += absEnergy;
+                let month = adjustedTime.getMonth()
+                ret[month].value1 += absEnergy
             }
         }
-        
 
-        res.json(ret);
-    });
+        res.json(ret)
+    })
 
     api.get('/dashboard', async (req, res) => {
-        let ret = [];
+        let ret = []
 
-        if(MOCK)
-        {
-            for(let i=0; i<24; i++)
-            {
+        if (MOCK) {
+            for (let i = 0; i < 24; i++) {
                 ret[i] = {
-                            'category': String(i+1), 
-                            'value1': Math.random() * 1000
-                        };
+                    category: String(i + 1),
+                    value1: Math.random() * 1000
+                }
             }
-        }
-        else
-        {
+        } else {
             // calculate value and return
-            let now = new Date();
+            let now = new Date()
 
-            for(let i=0; i<24; i++)
-            {
+            for (let i = 0; i < 24; i++) {
                 ret[i] = {
-                            'category': String(i+1), 
-                            'value1': 0
-                        };
-            }
-    
-            let startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            let endTime = new Date(year, month, day, 0, 0, 0);
-
-            let group = await db.group.findOne({
-                where: {showDashboard: true}
-            });
-
-            var eData;
-            let all = true;
-            var snmKey = [];
-
-
-            if(group !== null)
-            {
-                let members = await db.gmember.findAll({
-                    where: {GroupID: group.id}
-                });
-
-                if(members !== null)
-                {
-                    for(let m of members)
-                    {
-                        let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID);
-
-                        snmKey.push(key);
-                    }
-
-                    all = false;
+                    category: String(i + 1),
+                    value1: 0
                 }
             }
 
-            if(all)
-            {
+            let startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+            let endTime = new Date(year, month, day, 0, 0, 0)
+
+            let group = await db.group.findOne({
+                where: { showDashboard: true }
+            })
+
+            var eData
+            let all = true
+            var snmKey = []
+
+            if (group !== null) {
+                let members = await db.gmember.findAll({
+                    where: { GroupID: group.id }
+                })
+
+                if (members !== null) {
+                    for (let m of members) {
+                        let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
+
+                        snmKey.push(key)
+                    }
+
+                    all = false
+                }
+            }
+
+            if (all) {
                 eData = await db.energy.findAll({
                     where: {
                         DateTimeUpdate: {
@@ -947,13 +856,9 @@ export function initAPI()
                             }
                         }
                     },
-                    order: [
-                        ['DateTimeUpdate', 'ASC']
-                    ]
-                });
-            }
-            else
-            {
+                    order: [['DateTimeUpdate', 'ASC']]
+                })
+            } else {
                 eData = await db.energy.findAll({
                     where: {
                         DateTimeUpdate: {
@@ -964,42 +869,36 @@ export function initAPI()
                         },
                         snmKey: snmKey
                     },
-                    order: [
-                        ['DateTimeUpdate', 'ASC']
-                    ]
-                });
+                    order: [['DateTimeUpdate', 'ASC']]
+                })
             }
 
-            let prevEnergy = 0;
+            let prevEnergy = 0
 
-            for(let e of eData)
-            {
-                if(prevEnergy == 0)
-                {
-                    prevEnergy = e.TotalkWh;
-                    continue;
+            for (let e of eData) {
+                if (prevEnergy == 0) {
+                    prevEnergy = e.TotalkWh
+                    continue
                 }
 
-                let absEnergy = e.TotalkWh - prevEnergy;
+                let absEnergy = e.TotalkWh - prevEnergy
 
-                if(absEnergy < 0 )
-                {
-                    absEnergy = 0;
+                if (absEnergy < 0) {
+                    absEnergy = 0
                 }
 
-                prevEnergy = e.TotalkWh;
+                prevEnergy = e.TotalkWh
 
-                let adjustedTime = new Date(e.DateTimeUpdate);
-                adjustedTime.setMinutes(adjustedTime.getMinutes() - 1);
+                let adjustedTime = new Date(e.DateTimeUpdate)
+                adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
 
-                let hour = adjustedTime.getHours()-1;
-                ret[hour].value1 += absEnergy;
+                let hour = adjustedTime.getHours() - 1
+                ret[hour].value1 += absEnergy
             }
         }
-        
 
-        res.json(ret);
-    });
+        res.json(ret)
+    })
 
     /* Monitoring API */
     api.get('/group_meter_info', async (req, res) => {
@@ -1008,60 +907,54 @@ export function initAPI()
             meter: []
         }
 
-        let initGroup = [];
-        let groups = {};
+        let initGroup = []
+        let groups = {}
 
-        if(db.gmember)
-        {
-            let groupInfo = await db.gmember.findAll();
+        if (db.gmember) {
+            let groupInfo = await db.gmember.findAll()
 
-            if(groupInfo !== null)
-            {
-                for(let g of groupInfo)
-                {
-                    if(!(g.GroupID in initGroup))
-                    {
+            if (groupInfo !== null) {
+                for (let g of groupInfo) {
+                    if (!(g.GroupID in initGroup)) {
                         groups[g.GroupID] = {
                             id: g.GroupID,
                             name: group[g.GroupID].name,
                             parameter: [],
                             member: []
-                        };
+                        }
 
-                        for(let i=0; i<pmap.length; i++)
-                        {
-                            groups[g.GroupID].parameter.push(
-                                {
-                                    name: pmap[i].name + ' ' + pmap[i].unit,
-                                    display: group[g.GroupID].name + ' - ' + pmap[i].name + ' ' + pmap[i].unit,
-                                    selectedSeries: 'G@' + String(g.GroupID) + '%' + pmap[i].name
-                                }
-                            );
+                        for (let i = 0; i < pmap.length; i++) {
+                            groups[g.GroupID].parameter.push({
+                                name: pmap[i].name + ' ' + pmap[i].unit,
+                                display:
+                                    group[g.GroupID].name +
+                                    ' - ' +
+                                    pmap[i].name +
+                                    ' ' +
+                                    pmap[i].unit,
+                                selectedSeries: 'G@' + String(g.GroupID) + '%' + pmap[i].name
+                            })
                         }
                     }
-                    
+
                     groups[g.GroupID].member.push({
                         name: blacknode[g.SerialNo].name,
                         SerialNo: g.SerialNo
-                    });
+                    })
                 }
             }
         }
-        
 
-        let gKey = Object.keys(groups);
+        let gKey = Object.keys(groups)
 
-        for(let k of gKey)
-        {
-            ret.group.push(groups[k]);
+        for (let k of gKey) {
+            ret.group.push(groups[k])
         }
 
-        let bnKey = Object.keys(blacknode);
+        let bnKey = Object.keys(blacknode)
 
-        for(let sn of bnKey)
-        {
-            for(let i=0; i<blacknode[sn].meter_list.length; i++)
-            {
+        for (let sn of bnKey) {
+            for (let i = 0; i < blacknode[sn].meter_list.length; i++) {
                 let obj = {
                     name: blacknode[sn].meter_list[i].name,
                     SerialNo: blacknode[sn].serial,
@@ -1069,86 +962,94 @@ export function initAPI()
                     NodeID: blacknode[sn].nodeid,
                     ModbusID: i,
                     parameter: []
-                };
-
-                for(let j=0; j<pmap.length; j++)
-                {
-                    obj.parameter.push({
-                        name: pmap[j].name + ' ' + pmap[j].unit,
-                        display: blacknode[sn].meter_list[i].name + ' - ' + pmap[j].name + ' ' + pmap[j].unit,
-                        selectedSeries: 'M@' + sn + '@' + blacknode[sn].siteid + '@' + blacknode[sn].nodeid + '@' + String(i) + '%' + pmap[j].name
-                    });
                 }
 
-                ret.meter.push(obj);
+                for (let j = 0; j < pmap.length; j++) {
+                    obj.parameter.push({
+                        name: pmap[j].name + ' ' + pmap[j].unit,
+                        display:
+                            blacknode[sn].meter_list[i].name +
+                            ' - ' +
+                            pmap[j].name +
+                            ' ' +
+                            pmap[j].unit,
+                        selectedSeries:
+                            'M@' +
+                            sn +
+                            '@' +
+                            blacknode[sn].siteid +
+                            '@' +
+                            blacknode[sn].nodeid +
+                            '@' +
+                            String(i) +
+                            '%' +
+                            pmap[j].name
+                    })
+                }
+
+                ret.meter.push(obj)
             }
         }
 
-        res.json(ret);
-    });
+        res.json(ret)
+    })
 
     api.post('/rt_chart', (req, res) => {
-        let ret = {};
+        let ret = {}
 
-        let p = req.body;
+        let p = req.body
 
-        for(let k in p)
-        {
+        for (let k in p) {
             // Get data and fill
             ret[p[k]] = {
                 time: new Date(),
                 value: Math.random() * 50 - 25
-            };
+            }
         }
 
-        res.json(ret);
-    });
+        res.json(ret)
+    })
 
     api.get('/rt_chart', (req, res) => {
         let ret = [
-            { value: "MDB-1.Active power L1..L3 (kW)", actual: 7.3398, min: 6.6700, max: 7.4341 },
-            { value: "MDB-1.Cos-phi L1..L3", actual: 8.3998, min: 8.6700, max: 9.4941 },
-            { value: "MDB-1.Active power L1 (kW)", actual: 5.998, min: 6.6700, max: 7.4941 },
-            { value: "MDB-1.Active power L2 (kW)", actual: 5.3298, min: 8.8500, max: 9.4241 },
-            { value: "MDB-1.Active power L3 (kW)", actual: 9.3098, min: 8.6500, max: 5.4041 },
-        ];
+            { value: 'MDB-1.Active power L1..L3 (kW)', actual: 7.3398, min: 6.67, max: 7.4341 },
+            { value: 'MDB-1.Cos-phi L1..L3', actual: 8.3998, min: 8.67, max: 9.4941 },
+            { value: 'MDB-1.Active power L1 (kW)', actual: 5.998, min: 6.67, max: 7.4941 },
+            { value: 'MDB-1.Active power L2 (kW)', actual: 5.3298, min: 8.85, max: 9.4241 },
+            { value: 'MDB-1.Active power L3 (kW)', actual: 9.3098, min: 8.65, max: 5.4041 }
+        ]
 
         // calculate value and return
 
-        res.json(ret);
-    });
+        res.json(ret)
+    })
 
     api.get('/meter_data_table', (req, res) => {
-        let ret = [];
+        let ret = []
 
-        if(MOCK)
-        {
-            let total_params = Math.floor(Math.random() * 20);
+        if (MOCK) {
+            let total_params = Math.floor(Math.random() * 20)
 
-            for(let i=0; i<total_params; i++)
-            {
-                ret[i] = {};
+            for (let i = 0; i < total_params; i++) {
+                ret[i] = {}
 
-                ret[i]['parameter'] = 'Parameters ' + String(i);
-                ret[i]['mdb1'] = (Math.random() * 1000).toFixed(2); 
-                ret[i]['mdb2'] = (Math.random() * 1000).toFixed(2); 
-                ret[i]['mdb3'] = (Math.random() * 1000).toFixed(2); 
-                ret[i]['chiller1'] = (Math.random() * 1000).toFixed(2); 
-                ret[i]['chiller2'] = (Math.random() * 1000).toFixed(2); 
+                ret[i]['parameter'] = 'Parameters ' + String(i)
+                ret[i]['mdb1'] = (Math.random() * 1000).toFixed(2)
+                ret[i]['mdb2'] = (Math.random() * 1000).toFixed(2)
+                ret[i]['mdb3'] = (Math.random() * 1000).toFixed(2)
+                ret[i]['chiller1'] = (Math.random() * 1000).toFixed(2)
+                ret[i]['chiller2'] = (Math.random() * 1000).toFixed(2)
             }
-        }
-        else
-        {
-            
-            let now = new Date();
+        } else {
+            let now = new Date()
             // let keys = Object.keys(lastUpdateData);
-    
+
             // for(let i=0; i<40; i++)
             // {
             //     ret[i] = {};
-    
+
             //     ret[i]['parameter'] = pmap[i];
-                
+
             //     for(let k of keys)
             //     {
             //         // Do not show stale data
@@ -1162,397 +1063,431 @@ export function initAPI()
             //     }
             // }
 
-            let sn = Object.keys(blacknode);
+            let sn = Object.keys(blacknode)
 
-            for(let i=0; i<pmap.length; i++)
-            {
-                ret[i] = {};
-                ret[i]['parameter'] = pmap[i].name + ' ' + pmap[i].unit;
+            for (let i = 0; i < pmap.length; i++) {
+                ret[i] = {}
+                ret[i]['parameter'] = pmap[i].name + ' ' + pmap[i].unit
 
-                for(let s of sn)
-                {
-                    for(let j=0; j<blacknode[s].meter_list.length; j++)
-                    {
-                        let k = s + "%" + String(j);
+                for (let s of sn) {
+                    for (let j = 0; j < blacknode[s].meter_list.length; j++) {
+                        let k = s + '%' + String(j)
 
-                        if(lastUpdateData[k] && lastUpdateData[k].DateTimeUpdate && now.getTime() - lastUpdateData[k].DateTimeUpdate.getTime() < 60*1000)
-                        {
-                            ret[i][blacknode[s].meter_list[j].name] = lastUpdateData[k][pmap[i].name];
-                        }
-                        else
-                        {
-                            ret[i][blacknode[s].meter_list[j].name] = -1;
+                        if (
+                            lastUpdateData[k] &&
+                            lastUpdateData[k].DateTimeUpdate &&
+                            now.getTime() - lastUpdateData[k].DateTimeUpdate.getTime() < 60 * 1000
+                        ) {
+                            ret[i][blacknode[s].meter_list[j].name] =
+                                lastUpdateData[k][pmap[i].name]
+                        } else {
+                            ret[i][blacknode[s].meter_list[j].name] = -1
                         }
                     }
                 }
             }
         }
 
-        res.json(ret);
-    });
+        res.json(ret)
+    })
 
     api.get('/node_monitor', (req, res) => {
-        let ret = {};
+        let ret = {}
 
-        let status_list = ['on', 'off', 'error', 'setup'];
-        let keys = Object.keys(blacknode);
+        let status_list = ['on', 'off', 'error', 'setup']
+        let keys = Object.keys(blacknode)
 
-        if(MOCK)
-        {
-            let total_nodes = Math.floor(Math.random() * 20);
+        if (MOCK) {
+            let total_nodes = Math.floor(Math.random() * 20)
 
-            for(let i=0; i<total_nodes; i++)
-            {
-                let total_meters = Math.floor(Math.random() * 30);
-                let node_name = 'Node ' + String(i);
+            for (let i = 0; i < total_nodes; i++) {
+                let total_meters = Math.floor(Math.random() * 30)
+                let node_name = 'Node ' + String(i)
 
                 ret[node_name] = {
-                    'id': i,
-                    'location': 'Room ' + String(i),
-                    'status': status_list[Math.floor(Math.random() * 3)],
-                    'meter_list': []
-                };
+                    id: i,
+                    location: 'Room ' + String(i),
+                    status: status_list[Math.floor(Math.random() * 3)],
+                    meter_list: []
+                }
 
-                for(let j=0; j<total_meters; j++)
-                {
+                for (let j = 0; j < total_meters; j++) {
                     ret[node_name].meter_list[j] = {
-                        'id': j,
-                        'address': j*10,
-                        'name': 'MDB-' + String(j),
-                        'status': status_list[Math.floor(Math.random() * 3)]
+                        id: j,
+                        address: j * 10,
+                        name: 'MDB-' + String(j),
+                        status: status_list[Math.floor(Math.random() * 3)]
+                    }
+                }
+            }
+        } else {
+            // calculate value and return
+            for (let k of keys) {
+                let bn = blacknode[k]
+
+                ret[bn.serial] = {
+                    id: 'Node ' + String(bn.nodeid),
+                    location: bn.name,
+                    status: bn.status,
+                    maxmeter: bn.maxmeter,
+                    meter_list: []
+                }
+
+                for (let i = 0; i < bn.maxmeter; i++) {
+                    ret[bn.serial].meter_list[i] = {
+                        id: i + 1,
+                        address: bn.meter_list[i].id,
+                        name: bn.meter_list[i].name,
+                        status: bn.meter_list[i].status
                     }
                 }
             }
         }
-        else
-        {
-            // calculate value and return
-            for(let k of keys)
-            {
-                let bn = blacknode[k];
 
-                ret[bn.serial] = {
-                    'id': 'Node ' + String(bn.nodeid),
-                    'location': bn.name,
-                    'status': bn.status,
-                    'maxmeter': bn.maxmeter,
-                    'meter_list': []
-                };
+        res.json(ret)
+    })
 
-                for(let i=0; i<bn.maxmeter; i++)
-                {
-                    ret[bn.serial].meter_list[i] = {
-                        'id': i+1,
-                        'address': bn.meter_list[i].id,
-                        'name': bn.meter_list[i].name,
-                        'status': bn.meter_list[i].status,
-                    };
+    api.get('/meter_list', (req, res) => {
+        let ret = {}
+        let keys = Object.keys(blacknode)
+
+        for (let k of keys) {
+            for (let i = 0; i < blacknode[k].meter_list.length; i++) {
+                ret[k + '%' + String(i)] = {
+                    value: blacknode[k].meter_list[i].name + ' <' + k + ':' + String(i + 1) + '>'
                 }
             }
         }
-        
-        res.json(ret);
-    });
 
-    api.get('/meter_list', (req, res) => {
-        let ret = {};
-        let keys = Object.keys(blacknode);
-
-        for(let k of keys)
-        {
-            for(let i=0; i<blacknode[k].meter_list.length; i++)
-            {
-                ret[k+'%'+String(i)] = {value: blacknode[k].meter_list[i].name + " (" + k + "-" + String(i + 1) + ")"};
-            }
-            
-        }
-
-        res.json(ret);
-    });
+        res.json(ret)
+    })
 
     api.get('/phasor_graph/:m', (req, res) => {
-        let arr = req.params.m.split("%");
-        let sn = arr[0];
-        let modbusid = parseInt(arr[1]) - 1;
-        let snid = sn + "%" + String(modbusid);
-        let now = new Date();
+        let arr = req.params.m.split(':')
+        let sn = arr[0]
+        let modbusid = parseInt(arr[1]) - 1
+        let snid = sn + '%' + String(modbusid)
+        let now = new Date()
 
-        let pf1 = 0;
-        let pf2 = 0;
-        let pf3 = 0;
+        let ret;
 
-        if(lastUpdateTime && lastUpdateTime[snid] && now.getTime() - lastUpdateTime[snid].getTime() < 60*1000)
-        {
-            pf1 = lastUpdateData[snid].PF1;
-            pf2 = lastUpdateData[snid].PF2;
-            pf3 = lastUpdateData[snid].PF3;
+        if (
+            lastUpdateTime &&
+            lastUpdateTime[snid] &&
+            now.getTime() - lastUpdateTime[snid].getTime() < 60 * 1000
+        ) {
+            ret = {
+                sn: sn,
+                modbusid: modbusid,
+                name: blacknode[sn].meter_list[modbusid].name,
+                V1: lastUpdateData[snid].V1,
+                I1: lastUpdateData[snid].I1,
+                P1: lastUpdateData[snid].P1,
+                Q1: lastUpdateData[snid].Q1,
+                S1: lastUpdateData[snid].S1,
+                PF1: lastUpdateData[snid].PF1,
+                THD_U1: lastUpdateData[snid].THD_U1,
+                THD_I1: lastUpdateData[snid].THD_I1,
+                i1: (180 / Math.PI) * Math.acos(lastUpdateData[snid].PF1),
+                V2: lastUpdateData[snid].V2,
+                I2: lastUpdateData[snid].I2,
+                P2: lastUpdateData[snid].P2,
+                Q2: lastUpdateData[snid].Q2,
+                S2: lastUpdateData[snid].S2,
+                PF2: lastUpdateData[snid].PF2,
+                THD_U2: lastUpdateData[snid].THD_U2,
+                THD_I2: lastUpdateData[snid].THD_I2,
+                i2: (180 / Math.PI) * Math.acos(lastUpdateData[snid].PF2) + 120,
+                V3: lastUpdateData[snid].V3,
+                I3: lastUpdateData[snid].I3,
+                P3: lastUpdateData[snid].P3,
+                Q3: lastUpdateData[snid].Q3,
+                S3: lastUpdateData[snid].S3,
+                PF3: lastUpdateData[snid].PF3,
+                THD_U3: lastUpdateData[snid].THD_U3,
+                THD_I3: lastUpdateData[snid].THD_I3,
+                i3: (180 / Math.PI) * Math.acos(lastUpdateData[snid].PF3) + 240,
+                lastUpdateTime: lastUpdateTime[snid].toLocaleString()
+            };
+        } else {
+            ret = {
+                sn: sn,
+                modbusid: modbusid,
+                name: blacknode[sn].meter_list[modbusid].name,
+                V1: 0,
+                I1: 0,
+                P1: 0,
+                Q1: 0,
+                S1: 0,
+                PF1: 0,
+                THD_U1: 0,
+                THD_I1: 0,
+                i1: (180 / Math.PI) * Math.acos(0),
+                V2: 0,
+                I2: 0,
+                P2: 0,
+                Q2: 0,
+                S2: 0,
+                PF2: 0,
+                THD_U2: 0,
+                THD_I2: 0,
+                i2: (180 / Math.PI) * Math.acos(0) + 120,
+                V3: 0,
+                I3: 0,
+                P3: 0,
+                Q3: 0,
+                S3: 0,
+                PF3: 0,
+                THD_U3: 0,
+                THD_I3: 0,
+                i3: (180 / Math.PI) * Math.acos(0) + 240,
+                lastUpdateTime: now.toLocaleString()
+            };
         }
-        else
-        {
-            pf1 = 0;
-            pf2 = 0;
-            pf3 = 0;
-        }
 
-        let ret = {
-            i1: 180/Math.PI*Math.acos(pf1),
-            i2: 180/Math.PI*Math.acos(pf2) + 120,
-            i3: 180/Math.PI*Math.acos(pf3) + 240
-        };
-
-        // calculate value and return
-
-        res.json(ret);
-    });
+        res.json(ret)
+    })
 
     // Management Section
     api.get('/backup_impro', (req, res) => {
-        if(paths && paths['DB_CFG_PATH'])
-        {
-            res.setHeader('Content-disposition', 'attachment; filename=db.info');
-            res.setHeader('Content-type', 'application/json');
+        if (paths && paths['DB_CFG_PATH']) {
+            res.setHeader('Content-disposition', 'attachment; filename=db.info')
+            res.setHeader('Content-type', 'application/json')
 
-            var filestream = createReadStream(paths['DB_CFG_PATH']);
-            filestream.pipe(res);
+            var filestream = createReadStream(paths['DB_CFG_PATH'])
+            filestream.pipe(res)
         }
-    });
+    })
 
     api.post('/backup_impro', (req, res) => {
-        if(paths && paths['DB_CFG_PATH'])
-        {
-            try{
-                JSON.parse(req.files.file.data.toString());
+        if (paths && paths['DB_CFG_PATH']) {
+            try {
+                JSON.parse(req.files.file.data.toString())
 
-                writeFile(paths['DB_CFG_PATH'], req.files.file.data, {flag: 'w'});
+                writeFile(paths['DB_CFG_PATH'], req.files.file.data, { flag: 'w' })
 
-                loadDBCFG();
-                syncDB();
+                loadDBCFG()
+                syncDB()
 
-                res.send('SUCCESS');
-            } catch(e) {
-                res.send('Not a JSON file');
+                res.send('SUCCESS')
+            } catch (e) {
+                res.send('Not a JSON file')
             }
-            
-
+        } else {
+            res.send('Paths is not configured.')
         }
-        else
-        {
-            res.send('Paths is not configured.');
-        }
-
-    });
+    })
 
     api.get('/backup_bn', (req, res) => {
-        if(paths && paths['BN_CFG_PATH'])
-        {
-            res.setHeader('Content-disposition', 'attachment; filename=blacknode.info');
-            res.setHeader('Content-type', 'application/json');
+        if (paths && paths['BN_CFG_PATH']) {
+            res.setHeader('Content-disposition', 'attachment; filename=blacknode.info')
+            res.setHeader('Content-type', 'application/json')
 
-            var filestream = createReadStream(paths['BN_CFG_PATH']);
-            filestream.pipe(res);
+            var filestream = createReadStream(paths['BN_CFG_PATH'])
+            filestream.pipe(res)
         }
-    });
+    })
 
     api.post('/backup_bn', (req, res) => {
-        if(paths && paths['BN_CFG_PATH'])
-        {
-            try{
-                JSON.parse(req.files.file.data.toString());
+        if (paths && paths['BN_CFG_PATH']) {
+            try {
+                JSON.parse(req.files.file.data.toString())
 
-                writeFile(paths['BN_CFG_PATH'], req.files.file.data, {flag: 'w'});
+                writeFile(paths['BN_CFG_PATH'], req.files.file.data, { flag: 'w' })
 
-                loadBNInfoFromLocal(paths['BN_CFG_PATH']);
+                loadBNInfoFromLocal(paths['BN_CFG_PATH'])
 
-                res.send('SUCCESS');
-            } catch(e) {
-                res.send('Not a JSON file');
+                res.send('SUCCESS')
+            } catch (e) {
+                res.send('Not a JSON file')
             }
-            
-
+        } else {
+            res.send('Paths is not configured.')
         }
-        else
-        {
-            res.send('Paths is not configured.');
-        }
-
-    });
+    })
 
     api.get('/group', async (_req, res) => {
-        res.json(group);
-    });
+        res.json(group)
+    })
 
     api.get('/meter', async (_req, res) => {
-        let ret = [];
+        let ret = []
 
-        let sn = Object.keys(blacknode);
+        let sn = Object.keys(blacknode)
 
-        for(let s of sn)
-        {
-            for(let i=0; i<blacknode[s].meter_list.length; i++)
-            {
+        for (let s of sn) {
+            for (let i = 0; i < blacknode[s].meter_list.length; i++) {
                 ret.push({
                     sn: s,
                     siteid: blacknode[s].siteid,
                     nodeid: blacknode[s].nodeid,
-                    modbusid: i+1,
-                    name: blacknode[s].meter_list[i].name,
-
-                });
+                    modbusid: i + 1,
+                    name: blacknode[s].meter_list[i].name
+                })
             }
         }
 
-        res.json(ret);
-    });
+        res.json(ret)
+    })
 
     api.post('/update_group', async (req, res) => {
-        let id = req.body.id;
-        let name = req.body.name;
+        let id = req.body.id
+        let name = req.body.name
 
-        try{
-            await db.group.update({
-                name: name,
-            }, {
-                where: {id: id}
-            }); 
+        try {
+            await db.group.update(
+                {
+                    name: name
+                },
+                {
+                    where: { id: id }
+                }
+            )
 
-            await loadGroup();
+            await loadGroup()
 
-            res.send("SUCCESS");
-        } catch(err) {
-            res.send("Cannot create group.");
+            res.send('SUCCESS')
+        } catch (err) {
+            res.send('Cannot create group.')
         }
-    });
+    })
 
     api.get('/create_group/:name', async (req, res) => {
-        try{
-            await db.group.create({name: req.params.name, showDashboard: false}); 
+        try {
+            await db.group.create({ name: req.params.name, showDashboard: false })
 
-            await loadGroup();
+            await loadGroup()
 
-            res.send("SUCCESS");
-        } catch(err) {
-            console.log(err);
-            res.send("Cannot create group.");
+            res.send('SUCCESS')
+        } catch (err) {
+            console.log(err)
+            res.send('Cannot create group.')
         }
-    });
+    })
 
     api.get('/delete_group/:id', async (req, res) => {
-        try{
+        try {
             await db.gmember.destroy({
-                where: {GroupID: parseInt(req.params.id)}
-            });
+                where: { GroupID: parseInt(req.params.id) }
+            })
 
             await db.group.destroy({
-                where: {id: parseInt(req.params.id)}
-            }); 
+                where: { id: parseInt(req.params.id) }
+            })
 
-            await loadGroup();
+            await loadGroup()
 
-            res.send("SUCCESS");
-        } catch(err) {
-            res.send("Cannot delete group.");
+            res.send('SUCCESS')
+        } catch (err) {
+            res.send('Cannot delete group.')
         }
-    });
+    })
 
     api.post('/update_member', async (req, res) => {
-        let groupid = req.body.id;
-        let member = req.body.member;
+        let groupid = req.body.id
+        let member = req.body.member
 
-        try{
+        try {
             await db.gmember.destroy({
-                where: {GroupID: groupid}
-            });
+                where: { GroupID: groupid }
+            })
 
-            await db.gmember.bulkCreate(member);
+            await db.gmember.bulkCreate(member)
 
-            await loadGroup();
-            res.send("SUCCESS");
+            await loadGroup()
+            res.send('SUCCESS')
         } catch (err) {
-            res.send("Cannot update group members");
+            res.send('Cannot update group members')
         }
-    });
+    })
 
     api.get('/set_dashboard/:group', async (req, res) => {
-        let id = parseInt(req.params.group);
+        let id = parseInt(req.params.group)
 
-        try{
-            await db.group.update({showDashboard: false }, {
-                where: {
-                    id: {
-                        [Op.not]: id
+        try {
+            await db.group.update(
+                { showDashboard: false },
+                {
+                    where: {
+                        id: {
+                            [Op.not]: id
+                        }
                     }
                 }
-            });
+            )
 
-            await db.group.update({showDashboard: true }, {
-                where: { id: id }
-            });
+            await db.group.update(
+                { showDashboard: true },
+                {
+                    where: { id: id }
+                }
+            )
 
-            await loadGroup();
+            await loadGroup()
 
-            res.send("SUCCESS");
-        } catch(err) {
-            console.log("Cannot save dashboard configuration.");
+            res.send('SUCCESS')
+        } catch (err) {
+            console.log('Cannot save dashboard configuration.')
 
-            res.send("Cannot save dashboard configuration.");
+            res.send('Cannot save dashboard configuration.')
         }
-    });
+    })
 
     api.get('/unset_dashboard/:group', async (req, res) => {
-        let id = parseInt(req.params.group);
+        let id = parseInt(req.params.group)
 
-        try{
-            await db.group.update({showDashboard: false }, {
-                where: { id: id }
-            });
+        try {
+            await db.group.update(
+                { showDashboard: false },
+                {
+                    where: { id: id }
+                }
+            )
 
-            await loadGroup();
+            await loadGroup()
 
-            res.send("SUCCESS");
-        } catch(err) {
-            console.log("Cannot save dashboard configuration.");
+            res.send('SUCCESS')
+        } catch (err) {
+            console.log('Cannot save dashboard configuration.')
 
-            res.send("Cannot save dashboard configuration.");
+            res.send('Cannot save dashboard configuration.')
         }
-    });
+    })
 
     api.get('/alarm/count', async (req, res) => {
-        try {
-            let cnt = await db.alarm.findAll({where: {status: 'unread'}});
+        // try {
+            let cnt = await db.alarm.findAll({ where: { status: 'unread' } })
 
-            res.send(String(cnt.length));
-        } catch(err) {
-            console.log('Cannot count unread alarms.');
-            res.send("0");
-        }
-    });
+            res.send(String(cnt.length))
+        // } catch (err) {
+        //     console.log('Cannot count unread alarms.')
+        //     res.send('0')
+        // }
+    })
 
     api.get('/alarm/view/:page', async (req, res) => {
-        let limit = 20;
-        let ret = [];
+        let limit = 20
+        let ret = []
 
         let typemap = {
-            "BN_DC": "Blacknode Disconnected",
-            "METER_DC": "Meter Disconnected",
-            "OVER_RANGE": "Parameter Over-range"
+            BN_DC: 'Blacknode Disconnected',
+            METER_DC: 'Meter Disconnected',
+            OVER_RANGE: 'Parameter Over-range'
         }
 
         try {
             let alarms = await db.alarm.findAll({
-                limit: limit, offset: parseInt(req.params.page)*limit
-            });
+                limit: limit,
+                offset: parseInt(req.params.page) * limit
+            })
 
-            for(let a of alarms)
-            {
-                let dev = "";
+            for (let a of alarms) {
+                let dev = ''
 
-                if(a.ModbusID != 0)
-                {
-                    dev = blacknode[a.SerialNo].meter_list[a.ModbusID].name;
-                }
-                else
-                {
-                    dev = blacknode[a.SerialNo].name;
+                if (a.ModbusID != 0) {
+                    dev = blacknode[a.SerialNo].meter_list[a.ModbusID-1].name
+                } else {
+                    dev = blacknode[a.SerialNo].name
                 }
 
                 ret.push({
@@ -1561,51 +1496,132 @@ export function initAPI()
                     event: typemap[a.type],
                     device: dev,
                     status: a.status
-                });
+                })
             }
         } catch (err) {
-            console.log("Cannot retrieve alarm data.");
+            console.log('Cannot retrieve alarm data.')
         }
 
-        res.json(ret);
-    });
+        res.json(ret)
+    })
 
     api.post('/alarm/update/:status', async (req, res) => {
-        if(req.params.status == "delete")
-        {
+        if (req.params.status == 'delete') {
             try {
                 await db.alarm.destroy({
-                    where: {id: req.body}
-                });
-    
-                res.send("SUCCESS");
+                    where: { id: req.body }
+                })
+
+                res.send('SUCCESS')
             } catch (err) {
-                console.log("Cannot delete ", req.body);
-                res.send("Cannot delete.");
+                console.log('Cannot delete ', req.body)
+                res.send('Cannot delete.')
             }
+        } else if (
+            req.params.status == 'read' ||
+            req.params.status == 'unread' ||
+            req.params.status == 'archive'
+        ) {
+            try {
+                await db.alarm.update(
+                    { status: req.params.status },
+                    {
+                        where: { id: req.body }
+                    }
+                )
+
+                res.send('SUCCESS')
+            } catch (err) {
+                console.log('Cannot update status ', req.body)
+                res.send('Cannot update status.')
+            }
+        } else {
+            console.log('Receive an invalid alarm API.')
+            res.send('Invalid command.')
         }
-        else if(req.params.status == "read" || req.params.status == "unread" || req.params.status == "archive")
+    })
+
+    api.post('/set_parameter', async (req, res) => {
+        let keys = Object.keys(req.body);
+
+        for(let k of keys)
+        {
+            param_mm[k].min = req.body[k].min;
+            param_mm[k].max = req.body[k].max;
+        }
+
+        res.send("SUCCESS");
+    });
+
+    api.get('/parameter', async (req, res) => {
+        res.json(param_mm);
+    });
+
+    api.get('/holiday', async (req, res) => {
+        res.json(holidays);
+    });
+
+    api.post('/holiday', async (req, res) => {
+        try {
+            await db.holiday.create({
+                DateTime: req.body.date,
+                name: req.body.name
+            });
+
+            await initHoliday();
+
+            res.send("SUCCESS");
+        } catch (err) {
+            console.log("Cannot add holiday.");
+            res.send("Cannot add holiday");
+        }
+    });
+
+    api.post('/holiday/:action/:id', async (req, res) => {
+        if(req.params.action == "edit")
         {
             try {
-                await db.alarm.update({status: req.params.status}, {
-                    where: {id: req.body}
-                });
-    
+                await db.holiday.update(
+                    {
+                        DateTime: req.body.date,
+                        name: req.body.name
+                    },
+                    {
+                        where: { id: parseInt(req.params.id) }
+                    }
+                )
+
+                await initHoliday();
                 res.send("SUCCESS");
+                
             } catch (err) {
-                console.log("Cannot update status ", req.body);
-                res.send("Cannot update status.");
+                console.log("Cannot update holiday.");
+                res.send("Cannot update holiday.");
+            }
+        }
+        else if(req.params.action == "delete")
+        {
+            try {
+                await db.holiday.destroy({
+                    where: { id: parseInt(req.params.id) }
+                });
+
+                await initHoliday();
+                res.send("SUCCESS");
+
+            } catch (err) {
+                console.log("Cannot delete holiday.");
+                res.send("Cannot delete holiday.");
             }
         }
         else
         {
-            console.log("Receive an invalid alarm API.");
-            res.send("Invalid command.");
+            console.log("Invalid parameter.");
+            res.send("Invalid parameter.");
         }
-        
     });
 
     api_server = api.listen(8888, () => {
-        console.log('API Server is running at 8888.');
-    });
+        console.log('API Server is running at 8888.')
+    })
 }

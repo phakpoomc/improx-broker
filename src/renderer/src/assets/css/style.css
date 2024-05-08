@@ -41,16 +41,16 @@
 }
 
 .status-success {
-    background-color: #E2FFE6;
+    background-color: #e2ffe6;
     border-radius: 50px;
 }
 
 .status-danger {
-    background-color: #FFC3C3;
+    background-color: #ffc3c3;
     border-radius: 50px;
 }
 
 .status-warning {
-    background-color: #FFF3C1;
+    background-color: #fff3c1;
     border-radius: 50px;
 }
