@@ -301,6 +301,48 @@ const pmap = [
     }
 ]
 
+const cmap = {
+    'Import_kWh': 'sum',
+    'Export_kWh': 'sum',
+    'TotalkWh': 'sum',
+    'Total_kvarh': 'sum',
+    'Ind_kvarh': 'sum',
+    'Cap_kvarh': 'sum',
+    'kVAh': 'sum',
+    'V1': 'avg',
+    'V2': 'avg',
+    'V3': 'avg',
+    'V12': 'avg',
+    'V23': 'avg',
+    'V31': 'avg',
+    'I1': 'sum',
+    'I2': 'sum',
+    'I3': 'sum',
+    'P1': 'sum',
+    'P2': 'sum',
+    'P3': 'sum',
+    'P_Sum': 'sum',
+    'Q1': 'sum',
+    'Q2': 'sum',
+    'Q3': 'sum',
+    'Q_Sum': 'sum',
+    'S1': 'sum',
+    'S2': 'sum',
+    'S3': 'sum',
+    'S_Sum': 'sum',
+    'PF1': 'avg',
+    'PF2': 'avg',
+    'PF3': 'avg',
+    'PF_Sum': 'avg',
+    'THD_U1': 'avg',
+    'THD_U2': 'avg',
+    'THD_U3': 'avg',
+    'THD_I1': 'avg',
+    'THD_I2': 'avg',
+    'THD_I3': 'avg',
+    'Frequency': 'avg'
+}
+
 function isOnPeak(dt) {
     let dayinweek = dt.getDay()
 
@@ -1000,11 +1042,86 @@ export function initAPI() {
 
         let p = req.body
 
-        for (let k in p) {
+        for (let k of p) {
             // Get data and fill
-            ret[p[k]] = {
-                time: new Date(),
-                value: Math.random() * 50 - 25
+            let arr = k.split("@");
+
+            if(arr[0] == 'M')
+            {
+                let sn = arr[1];
+                // let siteid = arr[2];
+                // let nodeid = arr[3];
+
+                arr = arr[4].split("%");
+
+                let modbusid = arr[0];
+                let param = arr[1];
+
+                let snid = sn + "%" + modbusid;
+
+                if(lastUpdateData[snid] && lastUpdateTime[snid])
+                {
+                    ret[k] = {
+                        time: lastUpdateTime[snid],
+                        value: lastUpdateData[snid][param]
+                    };
+                }
+                else
+                {
+                    ret[k] = {
+                        time: new Date(),
+                        value: 0
+                    };
+                }
+
+            }
+            else if(arr[0] == 'G')
+            {
+                arr = arr[1].split("%");
+
+                let gid = parseInt(arr[0]);
+                let param = arr[1];
+
+                let total = 0;
+                let count = 0;
+
+                for(let m of group[gid].member)
+                {
+                    let sn = m.serial;
+                    let modbusid = parseInt(m.modbusid) - 1;
+                    let snid = sn + "%" + String(modbusid);
+
+                    count += 1;
+
+                    if(lastUpdateData[snid] && lastUpdateTime[snid])
+                    {
+                        
+                        total += lastUpdateData[snid][param];
+                    }
+                }
+
+                if(cmap[param] == 'avg')
+                {
+                    ret[k] = {
+                        time: new Date(),
+                        value: total/count
+                    };
+                }
+                else if(cmap[param] == 'sum')
+                {
+                    ret[k] = {
+                        time: new Date(),
+                        value: total
+                    };
+                }
+                else
+                {
+                    console.log("Invalid parameter");
+                }
+            }
+            else
+            {
+                console.log("Received invalid parameter");
             }
         }
 
@@ -1013,11 +1130,11 @@ export function initAPI() {
 
     api.get('/rt_chart', (req, res) => {
         let ret = [
-            { value: 'MDB-1.Active power L1..L3 (kW)', actual: 7.3398, min: 6.67, max: 7.4341 },
-            { value: 'MDB-1.Cos-phi L1..L3', actual: 8.3998, min: 8.67, max: 9.4941 },
-            { value: 'MDB-1.Active power L1 (kW)', actual: 5.998, min: 6.67, max: 7.4941 },
-            { value: 'MDB-1.Active power L2 (kW)', actual: 5.3298, min: 8.85, max: 9.4241 },
-            { value: 'MDB-1.Active power L3 (kW)', actual: 9.3098, min: 8.65, max: 5.4041 }
+            // { value: 'MDB-1.Active power L1..L3 (kW)', actual: 7.3398, min: 6.67, max: 7.4341 },
+            // { value: 'MDB-1.Cos-phi L1..L3', actual: 8.3998, min: 8.67, max: 9.4941 },
+            // { value: 'MDB-1.Active power L1 (kW)', actual: 5.998, min: 6.67, max: 7.4941 },
+            // { value: 'MDB-1.Active power L2 (kW)', actual: 5.3298, min: 8.85, max: 9.4241 },
+            // { value: 'MDB-1.Active power L3 (kW)', actual: 9.3098, min: 8.65, max: 5.4041 }
         ]
 
         // calculate value and return
