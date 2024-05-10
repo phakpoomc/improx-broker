@@ -1,6 +1,7 @@
 import express from 'express'
 import fileUpload from 'express-fileupload'
 import cors from 'cors'
+import bcrypt from 'bcrypt'
 import { Op } from 'sequelize'
 import {
     lastUpdateData,
@@ -1738,6 +1739,83 @@ export function initAPI() {
             } catch (err) {
                 console.log("Cannot delete holiday.");
                 res.send("Cannot delete holiday.");
+            }
+        }
+        else
+        {
+            console.log("Invalid parameter.");
+            res.send("Invalid parameter.");
+        }
+    });
+
+    api.get('/user', async (req, res) => {
+        try {
+            let users = await db.user.findAll();
+
+            res.json(users);
+        } catch (err) {
+            console.log("Cannot get user.");
+            res.json({});
+        }
+    });
+
+    api.post('/user', async (req, res) => {
+        try {
+            await db.user.create({
+                name: req.body.name,
+                username: req.body.username,
+                email: req.body.email,
+                password: await bcrypt.hash(req.body.password, 3),
+                DateTime: new Date(),
+                status: req.body.status
+            });
+
+            // Create corresponding role and project as needed...
+
+            res.send("SUCCESS");
+        } catch (err) {
+            console.log("Cannot add user.");
+            res.send("Cannot add user");
+        }
+    });
+
+    api.post('/user/:action/:id', async (req, res) => {
+        if(req.params.action == "edit")
+        {
+            try {
+                await db.user.update(
+                    {
+                        name: req.body.name,
+                        // username: req.body.username,
+                        email: req.body.email,
+                        password: await bcrypt.hash(req.body.password, 3),
+                        DateTime: new Date(),
+                        status: req.body.status
+                    },
+                    {
+                        where: { id: parseInt(req.params.id) }
+                    }
+                )
+
+                res.send("SUCCESS");
+                
+            } catch (err) {
+                console.log("Cannot update user.");
+                res.send("Cannot update user.");
+            }
+        }
+        else if(req.params.action == "delete")
+        {
+            try {
+                await db.user.destroy({
+                    where: { id: parseInt(req.params.id) }
+                });
+
+                res.send("SUCCESS");
+
+            } catch (err) {
+                console.log("Cannot delete user.");
+                res.send("Cannot delete user.");
             }
         }
         else
