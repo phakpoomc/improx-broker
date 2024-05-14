@@ -1,6 +1,8 @@
-import { app, shell, BrowserWindow, ipcMain /*, safeStorage*/ } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, /*autoUpdater, dialog, safeStorage*/ } from 'electron'
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+
+import AutoLaunch from 'auto-launch'
 
 import {
     last,
@@ -17,20 +19,50 @@ import { api_server, initAPI } from './api.js'
 import { web_server, initWeb } from './web.js'
 import { syncDB } from './db.js'
 
-// const WEB_SERVER_PATH = path.resolve(app.getAppPath(), 'webserver');
+// const updateServer = "https://nexusenergyct.com";
+// const url = `${updateServer}/update_service/${process.platform}/${app.getVersion()}`
+
+// autoUpdater.setFeedURL({ url })
+
+// autoUpdater.checkForUpdates()
+
+// autoUpdater.on('update-downloaded', (event, releaseNotes, releaseName) => {
+//     const dialogOpts = {
+//         type: 'info',
+//         buttons: ['Restart', 'Later'],
+//         title: 'Application Update',
+//         message: process.platform === 'win32' ? releaseNotes : releaseName,
+//         detail:
+//         'A new version has been downloaded. Restart the application to apply the updates.'
+//     }
+
+//     dialog.showMessageBox(dialogOpts).then((returnValue) => {
+//         if (returnValue.response === 0) autoUpdater.quitAndInstall()
+//     })
+// })
+
+// autoUpdater.on('error', (message) => {
+//     console.error('There was a problem updating the application')
+//     console.error(message)
+// })
 
 /* DB Section */
-const META_CFG_PATH = path.resolve(app.getPath('appData'), 'meta.cfg')
+// const META_CFG_PATH = path.resolve(app.getPath('appData'), 'meta.cfg')
+const META_CFG_PATH = path.join(process.cwd(), 'meta.cfg')
 paths['META_CFG_PATH'] = META_CFG_PATH
 
-const DASHBOARD_CFG_PATH = path.resolve(app.getPath('appData'), 'dashboard.info')
+
+
+// const DASHBOARD_CFG_PATH = path.resolve(app.getPath('appData'), 'dashboard.info')
+const DASHBOARD_CFG_PATH = path.join(process.cwd(), 'dashboard.info')
 paths['DASHBOARD_CFG_PATH'] = DASHBOARD_CFG_PATH
 
 /* MQTT Broker Section */
 import { aedesInst, httpServer, startMQTT } from './mqtt.js'
 var bn_cb_registered = false
 
-const BN_CFG_PATH = path.resolve(app.getPath('appData'), 'blacknode.info')
+// const BN_CFG_PATH = path.resolve(app.getPath('appData'), 'blacknode.info')
+const BN_CFG_PATH = path.join(process.cwd(), 'blacknode.info')
 paths['BN_CFG_PATH'] = BN_CFG_PATH
 
 /* End of MQTT Broker Section */
@@ -276,6 +308,17 @@ app.whenReady().then(async () => {
         // On macOS it's common to re-create a window in the app when the
         // dock icon is clicked and there are no other windows open.
         if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    })
+})
+
+app.on('ready', () => {
+    let autoLaunch = new AutoLaunch({
+        name: app.getName(),
+        path: app.getPath('exe')
+    })
+
+    autoLaunch.isEnabled().then((isEnabled) => {
+        if(!isEnabled) autoLaunch.enable();
     })
 })
 

@@ -19,10 +19,10 @@ export async function syncDB() {
             define: {
                 timestamps: false
             },
-            dialectOptions: {
-                useUTC: false
-            },
-            timezone: '+07:00',
+            // dialectOptions: {
+            //     useUTC: false
+            // },
+            // timezone: '+07:00',
             logging: false
         })
 
