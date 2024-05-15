@@ -47,22 +47,22 @@ import { syncDB } from './db.js'
 // })
 
 /* DB Section */
-// const META_CFG_PATH = path.resolve(app.getPath('appData'), 'meta.cfg')
-const META_CFG_PATH = path.join(process.cwd(), 'meta.cfg')
+const META_CFG_PATH = path.resolve(app.getPath('appData'), 'meta.cfg')
+// const META_CFG_PATH = path.join(process.cwd(), 'meta.cfg')
 paths['META_CFG_PATH'] = META_CFG_PATH
 
 
 
-// const DASHBOARD_CFG_PATH = path.resolve(app.getPath('appData'), 'dashboard.info')
-const DASHBOARD_CFG_PATH = path.join(process.cwd(), 'dashboard.info')
+const DASHBOARD_CFG_PATH = path.resolve(app.getPath('appData'), 'dashboard.info')
+// const DASHBOARD_CFG_PATH = path.join(process.cwd(), 'dashboard.info')
 paths['DASHBOARD_CFG_PATH'] = DASHBOARD_CFG_PATH
 
 /* MQTT Broker Section */
 import { aedesInst, httpServer, startMQTT } from './mqtt.js'
 var bn_cb_registered = false
 
-// const BN_CFG_PATH = path.resolve(app.getPath('appData'), 'blacknode.info')
-const BN_CFG_PATH = path.join(process.cwd(), 'blacknode.info')
+const BN_CFG_PATH = path.resolve(app.getPath('appData'), 'blacknode.info')
+// const BN_CFG_PATH = path.join(process.cwd(), 'blacknode.info')
 paths['BN_CFG_PATH'] = BN_CFG_PATH
 
 /* End of MQTT Broker Section */
@@ -311,16 +311,21 @@ app.whenReady().then(async () => {
     })
 })
 
-app.on('ready', () => {
-    let autoLaunch = new AutoLaunch({
-        name: app.getName(),
-        path: app.getPath('exe')
-    })
+// app.on('ready', () => {
+//     // console.log(app.getName(), app.getPath('exe'), process.cwd());
 
-    autoLaunch.isEnabled().then((isEnabled) => {
-        if(!isEnabled) autoLaunch.enable();
-    })
-})
+//     let autoLaunch = new AutoLaunch({
+//         name: app.getName(),
+//         path: app.getPath('exe')
+//         // path: process.cwd()
+//     })
+
+//     // autoLaunch.disable();
+
+//     autoLaunch.isEnabled().then((isEnabled) => {
+//         if(!isEnabled) autoLaunch.enable();
+//     })
+// })
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

@@ -1706,23 +1706,31 @@ export function initAPI() {
         let start_date = new Date(req.params.year, parseInt(req.params.month)-1, req.params.day);
         let end_date = new Date(req.params.year, parseInt(req.params.month)-1, req.params.day);
 
-        let start_seq = Math.trunc(start_date.getTime()/1000/15);
-        let end_seq = Math.trunc(end_date.getTime()/1000/15);
-
-        let arr_size = end_seq-start_seq;
-
         if(req.params.type == "year")
         {
-            end_date.setFullYear(end_date.getFullYear() - 1);
+            start_date.setMonth(0);
+            start_date.setDate(1);
+
+            end_date.setFullYear(end_date.getFullYear() + 1);
+            end_date.setMonth(0);
+            end_date.setDate(1);
         }
         else if(req.params.type == "month")
         {
-            end_date.setMonth(end_date.getMonth() - 1);
+            start_date.setDate(1);
+
+            end_date.setMonth(end_date.getMonth() + 1);
+            end_date.setDate(1);
         }
         else
         {
-            end_date.setDate(end_date.getDate() - 1);
+            end_date.setDate(end_date.getDate() + 1);
         }
+
+        let start_seq = Math.trunc(start_date.getTime()/1000/60/15);
+        let end_seq = Math.trunc(end_date.getTime()/1000/60/15);
+
+        let arr_size = end_seq-start_seq;
 
         let ret = {}
 
@@ -1762,14 +1770,14 @@ export function initAPI() {
                 for(let i=0; i<arr_size; i++)
                 {
                     ret[k].push({
-                        time: null,
+                        time: new Date(start_date.getTime() + (i*15*60*1000)),
                         value: 0
                     });
                 }
 
                 for(let e of eData)
                 {
-                    let seq = Math.trunc(e.DateTimeUpdate.getTime()/1000/15) - start_seq;
+                    let seq = Math.trunc(e.DateTimeUpdate.getTime()/1000/60/15) - start_seq;
 
                     ret[k][seq].time = e.DateTimeUpdate;
                     ret[k][seq].value = e.TotalkWh;
@@ -1817,7 +1825,7 @@ export function initAPI() {
 
                     for(let e of eData)
                     {
-                        let seq = Math.trunc(e.DateTimeUpdate.getTime()/1000/15) - start_seq;
+                        let seq = Math.trunc(e.DateTimeUpdate.getTime()/1000/60/15) - start_seq;
     
                         ret[k][seq].time = e.DateTimeUpdate;
                         ret[k][seq].value += e.TotalkWh;
