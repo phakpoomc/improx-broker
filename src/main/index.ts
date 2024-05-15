@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain, /*autoUpdater, dialog, safeStorage*
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
-import AutoLaunch from 'auto-launch'
+// import AutoLaunch from 'auto-launch'
 
 import {
     last,
