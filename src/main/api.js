@@ -343,7 +343,7 @@ const cmap = {
 }
 
 function isOnPeak(dt) {
-    let dayinweek = dt.getDay()
+    let dayinweek = dt.getUTCDay()
 
     // Saturday or Sunday
     if (dayinweek == 0 || dayinweek == 6) {
@@ -351,15 +351,15 @@ function isOnPeak(dt) {
     }
 
     // In case of holidays...
-    let k = String(dt.getFullYear()) + String(dt.getMonth()) + String(dt.getDate())
+    let k = String(dt.getUTCFullYear()) + String(dt.getUTCMonth()) + String(dt.getUTCDate())
 
     if (holidays[k]) {
         return false
     }
 
     // Mon - Fri
-    let hours = dt.getHours()
-    let min = dt.getMinutes()
+    let hours = dt.getUTCHours()
+    let min = dt.getUTCMinutes()
 
     if (hours < 9 || hours > 22) {
         return false
@@ -385,10 +385,10 @@ export function initAPI() {
         // calculate value and return
         let now = new Date()
 
-        let tLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-        let tThisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-        let tYesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
-        let tToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        let tLastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
+        let tThisMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+        let tYesterday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1))
+        let tToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
 
         let energyLastMonth = 0
         let energyThisMonth = 0
@@ -530,8 +530,8 @@ export function initAPI() {
         let month = parseInt(req.params.month) - 1
         let day = req.params.day
 
-        let startTime = new Date(year, month, day)
-        let endTime = new Date(year, month, day, 23, 59, 59)
+        let startTime = new Date(Date.UTC(year, month, day))
+        let endTime = new Date(Date.UTC(year, month, day, 23, 59, 59))
 
         let group = await db.group.findOne({
             where: { showDashboard: true }
@@ -603,7 +603,7 @@ export function initAPI() {
             let adjustedTime = new Date(e.DateTimeUpdate)
             adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
 
-            let hour = adjustedTime.getHours()
+            let hour = adjustedTime.getUTCHours()
 
             ret[hour].value1 += absEnergy
         }
@@ -617,8 +617,8 @@ export function initAPI() {
         let year = req.params.year
         let month = parseInt(req.params.month) - 1
 
-        let d = new Date(year, month + 1, 0)
-        let totalDays = d.getDate()
+        let d = new Date(Date.UTC(year, month + 1, 0))
+        let totalDays = d.getUTCDate()
 
         // calculate value and return
         for (let i = 0; i < totalDays; i++) {
@@ -628,8 +628,8 @@ export function initAPI() {
             }
         }
 
-        let startTime = new Date(year, month, 1)
-        let endTime = new Date(year, month, totalDays, 23, 59, 59)
+        let startTime = new Date(Date.UTC(year, month, 1))
+        let endTime = new Date(Date.UTC(year, month, totalDays, 23, 59, 59))
 
         let group = await db.group.findOne({
             where: { showDashboard: true }
@@ -701,7 +701,7 @@ export function initAPI() {
             let adjustedTime = new Date(e.DateTimeUpdate)
             adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
 
-            let day = adjustedTime.getDate() - 1
+            let day = adjustedTime.getUTCDate() - 1
 
             ret[day].value1 += absEnergy
         }
@@ -722,8 +722,8 @@ export function initAPI() {
             }
         }
 
-        let startTime = new Date(year, 0, 1)
-        let endTime = new Date(year, 11, 31, 59, 59, 59)
+        let startTime = new Date(Date.UTC(year, 0, 1))
+        let endTime = new Date(Date.UTC(year, 11, 31, 59, 59, 59))
 
         let group = await db.group.findOne({
             where: { showDashboard: true }
@@ -795,7 +795,7 @@ export function initAPI() {
             let adjustedTime = new Date(e.DateTimeUpdate)
             adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
 
-            let month = adjustedTime.getMonth()
+            let month = adjustedTime.getUTCMonth()
             ret[month].value1 += absEnergy
         }
 
@@ -815,8 +815,8 @@ export function initAPI() {
             }
         }
 
-        let startTime = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-        let endTime = new Date(year, month, day, 0, 0, 0)
+        let startTime = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+        let endTime = new Date(Date.UTC(year, month, day, 0, 0, 0))
 
         let group = await db.group.findOne({
             where: { showDashboard: true }
@@ -888,7 +888,7 @@ export function initAPI() {
             let adjustedTime = new Date(e.DateTimeUpdate)
             adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
 
-            let hour = adjustedTime.getHours() - 1
+            let hour = adjustedTime.getUTCHours() - 1
             ret[hour].value1 += absEnergy
         }
 
@@ -1703,34 +1703,43 @@ export function initAPI() {
     });
 
     api.post('/rp_chart/:type/:year/:month/:day', async (req, res) => {
-        let start_date = new Date(req.params.year, parseInt(req.params.month)-1, req.params.day);
-        let end_date = new Date(req.params.year, parseInt(req.params.month)-1, req.params.day);
+        let start_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
+        let end_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
 
         if(req.params.type == "year")
         {
-            start_date.setMonth(0);
-            start_date.setDate(1);
+            start_date.setUTCMonth(0);
+            start_date.setUTCDate(1);
 
-            end_date.setFullYear(end_date.getFullYear() + 1);
-            end_date.setMonth(0);
-            end_date.setDate(1);
+            end_date.setUTCFullYear(end_date.getUTCFullYear() + 1);
+            end_date.setUTCMonth(0);
+            end_date.setUTCDate(1);
         }
         else if(req.params.type == "month")
         {
-            start_date.setDate(1);
+            start_date.setUTCDate(1);
 
-            end_date.setMonth(end_date.getMonth() + 1);
-            end_date.setDate(1);
+            end_date.setUTCMonth(end_date.getUTCMonth() + 1);
+            end_date.setUTCDate(1);
         }
         else
         {
-            end_date.setDate(end_date.getDate() + 1);
+            end_date.setUTCDate(end_date.getUTCDate() + 1);
         }
 
         let start_seq = Math.trunc(start_date.getTime()/1000/60/15);
         let end_seq = Math.trunc(end_date.getTime()/1000/60/15);
 
         let arr_size = end_seq-start_seq;
+
+        if(req.params.type == 'year')
+        {
+            arr_size = 12;
+        }
+        else if(req.params.type == 'month')
+        {
+            arr_size /= 96;
+        }
 
         let ret = {}
 
@@ -1748,7 +1757,7 @@ export function initAPI() {
 
                 arr = arr[4].split("%");
 
-                let modbusid = arr[0];
+                let modbusid = String(parseInt(arr[0]) + 1);
                 // let param = arr[1];
 
                 let eData = await db.energy.findAll({
@@ -1769,18 +1778,48 @@ export function initAPI() {
 
                 for(let i=0; i<arr_size; i++)
                 {
+                    let time;
+
+                    if(req.params.type == 'year')
+                    {
+                        time = new Date(start_date);
+                        time.setUTCMonth(time.getUTCMonth() + i);
+                    }
+                    else if(req.params.type == 'month')
+                    {
+                        time = new Date(start_date);
+                        time.setUTCDate(time.getUTCDate() + i);
+                    }
+                    else
+                    {
+                        time = new Date(start_date.getTime() + (i*15*60*1000));
+                    }
+
                     ret[k].push({
-                        time: new Date(start_date.getTime() + (i*15*60*1000)),
+                        time: time,
                         value: 0
                     });
                 }
 
                 for(let e of eData)
                 {
-                    let seq = Math.trunc(e.DateTimeUpdate.getTime()/1000/60/15) - start_seq;
+                    let seq;
+                    // let time;
+                    
+                    if(req.params.type == 'year')
+                    {
+                        seq = e.DateTimeUpdate.getUTCMonth();
+                    }
+                    else if(req.params.type == 'month')
+                    {
+                        seq = e.DateTimeUpdate.getUTCDate()-1;
+                    }
+                    else
+                    {
+                        seq = Math.trunc(e.DateTimeUpdate.getTime()/1000/60/15) - start_seq;
+                    }
 
-                    ret[k][seq].time = e.DateTimeUpdate;
-                    ret[k][seq].value = e.TotalkWh;
+                    ret[k][seq].value += e.TotalkWh;
                 }
             }
             else if(arr[0] == 'G')
@@ -1789,15 +1828,33 @@ export function initAPI() {
 
                 let gid = parseInt(arr[0]);
 
-                // let param = arr[1];
+                let param = arr[1];
 
-                // let total = 0;
                 let count = 0;
+
+                ret[k] = [];
 
                 for(let i=0; i<arr_size; i++)
                 {
+                    let time;
+
+                    if(req.params.type == 'year')
+                    {
+                        time = new Date(start_date);
+                        time.setUTCMonth(time.getUTCMonth() + i);
+                    }
+                    else if(req.params.type == 'month')
+                    {
+                        time = new Date(start_date);
+                        time.setUTCDate(time.getUTCDate() + i);
+                    }
+                    else
+                    {
+                        time = new Date(start_date.getTime() + (i*15*60*1000));
+                    }
+
                     ret[k].push({
-                        time: null,
+                        time: time,
                         value: 0
                     });
                 }
@@ -1807,7 +1864,7 @@ export function initAPI() {
                     let sn = m.serial;
                     let siteid = blacknode[sn].siteid;
                     let nodeid = blacknode[sn].nodeid;
-                    let modbusid = parseInt(m.modbusid) - 1;
+                    let modbusid = parseInt(m.modbusid);
 
                     let eData = await db.energy.findAll({
                         attributes: ['DateTimeUpdate', 'TotalkWh'],
@@ -1825,23 +1882,27 @@ export function initAPI() {
 
                     for(let e of eData)
                     {
-                        let seq = Math.trunc(e.DateTimeUpdate.getTime()/1000/60/15) - start_seq;
-    
-                        ret[k][seq].time = e.DateTimeUpdate;
+                        let seq;
+                    
+                        if(req.params.type == 'year')
+                        {
+                            seq = e.DateTimeUpdate.getUTCMonth();
+                                                    
+                        }
+                        else if(req.params.type == 'month')
+                        {
+                            seq = e.DateTimeUpdate.getUTCDate()-1;
+                                                   
+                        }
+                        else
+                        {
+                            seq = Math.trunc(e.DateTimeUpdate.getTime()/1000/60/15) - start_seq;
+                        }
+
                         ret[k][seq].value += e.TotalkWh;
                     }
                     
                     count += 1;
-
-                    // let snid = sn + "%" + String(modbusid);
-
-                    // count += 1;
-
-                    // if(lastUpdateData[snid] && lastUpdateTime[snid])
-                    // {
-                        
-                    //     total += lastUpdateData[snid][param];
-                    // }
                 }
 
                 if(cmap[param] == 'avg')

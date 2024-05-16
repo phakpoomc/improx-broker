@@ -76,6 +76,12 @@ export async function loadMetaCFG()
                 }
             };
         }
+        if(!meta_cfg.auth_cred)
+        {
+            meta_cfg.auth_cred = {
+                remember: false
+            };
+        }
 
 
     } else {
@@ -112,7 +118,7 @@ export async function loadMetaDB()
         let h = await db.holiday.findAll()
 
         for (let d of h) {
-            let k = String(d.DateTime.getFullYear()) + '-' + String(d.DateTime.getMonth()) + '-' + String(d.DateTime.getDate())
+            let k = String(d.DateTime.getUTCFullYear()) + '-' + String(d.DateTime.getUTCMonth()) + '-' + String(d.DateTime.getUTCDate())
 
             holidays[k] = {
                 name: d.name,
@@ -172,7 +178,7 @@ export async function loadHoliday() {
         let h = await db.holiday.findAll()
 
         for (let d of h) {
-            let k = String(d.DateTime.getFullYear()) + '-' + String(d.DateTime.getMonth()) + '-' + String(d.DateTime.getDate())
+            let k = String(d.DateTime.getUTCFullYear()) + '-' + String(d.DateTime.getUTCMonth()) + '-' + String(d.DateTime.getUTCDate())
 
             holidays[k] = {
                 name: d.name,

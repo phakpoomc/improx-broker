@@ -200,7 +200,7 @@ export function startMQTT(BN_CFG_PATH) {
                 if (d) {
                     // Payload pattern matched.
 
-                    let dt = new Date(d[1], parseInt(d[2]) - 1, d[3], d[4], d[5], d[6])
+                    let dt = new Date(Date.UTC(d[1], parseInt(d[2]) - 1, d[3], d[4], d[5], d[6]))
                     let e = d[7].split('|')
 
                     if (e.length == 39) {
@@ -398,8 +398,8 @@ export function startMQTT(BN_CFG_PATH) {
                             lastUpdateTime[snid] = now
 
                             let lastFifteenTime = new Date()
-                            lastFifteenTime.setMinutes(
-                                parseInt(Math.floor(lastFifteenTime.getMinutes() / 15) * 15)
+                            lastFifteenTime.setUTCMinutes(
+                                parseInt(Math.floor(lastFifteenTime.getUTCMinutes() / 15) * 15)
                             )
                             let lastFifteenData = parseFloat(e[2])
 

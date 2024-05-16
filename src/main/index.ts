@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain, /*autoUpdater, dialog, safeStorage*
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
-// import AutoLaunch from 'auto-launch'
+import AutoLaunch from 'auto-launch'
 
 import {
     last,
@@ -18,6 +18,19 @@ import {
 import { api_server, initAPI } from './api.js'
 import { web_server, initWeb } from './web.js'
 import { syncDB } from './db.js'
+
+function loginWith(uname, pwd)
+{
+    if((uname == '' && pwd == '') ||
+    (uname == 'admin' && pwd == 'password'))
+    {
+        return true
+    }
+    else
+    {
+        return false
+    }
+}
 
 // const updateServer = "https://nexusenergyct.com";
 // const url = `${updateServer}/update_service/${process.platform}/${app.getVersion()}`
@@ -47,22 +60,22 @@ import { syncDB } from './db.js'
 // })
 
 /* DB Section */
-const META_CFG_PATH = path.resolve(app.getPath('appData'), 'meta.cfg')
-// const META_CFG_PATH = path.join(process.cwd(), 'meta.cfg')
-paths['META_CFG_PATH'] = META_CFG_PATH
+// const META_CFG_PATH = path.resolve(app.getPath('appData'), 'meta.cfg')
+const META_CFG_PATH = path.join(process.cwd(), 'meta.cfg')
+// paths['META_CFG_PATH'] = META_CFG_PATH
 
 
 
-const DASHBOARD_CFG_PATH = path.resolve(app.getPath('appData'), 'dashboard.info')
+// const DASHBOARD_CFG_PATH = path.resolve(app.getPath('appData'), 'dashboard.info')
 // const DASHBOARD_CFG_PATH = path.join(process.cwd(), 'dashboard.info')
-paths['DASHBOARD_CFG_PATH'] = DASHBOARD_CFG_PATH
+// paths['DASHBOARD_CFG_PATH'] = DASHBOARD_CFG_PATH
 
 /* MQTT Broker Section */
 import { aedesInst, httpServer, startMQTT } from './mqtt.js'
 var bn_cb_registered = false
 
-const BN_CFG_PATH = path.resolve(app.getPath('appData'), 'blacknode.info')
-// const BN_CFG_PATH = path.join(process.cwd(), 'blacknode.info')
+// const BN_CFG_PATH = path.resolve(app.getPath('appData'), 'blacknode.info')
+const BN_CFG_PATH = path.join(process.cwd(), 'blacknode.info')
 paths['BN_CFG_PATH'] = BN_CFG_PATH
 
 /* End of MQTT Broker Section */
@@ -90,8 +103,28 @@ function createWindow(): void {
         }
     })
 
-    mainWindow.on('ready-to-show', () => {
+    mainWindow.on('ready-to-show', async () => {
         mainWindow.show()
+
+        loadMetaCFG()
+
+        if(meta_cfg.auth_cred.remember)
+        {
+            if(loginWith(meta_cfg.auth_cred.username, meta_cfg.auth_cred.password))
+            {
+                authenticated = true
+                username = meta_cfg.auth_cred.username;
+
+                if (!aedesInst || aedesInst.closed) {
+                    startMQTT(BN_CFG_PATH)
+                    initWeb()
+                    initAPI()
+                    
+                    await syncDB()
+                    await loadMetaDB()
+                }
+            }
+        }
     })
 
     mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -311,21 +344,21 @@ app.whenReady().then(async () => {
     })
 })
 
-// app.on('ready', () => {
-//     // console.log(app.getName(), app.getPath('exe'), process.cwd());
+app.on('ready', () => {
+    // console.log(app.getName(), app.getPath('exe'), process.cwd());
 
-//     let autoLaunch = new AutoLaunch({
-//         name: app.getName(),
-//         path: app.getPath('exe')
-//         // path: process.cwd()
-//     })
+    let autoLaunch = new AutoLaunch({
+        name: app.getName(),
+        path: app.getPath('exe')
+        // path: process.cwd()
+    })
 
-//     // autoLaunch.disable();
+    // autoLaunch.disable();
 
-//     autoLaunch.isEnabled().then((isEnabled) => {
-//         if(!isEnabled) autoLaunch.enable();
-//     })
-// })
+    autoLaunch.isEnabled().then((isEnabled) => {
+        if(!isEnabled) autoLaunch.enable();
+    })
+})
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
@@ -360,16 +393,19 @@ ipcMain.on('authenticate', async (_event, args) => {
 
     //console.log(event);
 
-    if (
-        (data['username'] == '' && data['password'] == '') ||
-        (data['username'] == 'admin' && data['password'] == 'password')
-    ) {
+    if (loginWith(data['username'], data['password'])) {
         // last['message'] = 'Logged in successfully.';
         // last['time'] = new Date();
         // last['status'] = 'success';
 
         authenticated = true
         username = data['username']
+
+        meta_cfg.auth_cred.username = username;
+        meta_cfg.auth_cred.password = data['password'];
+        meta_cfg.auth_cred.remember = data['remember'];
+
+        writeFile(META_CFG_PATH, JSON.stringify(meta_cfg), { flag: 'w' })
 
         if (!aedesInst || aedesInst.closed) {
             startMQTT(BN_CFG_PATH)

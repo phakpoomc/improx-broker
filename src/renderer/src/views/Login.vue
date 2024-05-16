@@ -42,17 +42,17 @@
                                         value=""
                                     />
                                 </div>
-                                <!-- <div class="col-12 d-flex justify-content-between">
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" value="" name="remember_me" id="remember_me">
-                    <label class="form-check-label text-secondary" for="remember_me">
-                      Remember me
-                    </label>
-                  </div>
-                  <div class="d-flex gap-2 gap-md-4 flex-column flex-md-row justify-content-md-end">
-                    <a href="#!" class="link-secondary text-decoration-none">Forgot password?</a>
-                  </div>
-                </div> -->
+                                <div class="col-12 d-flex justify-content-between">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" value="" name="remember_me" id="remember_me">
+                                        <label class="form-check-label text-secondary" for="remember_me">
+                                        Remember me
+                                        </label>
+                                    </div>
+                                    <!-- <div class="d-flex gap-2 gap-md-4 flex-column flex-md-row justify-content-md-end">
+                                        <a href="#!" class="link-secondary text-decoration-none">Forgot password?</a>
+                                    </div>  -->
+                                </div> 
                                 <div class="col-12">
                                     <div class="d-grid">
                                         <router-link
@@ -60,7 +60,7 @@
                                             to="/"
                                             class="btn bsb-btn-xl btn-secondary"
                                             type="submit"
-                                            onclick="window.mainprocess.send('authenticate', JSON.stringify({'username': document.getElementById('username').value, 'password': document.getElementById('password').value}))"
+                                            onclick="window.mainprocess.send('authenticate', JSON.stringify({'username': document.getElementById('username').value, 'password': document.getElementById('password').value, 'remember': document.getElementById('remember_me').checked}))"
                                             >Log in</router-link
                                         >
                                     </div>
