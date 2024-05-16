@@ -389,6 +389,7 @@ export function initAPI() {
         let tThisMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
         let tYesterday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1))
         let tToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+        let tTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1))
 
         let energyLastMonth = 0
         let energyThisMonth = 0
@@ -452,10 +453,12 @@ export function initAPI() {
         }
 
         let prevEnergy = 0
+        let prevTime = null;
 
         for (let e of eData) {
             if (prevEnergy == 0) {
                 prevEnergy = e.TotalkWh
+                prevTime = e.DateTimeUpdate
                 continue
             }
 
@@ -469,34 +472,48 @@ export function initAPI() {
 
             if (e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate < tThisMonth) {
                 // Last month
-                energyLastMonth += absEnergy
+                if(prevTime >= tLastMonth && prevTime < tThisMonth)
+                {
+                    energyLastMonth += absEnergy
 
-                if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandLastMonth) {
-                    maxDemandLastMonth = absEnergy * 4
+                    if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandLastMonth) {
+                        maxDemandLastMonth = absEnergy * 4
+                    }
                 }
+                
             } else {
                 // This month
-                energyThisMonth += absEnergy
+                if(prevTime >= tThisMonth && prevTime < tTomorrow)
+                {
+                    energyThisMonth += absEnergy
 
-                if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandThisMonth) {
-                    maxDemandThisMonth = absEnergy * 4
-                }
-
-                if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate < tToday) {
-                    // Yesterday
-                    energyYesterday += absEnergy
-
-                    if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandYesterday) {
-                        maxDemandYesterday = absEnergy * 4
+                    if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandThisMonth) {
+                        maxDemandThisMonth = absEnergy * 4
                     }
-                } else if (e.DateTimeUpdate >= tToday) {
-                    energyToday += absEnergy
 
-                    if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandToday) {
-                        maxDemandToday = absEnergy * 4
+                    if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate < tToday) {
+                        // Yesterday
+                        if(prevTime >= tYesterday && prevTime < tTomorrow)
+                        {
+                            energyYesterday += absEnergy
+
+                            if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandYesterday) {
+                                maxDemandYesterday = absEnergy * 4
+                            }
+                        }
+                        
+                    } else if (e.DateTimeUpdate >= tToday && prevTime < tTomorrow) {
+                        energyToday += absEnergy
+
+                        if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandToday) {
+                            maxDemandToday = absEnergy * 4
+                        }
                     }
                 }
+                
             }
+
+            prevTime = e.DateTimeUpdate
         }
 
         ret = {
@@ -1758,10 +1775,10 @@ export function initAPI() {
                 arr = arr[4].split("%");
 
                 let modbusid = String(parseInt(arr[0]) + 1);
-                // let param = arr[1];
+                let param = arr[1];
 
                 let eData = await db.energy.findAll({
-                    attributes: ['DateTimeUpdate', 'TotalkWh'],
+                    attributes: ['DateTimeUpdate', param],
                     where: {
                         DateTimeUpdate: {
                             [Op.and]: {
@@ -1819,7 +1836,8 @@ export function initAPI() {
                         seq = Math.trunc(e.DateTimeUpdate.getTime()/1000/60/15) - start_seq;
                     }
 
-                    ret[k][seq].value += e.TotalkWh;
+                    // [TODO] Calculate depending on parameter type (accumulative/instance)
+                    ret[k][seq].value = e[param];
                 }
             }
             else if(arr[0] == 'G')
@@ -1833,6 +1851,7 @@ export function initAPI() {
                 let count = 0;
 
                 ret[k] = [];
+                let tmp = [];
 
                 for(let i=0; i<arr_size; i++)
                 {
@@ -1857,6 +1876,8 @@ export function initAPI() {
                         time: time,
                         value: 0
                     });
+
+                    tmp.push(0);
                 }
 
                 for(let m of group[gid].member)
@@ -1867,7 +1888,7 @@ export function initAPI() {
                     let modbusid = parseInt(m.modbusid);
 
                     let eData = await db.energy.findAll({
-                        attributes: ['DateTimeUpdate', 'TotalkWh'],
+                        attributes: ['DateTimeUpdate', param],
                         where: {
                             DateTimeUpdate: {
                                 [Op.and]: {
@@ -1899,7 +1920,15 @@ export function initAPI() {
                             seq = Math.trunc(e.DateTimeUpdate.getTime()/1000/60/15) - start_seq;
                         }
 
-                        ret[k][seq].value += e.TotalkWh;
+                        // ret[k][seq].value += e.TotalkWh;
+                        // [TODO] Calculate depending on parameter type (accumulative/instance)
+                        tmp[seq] = e[param];
+                    }
+
+                    for(let i=0; i<arr_size; i++)
+                    {
+                        ret[k][i].value += tmp[i];
+                        tmp[i] = 0;
                     }
                     
                     count += 1;

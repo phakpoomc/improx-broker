@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain, /*autoUpdater, dialog, safeStorage*
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
-import AutoLaunch from 'auto-launch'
+// import AutoLaunch from 'auto-launch'
 
 import {
     last,
@@ -62,7 +62,7 @@ function loginWith(uname, pwd)
 /* DB Section */
 // const META_CFG_PATH = path.resolve(app.getPath('appData'), 'meta.cfg')
 const META_CFG_PATH = path.join(process.cwd(), 'meta.cfg')
-// paths['META_CFG_PATH'] = META_CFG_PATH
+paths['META_CFG_PATH'] = META_CFG_PATH
 
 
 
@@ -344,21 +344,21 @@ app.whenReady().then(async () => {
     })
 })
 
-app.on('ready', () => {
-    // console.log(app.getName(), app.getPath('exe'), process.cwd());
+// app.on('ready', () => {
+//     // console.log(app.getName(), app.getPath('exe'), process.cwd());
 
-    let autoLaunch = new AutoLaunch({
-        name: app.getName(),
-        path: app.getPath('exe')
-        // path: process.cwd()
-    })
+//     let autoLaunch = new AutoLaunch({
+//         name: app.getName(),
+//         path: app.getPath('exe')
+//         // path: process.cwd()
+//     })
 
-    // autoLaunch.disable();
+//     // autoLaunch.disable();
 
-    autoLaunch.isEnabled().then((isEnabled) => {
-        if(!isEnabled) autoLaunch.enable();
-    })
-})
+//     autoLaunch.isEnabled().then((isEnabled) => {
+//         if(!isEnabled) autoLaunch.enable();
+//     })
+// })
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
