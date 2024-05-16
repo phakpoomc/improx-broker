@@ -29,6 +29,7 @@ const pmap = [
         name: 'Import_kWh',
         unit: '',
         group: 'sum',
+        calc_type: 'accumulative',
         weight: true,
         alarm: false
     },
@@ -36,6 +37,7 @@ const pmap = [
         name: 'Export_kWh',
         unit: '',
         group: 'sum',
+        calc_type: 'accumulative',
         weight: true,
         alarm: false
     },
@@ -43,6 +45,7 @@ const pmap = [
         name: 'TotalkWh',
         unit: '',
         group: 'sum',
+        calc_type: 'accumulative',
         weight: true,
         alarm: false
     },
@@ -50,6 +53,7 @@ const pmap = [
         name: 'Total_kvarh',
         unit: '',
         group: 'sum',
+        calc_type: 'accumulative',
         weight: true,
         alarm: false
     },
@@ -57,6 +61,7 @@ const pmap = [
         name: 'Ind_kvarh',
         unit: '',
         group: 'sum',
+        calc_type: 'accumulative',
         weight: true,
         alarm: false
     },
@@ -64,6 +69,7 @@ const pmap = [
         name: 'Cap_kvarh',
         unit: '',
         group: 'sum',
+        calc_type: 'accumulative',
         weight: true,
         alarm: false
     },
@@ -71,6 +77,7 @@ const pmap = [
         name: 'kVAh',
         unit: '',
         group: 'sum',
+        calc_type: 'accumulative',
         weight: true,
         alarm: false
     },
@@ -78,6 +85,7 @@ const pmap = [
         name: 'V1',
         unit: '(V)',
         group: 'avg',
+        calc_type: 'max',
         weight: false,
         alarm: true
     },
@@ -85,6 +93,7 @@ const pmap = [
         name: 'V2',
         unit: '(V)',
         group: 'avg',
+        calc_type: 'max',
         weight: false,
         alarm: true
     },
@@ -92,6 +101,7 @@ const pmap = [
         name: 'V3',
         unit: '(V)',
         group: 'avg',
+        calc_type: 'max',
         weight: false,
         alarm: true
     },
@@ -99,6 +109,7 @@ const pmap = [
         name: 'V12',
         unit: '(V)',
         group: 'avg',
+        calc_type: 'max',
         weight: false,
         alarm: true
     },
@@ -106,6 +117,7 @@ const pmap = [
         name: 'V23',
         unit: '(V)',
         group: 'avg',
+        calc_type: 'max',
         weight: false,
         alarm: true
     },
@@ -113,6 +125,7 @@ const pmap = [
         name: 'V31',
         unit: '(V)',
         group: 'avg',
+        calc_type: 'max',
         weight: false,
         alarm: true
     },
@@ -120,6 +133,7 @@ const pmap = [
         name: 'I1',
         unit: '(A)',
         group: 'sum',
+        calc_type: 'min',
         weight: true,
         alarm: true
     },
@@ -127,6 +141,7 @@ const pmap = [
         name: 'I2',
         unit: '(A)',
         group: 'sum',
+        calc_type: 'min',
         weight: true,
         alarm: true
     },
@@ -134,6 +149,7 @@ const pmap = [
         name: 'I3',
         unit: '(A)',
         group: 'sum',
+        calc_type: 'min',
         weight: true,
         alarm: true
     },
@@ -141,6 +157,7 @@ const pmap = [
         name: 'P1',
         unit: '(kW)',
         group: 'sum',
+        calc_type: 'max',
         weight: true,
         alarm: true
     },
@@ -148,6 +165,7 @@ const pmap = [
         name: 'P2',
         unit: '(kW)',
         group: 'sum',
+        calc_type: 'max',
         weight: true,
         alarm: true
     },
@@ -155,6 +173,7 @@ const pmap = [
         name: 'P3',
         unit: '(kW)',
         group: 'sum',
+        calc_type: 'max',
         weight: true,
         alarm: true
     },
@@ -162,6 +181,7 @@ const pmap = [
         name: 'P_Sum',
         unit: '(kW)',
         group: 'sum',
+        calc_type: 'max',
         weight: true,
         alarm: true
     },
@@ -169,6 +189,7 @@ const pmap = [
         name: 'Q1',
         unit: '(kvar)',
         group: 'sum',
+        calc_type: 'max',
         weight: true,
         alarm: true
     },
@@ -176,6 +197,7 @@ const pmap = [
         name: 'Q2',
         unit: '(kvar)',
         group: 'sum',
+        calc_type: 'max',
         weight: true,
         alarm: true
     },
@@ -183,6 +205,7 @@ const pmap = [
         name: 'Q3',
         unit: '(kvar)',
         group: 'sum',
+        calc_type: 'max',
         weight: true,
         alarm: true
     },
@@ -190,6 +213,7 @@ const pmap = [
         name: 'Q_Sum',
         unit: '(kvar)',
         group: 'sum',
+        calc_type: 'max',
         weight: true,
         alarm: true
     },
@@ -197,6 +221,7 @@ const pmap = [
         name: 'S1',
         unit: '(kVA)',
         group: 'sum',
+        calc_type: 'max',
         weight: true,
         alarm: true
     },
@@ -204,6 +229,7 @@ const pmap = [
         name: 'S2',
         unit: '(kVA)',
         group: 'sum',
+        calc_type: 'max',
         weight: true,
         alarm: true
     },
@@ -211,6 +237,7 @@ const pmap = [
         name: 'S3',
         unit: '(kVA)',
         group: 'sum',
+        calc_type: 'max',
         weight: true,
         alarm: true
     },
@@ -218,6 +245,7 @@ const pmap = [
         name: 'S_Sum',
         unit: '(kVA)',
         group: 'sum',
+        calc_type: 'max',
         weight: true,
         alarm: true
     },
@@ -225,6 +253,7 @@ const pmap = [
         name: 'PF1',
         unit: '',
         group: 'avg',
+        calc_type: 'avg',
         weight: false,
         alarm: true
     },
@@ -232,6 +261,7 @@ const pmap = [
         name: 'PF2',
         unit: '',
         group: 'avg',
+        calc_type: 'avg',
         weight: false,
         alarm: true
     },
@@ -239,6 +269,7 @@ const pmap = [
         name: 'PF3',
         unit: '',
         group: 'avg',
+        calc_type: 'avg',
         weight: false,
         alarm: true
     },
@@ -246,6 +277,7 @@ const pmap = [
         name: 'PF_Sum',
         unit: '',
         group: 'avg',
+        calc_type: 'avg',
         weight: false,
         alarm: true
     },
@@ -253,6 +285,7 @@ const pmap = [
         name: 'THD_U1',
         unit: '(%)',
         group: 'avg',
+        calc_type: 'avg',
         weight: false,
         alarm: false
     },
@@ -260,6 +293,7 @@ const pmap = [
         name: 'THD_U2',
         unit: '(%)',
         group: 'avg',
+        calc_type: 'avg',
         weight: false,
         alarm: false
     },
@@ -267,6 +301,7 @@ const pmap = [
         name: 'THD_U3',
         unit: '(%)',
         group: 'avg',
+        calc_type: 'avg',
         weight: false,
         alarm: false
     },
@@ -274,6 +309,7 @@ const pmap = [
         name: 'THD_I1',
         unit: '(%)',
         group: 'avg',
+        calc_type: 'avg',
         weight: false,
         alarm: false
     },
@@ -281,6 +317,7 @@ const pmap = [
         name: 'THD_I2',
         unit: '(%)',
         group: 'avg',
+        calc_type: 'avg',
         weight: false,
         alarm: false
     },
@@ -288,6 +325,7 @@ const pmap = [
         name: 'THD_I3',
         unit: '(%)',
         group: 'avg',
+        calc_type: 'avg',
         weight: false,
         alarm: false
     },
@@ -295,6 +333,7 @@ const pmap = [
         name: 'Frequency',
         unit: '(Hz)',
         group: 'avg',
+        calc_type: 'avg',
         weight: false,
         alarm: true
     }
@@ -1792,6 +1831,7 @@ export function initAPI() {
                 })
 
                 ret[k] = [];
+                let count = [];
 
                 for(let i=0; i<arr_size; i++)
                 {
@@ -1816,6 +1856,8 @@ export function initAPI() {
                         time: time,
                         value: 0
                     });
+
+                    count.push(0);
                 }
 
                 for(let e of eData)
@@ -1836,8 +1878,37 @@ export function initAPI() {
                         seq = Math.trunc(e.DateTimeUpdate.getTime()/1000/60/15) - start_seq;
                     }
 
-                    // [TODO] Calculate depending on parameter type (accumulative/instance)
-                    ret[k][seq].value = e[param];
+                    if(cmap[param].calc_type == "avg")
+                    {
+                        ret[k][seq].value += e[param];
+                        count[seq]++;
+                    }
+                    else if(cmap[param].calc_type == "max")
+                    {
+                        if(e[param] > ret[k][seq].value)
+                        {
+                            ret[k][seq].value = e[param]
+                        }
+                    }
+                    else if(cmap[param].calc_type == "min")
+                    {
+                        if(e[param] < ret[k][seq].value)
+                        {
+                            ret[k][seq].value = e[param]
+                        }
+                    }
+                    else
+                    {
+                        ret[k][seq].value = e[param];
+                    }
+                }
+
+                if(cmap[param].calc_type == "avg")
+                {
+                    for(let i=0; i<arr_size; i++)
+                    {
+                        ret[k][i].value /= count[i];
+                    }
                 }
             }
             else if(arr[0] == 'G')
@@ -1852,6 +1923,7 @@ export function initAPI() {
 
                 ret[k] = [];
                 let tmp = [];
+                let gcount = [];
 
                 for(let i=0; i<arr_size; i++)
                 {
@@ -1878,6 +1950,7 @@ export function initAPI() {
                     });
 
                     tmp.push(0);
+                    gcount.push(0);
                 }
 
                 for(let m of group[gid].member)
@@ -1922,7 +1995,38 @@ export function initAPI() {
 
                         // ret[k][seq].value += e.TotalkWh;
                         // [TODO] Calculate depending on parameter type (accumulative/instance)
-                        tmp[seq] = e[param];
+                        if(cmap[param].calc_type == "avg")
+                        {
+                            tmp[seq] += e[param];
+                            gcount[seq]++;
+                        }
+                        else if(cmap[param].calc_type == "max")
+                        {
+                            if(e[param] > tmp[seq])
+                            {
+                                tmp[seq] = e[param]
+                            }
+                        }
+                        else if(cmap[param].calc_type == "min")
+                        {
+                            if(e[param] < tmp[seq])
+                            {
+                                tmp[seq] = e[param]
+                            }
+                        }
+                        else
+                        {
+                            tmp[seq] = e[param];
+                        }
+
+                    }
+
+                    if(cmap[param].calc_type == "avg")
+                    {
+                        for(let i=0; i<arr_size; i++)
+                        {
+                            tmp[seq] /= count[i];
+                        }
                     }
 
                     for(let i=0; i<arr_size; i++)
