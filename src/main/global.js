@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { aedesInst } from './mqtt.js'
 
 export var last = {
     message: '',
@@ -26,6 +27,68 @@ export var lastUpdateTime = {}
 export var lastUpdateData = {}
 
 var MAX_HEARTBEAT = 20 * 60 * 1000
+
+var dbQueue = [];
+var aedesQueue = [];
+
+var qLock = false;
+
+export async function addQueue(obj, aedObj)
+{
+    if(!qLock)
+    {
+        qLock = true;
+
+        dbQueue.push(obj);
+        aedesQueue.push(aedObj);
+
+        qLock = false;
+    }
+    
+}
+
+export async function savetoDB()
+{
+    if(!qLock)
+    {
+        qLock = true;
+
+        if(dbQueue.length > 0 && aedesQueue.length == dbQueue.length && db && db.energy)
+        {
+            try {
+                await db.energy.bulkCreate(dbQueue)
+
+                for(let i=0; i<dbQueue.length; i++)
+                {
+                    checkOverRange(dbQueue[i])
+
+                    aedesInst.publish(aedesQueue[i])
+                }
+
+                console.log("Bulk of energy data is saved. Total: ", dbQueue.length);
+
+                dbQueue.length = 0;
+                aedesQueue.length = 0;
+
+            } catch(err) {
+                last['message'] = 'Cannot insert bulk.'
+                last['time'] = new Date()
+                last['status'] = 'error'
+                qLock = false;
+
+                for(let i=0; i<dbQueue.length; i++)
+                {
+                    if (aedesInst && !aedesInst.closed) {
+                        aedesQueue[i].payload = 'ERROR: database'
+                        aedesInst.publish(aedesQueue[i])
+                    }
+                }
+            }
+        }
+
+        qLock = false;
+    }
+}
 
 export async function loadMetaCFG()
 {

@@ -12,7 +12,8 @@ import {
     paths,
     loadMetaCFG,
     loadMetaDB,
-    checkHeartbeat
+    checkHeartbeat,
+    savetoDB
 } from './global.js'
 
 import { api_server, initAPI } from './api.js'
@@ -369,11 +370,14 @@ app.on('window-all-closed', () => {
     }
 })
 
-app.on('before-quit', function () {
+app.on('before-quit', async function () {
     clearInterval(secondInterval)
     clearInterval(minuteInterval)
     clearInterval(gettimeInterval)
     clearInterval(heartbeatInterval)
+    clearInterval(dbSaveInterval)
+
+    await savetoDB()
 
     if (gettimeTimeout) {
         clearTimeout(gettimeTimeout)
@@ -519,6 +523,15 @@ let heartbeatInterval = setInterval(() => {
         }
     }
 }, 15 * 60 * 1000)
+
+let dbSaveInterval = setInterval(() => {
+    // sendtime every minute on the 0-9th second
+    if (authenticated) {
+        if (aedesInst && !aedesInst.closed) {
+            savetoDB()
+        }
+    }
+}, 30 * 1000)
 
 // let gettimeInterval = setInterval(() => {
 //   // sendtime every minute on the 0-9th second
