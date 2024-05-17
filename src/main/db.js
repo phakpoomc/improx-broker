@@ -38,6 +38,7 @@ export async function syncDB() {
                 db.alarm = null;
                 db.holiday = null;
                 db.user = null;
+                db.userrole = null;
 
                 last['message'] = 'Cannot connect to database.'
                 last['time'] = new Date()
@@ -177,6 +178,18 @@ export async function syncDB() {
             }
         )
 
+        db.userrole = sequelize.define(
+            'userrole',
+            {
+                id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
+                userid: { type: DataTypes.INTEGER, field: 'userid' },
+                role: { type: DataTypes.STRING, field: 'role' },
+            },
+            {
+                tableName: 'userrole'
+            }
+        )
+
         try {
             await sequelize.sync()
             last['message'] = 'Database table synced.'
@@ -192,6 +205,7 @@ export async function syncDB() {
             db.alarm = null;
             db.holiday = null;
             db.user = null;
+            db.userrole = null;
 
             last['message'] = 'Cannot sync database table.'
             last['time'] = new Date()
@@ -207,6 +221,7 @@ export async function syncDB() {
         db.alarm = null;
         db.holiday = null;
         db.user = null;
+        db.userrole = null;
 
         last['message'] = 'Database is not set up.'
         last['time'] = new Date()

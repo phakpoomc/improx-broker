@@ -1694,7 +1694,7 @@ export function initAPI() {
 
     api.post('/user', async (req, res) => {
         try {
-            await db.user.create({
+            let u = await db.user.create({
                 name: req.body.name,
                 username: req.body.username,
                 email: req.body.email,
@@ -1704,6 +1704,23 @@ export function initAPI() {
             });
 
             // Create corresponding role and project as needed...
+            if(req.body.roles && req.body.roles.length > 0)
+            {
+                for(let i=0; i<req.body.roles.length; i++)
+                {
+                    await db.userrole.create({
+                        userid: u.id,
+                        role: req.body.roles[i]
+                    })
+                }
+            }
+            else
+            {
+                await db.userrole.create({
+                    userid: u.id,
+                    role: "user"
+                })
+            }
 
             res.send("SUCCESS");
         } catch (err) {
@@ -1729,6 +1746,30 @@ export function initAPI() {
                         where: { id: parseInt(req.params.id) }
                     }
                 )
+
+                await db.userrole.destroy({
+                    where: {
+                        userid: req.params.id
+                    }
+                })
+
+                if(req.body.roles && req.body.roles.length > 0)
+                {
+                    for(let i=0; i<req.body.roles.length; i++)
+                    {
+                        await db.userrole.create({
+                            userid: u.id,
+                            role: req.body.roles[i]
+                        })
+                    }
+                }
+                else
+                {
+                    await db.userrole.create({
+                        userid: u.id,
+                        role: "user"
+                    })
+                }
 
                 res.send("SUCCESS");
                 
