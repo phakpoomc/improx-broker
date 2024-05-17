@@ -60,7 +60,7 @@ export async function savetoDB()
 
                 for(let i=0; i<dbQueue.length; i++)
                 {
-                    checkOverRange(dbQueue[i])
+                    checkOverRange(dbQueue[i], false)
 
                     aedesInst.publish(aedesQueue[i])
                 }
@@ -330,11 +330,16 @@ export function checkHeartbeat() {
     }
 }
 
-export function checkOverRange(obj) {
+export function checkOverRange(obj, shift) {
     let keys = Object.keys(meta_cfg.param.mm)
     let now = new Date()
 
-    let id = obj['SiteID'] + '%' + obj['NodeID'] + '%' + obj['ModbusID']
+    if(shift)
+    {
+        obj['ModbusID'] = parseInt(obj['ModbusID']) + 1;
+    }
+
+    let id = obj['SiteID'] + '%' + obj['NodeID'] + '%' + String(obj['ModbusID'])
 
     if (lastAlarm[id] && now.getTime() - lastAlarm[id].getTime() < meta_cfg.param['mininum_realert']) {
         return
@@ -347,7 +352,7 @@ export function checkOverRange(obj) {
                     SerialNo: obj.SerialNo,
                     SiteID: obj.SiteID,
                     NodeID: obj.NodeID,
-                    ModbusID: parseInt(obj.ModbusID) + 1,
+                    ModbusID: parseInt(obj.ModbusID),
                     snmKey: id,
                     DateTime: now,
                     type: 'OVER_RANGE',

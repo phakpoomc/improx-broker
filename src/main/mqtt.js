@@ -481,7 +481,7 @@ export function startMQTT(BN_CFG_PATH) {
                                 lastFifteenData: lastFifteenData
                             }
 
-                            checkOverRange(obj)
+                            checkOverRange(obj, true)
 
                             Object.assign(lastUpdateData[snid], obj)
                         }

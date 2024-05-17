@@ -1526,8 +1526,9 @@ export function initAPI() {
 
         try {
             let alarms = await db.alarm.findAll({
-                limit: limit,
-                offset: parseInt(req.params.page) * limit
+                // limit: limit,
+                // offset: parseInt(req.params.page) * limit
+                order: [['DateTime', 'DESC']]
             })
 
             for (let a of alarms) {
