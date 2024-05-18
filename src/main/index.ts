@@ -61,8 +61,8 @@ function loginWith(uname, pwd)
 // })
 
 /* DB Section */
-// const META_CFG_PATH = path.resolve(app.getPath('appData'), 'meta.cfg')
-const META_CFG_PATH = path.join(process.cwd(), 'meta.cfg')
+const META_CFG_PATH = path.resolve(app.getPath('appData'), 'meta.cfg')
+// const META_CFG_PATH = path.join(process.cwd(), 'meta.cfg')
 paths['META_CFG_PATH'] = META_CFG_PATH
 
 
@@ -75,8 +75,8 @@ paths['META_CFG_PATH'] = META_CFG_PATH
 import { aedesInst, httpServer, startMQTT } from './mqtt.js'
 var bn_cb_registered = false
 
-// const BN_CFG_PATH = path.resolve(app.getPath('appData'), 'blacknode.info')
-const BN_CFG_PATH = path.join(process.cwd(), 'blacknode.info')
+const BN_CFG_PATH = path.resolve(app.getPath('appData'), 'blacknode.info')
+// const BN_CFG_PATH = path.join(process.cwd(), 'blacknode.info')
 paths['BN_CFG_PATH'] = BN_CFG_PATH
 
 /* End of MQTT Broker Section */

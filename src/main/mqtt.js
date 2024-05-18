@@ -282,7 +282,7 @@ export function startMQTT(BN_CFG_PATH) {
                                 THD_I2: parseFloat(e[36]),
                                 THD_I3: parseFloat(e[37]),
                                 Frequency: parseFloat(e[38]),
-                                kWdemand: parseFloat(e[2]) * 4
+                                // kWdemand: parseFloat(e[2]) * 4
                             }
 
                             // checkOverRange(obj)
@@ -426,7 +426,7 @@ export function startMQTT(BN_CFG_PATH) {
                             if (
                                 lastUpdateData[snid] &&
                                 lastUpdateData[snid].lastFifteenTime &&
-                                lastUpdateData[snid].lastFifteenTime == lastFifteenTime
+                                lastUpdateData[snid].lastFifteenTime != lastFifteenTime
                             ) {
                                 lastFifteenData = lastUpdateData[snid].lastFifteenData
                             }
@@ -476,7 +476,7 @@ export function startMQTT(BN_CFG_PATH) {
                                 THD_I2: parseFloat(e[36]),
                                 THD_I3: parseFloat(e[37]),
                                 Frequency: parseFloat(e[38]),
-                                kWdemand: parseFloat(e[2]) * 4,
+                                kWdemand: (parseFloat(e[2]) - lastFifteenData) * 4,
                                 lastFifteenTime: lastFifteenTime,
                                 lastFifteenData: lastFifteenData
                             }

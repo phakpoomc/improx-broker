@@ -97,7 +97,7 @@ export async function syncDB() {
                 THD_I2: { type: DataTypes.FLOAT, field: 'THD_I2' },
                 THD_I3: { type: DataTypes.FLOAT, field: 'THD_I3' },
                 Frequency: { type: DataTypes.FLOAT, field: 'Frequency' },
-                kWdemand: { type: DataTypes.DOUBLE, field: 'kWdemand' }
+                // kWdemand: { type: DataTypes.DOUBLE, field: 'kWdemand' }
             },
             {
                 tableName: 'energy'

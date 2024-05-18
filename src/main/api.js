@@ -336,6 +336,14 @@ const pmap = [
         calc_type: 'avg',
         weight: false,
         alarm: true
+    },
+    {
+        name: 'kWdemand',
+        unit: '',
+        group: 'sum',
+        calc_type: 'sum',
+        weight: false,
+        alarm: false
     }
 ]
 
@@ -378,7 +386,8 @@ const cmap = {
     'THD_I1': 'avg',
     'THD_I2': 'avg',
     'THD_I3': 'avg',
-    'Frequency': 'avg'
+    'Frequency': 'avg',
+    'kWdemand': 'max'
 }
 
 function isOnPeak(dt) {
@@ -424,11 +433,11 @@ export function initAPI() {
         // calculate value and return
         let now = new Date()
 
-        let tLastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1))
-        let tThisMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-        let tYesterday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1))
-        let tToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-        let tTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1))
+        let tLastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0, 0))
+        let tThisMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0))
+        let tYesterday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1, 0, 0, 0))
+        let tToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0))
+        let tTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
 
         let energyLastMonth = 0
         let energyThisMonth = 0
@@ -503,7 +512,7 @@ export function initAPI() {
 
             let absEnergy = e.TotalkWh - prevEnergy
 
-            if (absEnergy < 0) {
+            if (absEnergy < 0 || absEnergy > 1000) {
                 absEnergy = 0
             }
 
@@ -1857,20 +1866,40 @@ export function initAPI() {
 
                 let modbusid = String(parseInt(arr[0]) + 1);
                 let param = arr[1];
+                let eData;
 
-                let eData = await db.energy.findAll({
-                    attributes: ['DateTimeUpdate', param],
-                    where: {
-                        DateTimeUpdate: {
-                            [Op.and]: {
-                                [Op.gte]: start_date,
-                                [Op.lt]: end_date
-                            }
+                if(param == 'kWdemand')
+                {
+                    eData = await db.energy.findAll({
+                        attributes: ['DateTimeUpdate', 'TotalkWh', param],
+                        where: {
+                            DateTimeUpdate: {
+                                [Op.and]: {
+                                    [Op.gte]: start_date,
+                                    [Op.lt]: end_date
+                                }
+                            },
+                            snmKey: siteid + "%" + nodeid + "%" + modbusid
                         },
-                        snmKey: siteid + "%" + nodeid + "%" + modbusid
-                    },
-                    order: [['DateTimeUpdate', 'ASC']]
-                })
+                        order: [['DateTimeUpdate', 'ASC']]
+                    })
+                }
+                else
+                {
+                    eData = await db.energy.findAll({
+                        attributes: ['DateTimeUpdate', param],
+                        where: {
+                            DateTimeUpdate: {
+                                [Op.and]: {
+                                    [Op.gte]: start_date,
+                                    [Op.lt]: end_date
+                                }
+                            },
+                            snmKey: siteid + "%" + nodeid + "%" + modbusid
+                        },
+                        order: [['DateTimeUpdate', 'ASC']]
+                    })
+                }
 
                 ret[k] = [];
                 let count = [];
@@ -1902,9 +1931,12 @@ export function initAPI() {
                     count.push(0);
                 }
 
+                let prev_total  = 0;
+
                 for(let e of eData)
                 {
                     let seq;
+                    
                     // let time;
                     
                     if(req.params.type == 'year')
@@ -1922,27 +1954,68 @@ export function initAPI() {
 
                     if(cmap[param].calc_type == "avg")
                     {
-                        ret[k][seq].value += e[param];
+                        if(param != 'kWdemand')
+                        {
+                            ret[k][seq].value += e[param];
+                        }
+                        else
+                        {
+                            ret[k][seq].value += (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
+                        }
+
                         count[seq]++;
                     }
                     else if(cmap[param].calc_type == "max")
                     {
-                        if(e[param] > ret[k][seq].value)
+                        if(param != 'kWdemand')
                         {
-                            ret[k][seq].value = e[param]
+                            if(e[param] > ret[k][seq].value)
+                            {
+                                ret[k][seq].value = e[param]
+                            }
+                        }
+                        else
+                        {
+                            let demand = (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
+
+                            if(demand > ret[k][seq].value)
+                            {
+                                ret[k][seq].value = demand
+                            }
                         }
                     }
                     else if(cmap[param].calc_type == "min")
                     {
-                        if(e[param] < ret[k][seq].value)
+                        if(param != 'kWdemand')
                         {
-                            ret[k][seq].value = e[param]
+                            if(e[param] < ret[k][seq].value)
+                            {
+                                ret[k][seq].value = e[param]
+                            }
+                        }
+                        else
+                        {
+                            let demand = (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
+
+                            if(demand < ret[k][seq].value)
+                            {
+                                ret[k][seq].value = demand
+                            }
                         }
                     }
                     else
                     {
-                        ret[k][seq].value = e[param];
+                        if(param != 'kWdemand')
+                        {
+                            ret[k][seq].value = e[param];
+                        }
+                        else
+                        {
+                            ret[k][seq].value = (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
+                        }
                     }
+
+                    prev_total = e['TotalkWh']
                 }
 
                 if(cmap[param].calc_type == "avg")
@@ -2002,24 +2075,47 @@ export function initAPI() {
                     let nodeid = blacknode[sn].nodeid;
                     let modbusid = parseInt(m.modbusid);
 
-                    let eData = await db.energy.findAll({
-                        attributes: ['DateTimeUpdate', param],
-                        where: {
-                            DateTimeUpdate: {
-                                [Op.and]: {
-                                    [Op.gte]: start_date,
-                                    [Op.lt]: end_date
-                                }
+                    let eData;
+
+                    if(param == 'kWdemand')
+                    {
+                        eData = await db.energy.findAll({
+                            attributes: ['DateTimeUpdate', 'TotalkWh',  param],
+                            where: {
+                                DateTimeUpdate: {
+                                    [Op.and]: {
+                                        [Op.gte]: start_date,
+                                        [Op.lt]: end_date
+                                    }
+                                },
+                                snmKey: siteid + "%" + nodeid + "%" + modbusid
                             },
-                            snmKey: siteid + "%" + nodeid + "%" + modbusid
-                        },
-                        order: [['DateTimeUpdate', 'ASC']]
-                    })
+                            order: [['DateTimeUpdate', 'ASC']]
+                        })
+                    }
+                    else
+                    {
+                        eData = await db.energy.findAll({
+                            attributes: ['DateTimeUpdate', param],
+                            where: {
+                                DateTimeUpdate: {
+                                    [Op.and]: {
+                                        [Op.gte]: start_date,
+                                        [Op.lt]: end_date
+                                    }
+                                },
+                                snmKey: siteid + "%" + nodeid + "%" + modbusid
+                            },
+                            order: [['DateTimeUpdate', 'ASC']]
+                        })
+                    }
+
+                    let prev_total = 0;
 
                     for(let e of eData)
                     {
                         let seq;
-                    
+
                         if(req.params.type == 'year')
                         {
                             seq = e.DateTimeUpdate.getUTCMonth();
@@ -2039,27 +2135,71 @@ export function initAPI() {
                         // [TODO] Calculate depending on parameter type (accumulative/instance)
                         if(cmap[param].calc_type == "avg")
                         {
-                            tmp[seq] += e[param];
+                            if(param != 'kWdemand')
+                            {
+                                tmp[seq] += e[param];
+                            }
+                            else
+                            {
+                                tmp[seq] += (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
+                                console.log('AVG Demand: ', demand);
+                            }
+                            
                             gcount[seq]++;
+
+                            
                         }
                         else if(cmap[param].calc_type == "max")
                         {
-                            if(e[param] > tmp[seq])
+                            if(param != 'kWdemand')
                             {
-                                tmp[seq] = e[param]
+                                if(e[param] > tmp[seq])
+                                {
+                                    tmp[seq] = e[param]
+                                }
+                            }
+                            else
+                            {
+                                let demand = (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
+
+                                if(demand > tmp[seq].value)
+                                {
+                                    tmp[seq] = demand
+                                }
                             }
                         }
                         else if(cmap[param].calc_type == "min")
                         {
-                            if(e[param] < tmp[seq])
+                            if(param != 'kWdemand')
                             {
-                                tmp[seq] = e[param]
+                                if(e[param] < tmp[seq])
+                                {
+                                    tmp[seq] = e[param]
+                                }
+                            }
+                            else
+                            {
+                                let demand = (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
+
+                                if(demand < tmp[seq])
+                                {
+                                    tmp[seq] = demand
+                                }
                             }
                         }
                         else
-                        {
-                            tmp[seq] = e[param];
+                        {   
+                            if(param != 'kWdemand')
+                            {
+                                tmp[seq] = e[param];
+                            }
+                            else
+                            {
+                                tmp[seq] = (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
+                            }
                         }
+
+                        prev_total = e['TotalkWh']
 
                     }
 
@@ -2084,9 +2224,10 @@ export function initAPI() {
                 {
                     for(let i=0; i<arr_size; i++)
                     {
-                        ret[k][i].value = ret[k][k].value/count;
+                        ret[k][i].value = ret[k][i].value/count;
                     }
                 }
+                
             }
         }
 
