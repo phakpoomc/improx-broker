@@ -71,7 +71,7 @@ export async function savetoDB()
                 aedesQueue.length = 0;
 
             } catch(err) {
-                last['message'] = 'Cannot insert bulk.'
+                last['message'] = 'Cannot insert database in bulk.'
                 last['time'] = new Date()
                 last['status'] = 'error'
                 qLock = false;

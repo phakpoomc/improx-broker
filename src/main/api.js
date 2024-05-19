@@ -456,6 +456,7 @@ export function initAPI() {
         var eData
         let all = true
         var snmKey = []
+        let prevEnergy = {}
 
         if (group !== null) {
             let members = await db.gmember.findAll({
@@ -467,6 +468,7 @@ export function initAPI() {
                     let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
 
                     snmKey.push(key)
+                    prevEnergy[key] = 0;
                 }
 
                 all = false
@@ -500,23 +502,23 @@ export function initAPI() {
             })
         }
 
-        let prevEnergy = 0
+        
         let prevTime = null;
 
         for (let e of eData) {
-            if (prevEnergy == 0) {
-                prevEnergy = e.TotalkWh
+            if (prevEnergy[e.snmKey] == 0) {
+                prevEnergy[e.snmKey] = e.TotalkWh
                 prevTime = e.DateTimeUpdate
                 continue
             }
 
-            let absEnergy = e.TotalkWh - prevEnergy
+            let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
 
             if (absEnergy < 0 || absEnergy > 1000) {
                 absEnergy = 0
             }
 
-            prevEnergy = e.TotalkWh
+            prevEnergy[e.snmKey] = e.TotalkWh
 
             if (e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate < tThisMonth) {
                 // Last month
@@ -574,7 +576,6 @@ export function initAPI() {
             b_yesterday: maxDemandYesterday,
             b_today: maxDemandToday
         }
-
 
         res.json(ret)
     })
