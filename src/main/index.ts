@@ -525,13 +525,12 @@ let heartbeatInterval = setInterval(() => {
 }, 15 * 60 * 1000)
 
 let dbSaveInterval = setInterval(() => {
-    // sendtime every minute on the 0-9th second
     if (authenticated) {
         if (aedesInst && !aedesInst.closed) {
             savetoDB()
         }
     }
-}, 30 * 1000)
+}, 5 * 1000)
 
 // let gettimeInterval = setInterval(() => {
 //   // sendtime every minute on the 0-9th second

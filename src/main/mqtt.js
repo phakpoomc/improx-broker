@@ -17,6 +17,7 @@ export var aedesInst
 export var httpServer
 
 const WS_PORT = 8884
+const QOS = 0
 
 export function startMQTT(BN_CFG_PATH) {
     aedesInst = new Aedes()
@@ -214,7 +215,7 @@ export function startMQTT(BN_CFG_PATH) {
                             aedesInst.publish(
                                 {
                                     cmd: 'publish',
-                                    qos: 2,
+                                    qos: QOS,
                                     dup: false,
                                     retain: false,
                                     topic:
@@ -289,7 +290,7 @@ export function startMQTT(BN_CFG_PATH) {
 
                             let aQ = {
                                 cmd: 'publish',
-                                qos: 2,
+                                qos: QOS,
                                 dup: false,
                                 retain: false,
                                 topic:
@@ -353,7 +354,7 @@ export function startMQTT(BN_CFG_PATH) {
                         aedesInst.publish(
                             {
                                 cmd: 'publish',
-                                qos: 2,
+                                qos: QOS,
                                 dup: false,
                                 retain: false,
                                 topic:
@@ -374,7 +375,7 @@ export function startMQTT(BN_CFG_PATH) {
                     aedesInst.publish(
                         {
                             cmd: 'publish',
-                            qos: 2,
+                            qos: QOS,
                             dup: false,
                             retain: false,
                             topic:

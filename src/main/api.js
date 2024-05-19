@@ -606,6 +606,7 @@ export function initAPI() {
         var eData
         let all = true
         var snmKey = []
+        let prevEnergy = {}
 
         if (group !== null) {
             let members = await db.gmember.findAll({
@@ -617,6 +618,7 @@ export function initAPI() {
                     let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
 
                     snmKey.push(key)
+                    prevEnergy[key] = 0
                 }
 
                 all = false
@@ -650,21 +652,19 @@ export function initAPI() {
             })
         }
 
-        let prevEnergy = 0
-
         for (let e of eData) {
-            if (prevEnergy == 0) {
-                prevEnergy = e.TotalkWh
+            if (prevEnergy[e.snmKey] == 0) {
+                prevEnergy[e.snmKey] = e.TotalkWh
                 continue
             }
 
-            let absEnergy = e.TotalkWh - prevEnergy
+            let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
 
             if (absEnergy < 0) {
                 absEnergy = 0
             }
 
-            prevEnergy = e.TotalkWh
+            prevEnergy[e.snmKey] = e.TotalkWh
 
             let adjustedTime = new Date(e.DateTimeUpdate)
             adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
@@ -704,6 +704,7 @@ export function initAPI() {
         var eData
         let all = true
         var snmKey = []
+        let prevEnergy = {}
 
         if (group !== null) {
             let members = await db.gmember.findAll({
@@ -715,6 +716,7 @@ export function initAPI() {
                     let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
 
                     snmKey.push(key)
+                    prevEnergy[key] = 0
                 }
 
                 all = false
@@ -748,23 +750,22 @@ export function initAPI() {
             })
         }
 
-        let prevEnergy = 0
-
         for (let e of eData) {
-            if (prevEnergy == 0) {
-                prevEnergy = e.TotalkWh
+            if (prevEnergy[e.snmKey] == 0) {
+                prevEnergy[e.snmKey] = e.TotalkWh
                 continue
             }
 
-            let absEnergy = e.TotalkWh - prevEnergy
+            let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
 
             if (absEnergy < 0) {
                 absEnergy = 0
             }
 
-            prevEnergy = e.TotalkWh
+            prevEnergy[e.snmKey] = e.TotalkWh
 
             let adjustedTime = new Date(e.DateTimeUpdate)
+
             adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
 
             let day = adjustedTime.getUTCDate() - 1
@@ -798,6 +799,7 @@ export function initAPI() {
         var eData
         let all = true
         var snmKey = []
+        let prevEnergy = {}
 
         if (group !== null) {
             let members = await db.gmember.findAll({
@@ -809,6 +811,7 @@ export function initAPI() {
                     let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
 
                     snmKey.push(key)
+                    prevEnergy[key] = 0
                 }
 
                 all = false
@@ -842,21 +845,19 @@ export function initAPI() {
             })
         }
 
-        let prevEnergy = 0
-
         for (let e of eData) {
-            if (prevEnergy == 0) {
-                prevEnergy = e.TotalkWh
+            if (prevEnergy[e.snmKey] == 0) {
+                prevEnergy[e.snmKey] = e.TotalkWh
                 continue
             }
 
-            let absEnergy = e.TotalkWh - prevEnergy
+            let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
 
             if (absEnergy < 0) {
                 absEnergy = 0
             }
 
-            prevEnergy = e.TotalkWh
+            prevEnergy[e.snmKey] = e.TotalkWh
 
             let adjustedTime = new Date(e.DateTimeUpdate)
             adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
@@ -891,6 +892,7 @@ export function initAPI() {
         var eData
         let all = true
         var snmKey = []
+        let prevEnergy = {}
 
         if (group !== null) {
             let members = await db.gmember.findAll({
@@ -902,6 +904,7 @@ export function initAPI() {
                     let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
 
                     snmKey.push(key)
+                    prevEnergy[key] = 0
                 }
 
                 all = false
@@ -935,21 +938,19 @@ export function initAPI() {
             })
         }
 
-        let prevEnergy = 0
-
         for (let e of eData) {
-            if (prevEnergy == 0) {
-                prevEnergy = e.TotalkWh
+            if (prevEnergy[e.snmKey] == 0) {
+                prevEnergy[e.snmKey] = e.TotalkWh
                 continue
             }
 
-            let absEnergy = e.TotalkWh - prevEnergy
+            let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
 
             if (absEnergy < 0) {
                 absEnergy = 0
             }
 
-            prevEnergy = e.TotalkWh
+            prevEnergy[e.snmKey] = e.TotalkWh
 
             let adjustedTime = new Date(e.DateTimeUpdate)
             adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)

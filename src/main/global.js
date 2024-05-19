@@ -62,7 +62,10 @@ export async function savetoDB()
                 {
                     checkOverRange(dbQueue[i], false)
 
-                    aedesInst.publish(aedesQueue[i])
+                    if (aedesInst && !aedesInst.closed) {
+                        await aedesInst.publish(aedesQueue[i])
+                    }
+                    
                 }
 
                 console.log("Bulk of energy data is saved. Total: ", dbQueue.length);
@@ -80,7 +83,8 @@ export async function savetoDB()
                 {
                     if (aedesInst && !aedesInst.closed) {
                         aedesQueue[i].payload = 'ERROR: database'
-                        aedesInst.publish(aedesQueue[i])
+
+                        await aedesInst.publish(aedesQueue[i])
                     }
                 }
             }
