@@ -414,8 +414,8 @@ export function startMQTT(BN_CFG_PATH) {
 
                         let now = new Date()
 
-                        if (first || now.getTime() - lastUpdateTime[snid].getTime() > 5000) {
-                            // Update object if last update is more than 5 secs away, ignore otherwise
+                        if (first || now.getTime() - lastUpdateTime[snid].getTime() > 500) {
+                            // Update object if last update is more than 500 msecs away, ignore otherwise
                             lastUpdateTime[snid] = now
 
                             let lastFifteenTime = new Date()
