@@ -101,7 +101,7 @@ function createWindow(): void {
     mainWindow.on('ready-to-show', async () => {
         mainWindow.show()
 
-        loadMetaCFG()
+        await loadMetaCFG()
 
         if(meta_cfg.auth_cred.remember)
         {

@@ -25,8 +25,12 @@ if(bnCFG.value)
 else
 {
     bnCFG.value = {
+        username: "",
+        password: "",
+        dbname: "",
         dialect: "",
         host: "",
+        port: "",
     }
 }
 
