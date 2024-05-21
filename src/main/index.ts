@@ -13,7 +13,7 @@ import {
     loadMetaCFG,
     loadMetaDB,
     checkHeartbeat,
-    savetoDB
+    // savetoDB
 } from './global.js'
 
 import { api_server, initAPI } from './api.js'
@@ -64,12 +64,6 @@ function loginWith(uname, pwd)
 // const META_CFG_PATH = path.resolve(app.getPath('appData'), 'meta.cfg')
 const META_CFG_PATH = path.join(process.cwd(), 'meta.cfg')
 paths['META_CFG_PATH'] = META_CFG_PATH
-
-
-
-// const DASHBOARD_CFG_PATH = path.resolve(app.getPath('appData'), 'dashboard.info')
-// const DASHBOARD_CFG_PATH = path.join(process.cwd(), 'dashboard.info')
-// paths['DASHBOARD_CFG_PATH'] = DASHBOARD_CFG_PATH
 
 /* MQTT Broker Section */
 import { aedesInst, httpServer, startMQTT } from './mqtt.js'
@@ -375,9 +369,9 @@ app.on('before-quit', async function () {
     clearInterval(minuteInterval)
     clearInterval(gettimeInterval)
     clearInterval(heartbeatInterval)
-    clearInterval(dbSaveInterval)
+    // clearInterval(dbSaveInterval)
 
-    await savetoDB()
+    // await savetoDB()
 
     if (gettimeTimeout) {
         clearTimeout(gettimeTimeout)
@@ -524,13 +518,13 @@ let heartbeatInterval = setInterval(() => {
     }
 }, 15 * 60 * 1000)
 
-let dbSaveInterval = setInterval(() => {
-    if (authenticated) {
-        if (aedesInst && !aedesInst.closed) {
-            savetoDB()
-        }
-    }
-}, 5 * 1000)
+// let dbSaveInterval = setInterval(() => {
+//     if (authenticated) {
+//         if (aedesInst && !aedesInst.closed) {
+//             savetoDB()
+//         }
+//     }
+// }, 5 * 1000)
 
 // let gettimeInterval = setInterval(() => {
 //   // sendtime every minute on the 0-9th second

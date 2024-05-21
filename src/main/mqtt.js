@@ -10,7 +10,7 @@ import {
     lastUpdateTime,
     lastUpdateData,
     db,
-    addQueue
+    // addQueue
 } from './global.js'
 
 export var aedesInst
@@ -236,7 +236,7 @@ export function startMQTT(BN_CFG_PATH) {
 
                         // console.log(siteid + '%' + nodeid + '%' + String(modbusid+1));
 
-                        // try {
+                        try {
                             let obj = {
                                 SerialNo: sn,
                                 SiteID: siteid,
@@ -286,70 +286,70 @@ export function startMQTT(BN_CFG_PATH) {
                                 // kWdemand: parseFloat(e[2]) * 4
                             }
 
-                            // checkOverRange(obj)
+                            checkOverRange(obj)
 
-                            let aQ = {
-                                cmd: 'publish',
-                                qos: QOS,
-                                dup: false,
-                                retain: false,
-                                topic:
-                                    'LOG/DATABASE/' +
-                                    sn +
-                                    '/' +
-                                    siteid +
-                                    '/' +
-                                    nodeid +
-                                    '/' +
-                                    String(modbusid + 1),
-                                payload: 'OK'
-                            };
+                            // let aQ = {
+                            //     cmd: 'publish',
+                            //     qos: QOS,
+                            //     dup: false,
+                            //     retain: false,
+                            //     topic:
+                            //         'LOG/DATABASE/' +
+                            //         sn +
+                            //         '/' +
+                            //         siteid +
+                            //         '/' +
+                            //         nodeid +
+                            //         '/' +
+                            //         String(modbusid + 1),
+                            //     payload: 'OK'
+                            // };
 
-                            addQueue(obj, aQ)
+                            // addQueue(obj, aQ)
 
-                            // db.energy.create(obj)
+                            db.energy.create(obj)
 
-                        //     aedesInst.publish(
-                        //         {
-                        //             cmd: 'publish',
-                        //             qos: 2,
-                        //             dup: false,
-                        //             retain: false,
-                        //             topic:
-                        //                 'LOG/DATABASE/' +
-                        //                 sn +
-                        //                 '/' +
-                        //                 siteid +
-                        //                 '/' +
-                        //                 nodeid +
-                        //                 '/' +
-                        //                 String(modbusid + 1),
-                        //             payload: 'OK'
-                        //         },
-                        //         function () {}
-                        //     )
-                        // } catch (err) {
-                        //     aedesInst.publish(
-                        //         {
-                        //             cmd: 'publish',
-                        //             qos: 2,
-                        //             dup: false,
-                        //             retain: false,
-                        //             topic:
-                        //                 'LOG/DATABASE/' +
-                        //                 sn +
-                        //                 '/' +
-                        //                 siteid +
-                        //                 '/' +
-                        //                 nodeid +
-                        //                 '/' +
-                        //                 String(modbusid + 1),
-                        //             payload: 'ERROR: database'
-                        //         },
-                        //         function () {}
-                        //     )
-                        //     console.log(err)
-                        // }
+                            aedesInst.publish(
+                                {
+                                    cmd: 'publish',
+                                    qos: 0,
+                                    dup: false,
+                                    retain: false,
+                                    topic:
+                                        'LOG/DATABASE/' +
+                                        sn +
+                                        '/' +
+                                        siteid +
+                                        '/' +
+                                        nodeid +
+                                        '/' +
+                                        String(modbusid + 1),
+                                    payload: 'OK'
+                                },
+                                function () {}
+                            )
+                        } catch (err) {
+                            aedesInst.publish(
+                                {
+                                    cmd: 'publish',
+                                    qos: 2,
+                                    dup: false,
+                                    retain: false,
+                                    topic:
+                                        'LOG/DATABASE/' +
+                                        sn +
+                                        '/' +
+                                        siteid +
+                                        '/' +
+                                        nodeid +
+                                        '/' +
+                                        String(modbusid + 1),
+                                    payload: 'ERROR: database'
+                                },
+                                function () {}
+                            )
+                            console.log(err)
+                        }
                     } else {
                         aedesInst.publish(
                             {

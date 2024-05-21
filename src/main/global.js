@@ -28,71 +28,71 @@ export var lastUpdateData = {}
 
 var MAX_HEARTBEAT = 20 * 60 * 1000
 
-var dbQueue = [];
-var aedesQueue = [];
+// var dbQueue = [];
+// var aedesQueue = [];
 
 var qLock = false;
 
-export async function addQueue(obj, aedObj)
-{
-    if(!qLock)
-    {
-        qLock = true;
+// export async function addQueue(obj, aedObj)
+// {
+//     if(!qLock)
+//     {
+//         qLock = true;
 
-        dbQueue.push(obj);
-        aedesQueue.push(aedObj);
+//         dbQueue.push(obj);
+//         aedesQueue.push(aedObj);
 
-        qLock = false;
-    }
+//         qLock = false;
+//     }
     
-}
+// }
 
-export async function savetoDB()
-{
-    if(!qLock)
-    {
-        qLock = true;
+// export async function savetoDB()
+// {
+//     if(!qLock)
+//     {
+//         qLock = true;
 
-        if(dbQueue.length > 0 && aedesQueue.length == dbQueue.length && db && db.energy)
-        {
-            try {
-                await db.energy.bulkCreate(dbQueue)
+//         if(dbQueue.length > 0 && aedesQueue.length == dbQueue.length && db && db.energy)
+//         {
+//             try {
+//                 await db.energy.bulkCreate(dbQueue)
 
-                for(let i=0; i<dbQueue.length; i++)
-                {
-                    checkOverRange(dbQueue[i], false)
+//                 for(let i=0; i<dbQueue.length; i++)
+//                 {
+//                     checkOverRange(dbQueue[i], false)
 
-                    if (aedesInst && !aedesInst.closed) {
-                        await aedesInst.publish(aedesQueue[i])
-                    }
+//                     if (aedesInst && !aedesInst.closed) {
+//                         await aedesInst.publish(aedesQueue[i])
+//                     }
                     
-                }
+//                 }
 
-                console.log("Bulk of energy data is saved. Total: ", dbQueue.length);
+//                 console.log("Bulk of energy data is saved. Total: ", dbQueue.length);
 
-                dbQueue.length = 0;
-                aedesQueue.length = 0;
+//                 dbQueue.length = 0;
+//                 aedesQueue.length = 0;
 
-            } catch(err) {
-                last['message'] = 'Cannot insert database in bulk.'
-                last['time'] = new Date()
-                last['status'] = 'error'
-                qLock = false;
+//             } catch(err) {
+//                 last['message'] = 'Cannot insert database in bulk.'
+//                 last['time'] = new Date()
+//                 last['status'] = 'error'
+//                 qLock = false;
 
-                for(let i=0; i<dbQueue.length; i++)
-                {
-                    if (aedesInst && !aedesInst.closed) {
-                        aedesQueue[i].payload = 'ERROR: database'
+//                 for(let i=0; i<dbQueue.length; i++)
+//                 {
+//                     if (aedesInst && !aedesInst.closed) {
+//                         aedesQueue[i].payload = 'ERROR: database'
 
-                        await aedesInst.publish(aedesQueue[i])
-                    }
-                }
-            }
-        }
+//                         await aedesInst.publish(aedesQueue[i])
+//                     }
+//                 }
+//             }
+//         }
 
-        qLock = false;
-    }
-}
+//         qLock = false;
+//     }
+// }
 
 export async function loadMetaCFG()
 {
