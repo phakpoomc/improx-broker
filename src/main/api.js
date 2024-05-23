@@ -17,7 +17,8 @@ import {
     holidays,
     loadHoliday,
     loadAlarm,
-    loadMetaDB
+    loadMetaDB,
+    loadMetaCFG
 } from './global.js'
 import { createReadStream } from 'fs'
 import { syncDB } from './db.js'
@@ -444,10 +445,10 @@ export function initAPI() {
         let energyYesterday = 0
         let energyToday = 0
 
-        let maxDemandLastMonth = 0
-        let maxDemandThisMonth = 0
-        let maxDemandYesterday = 0
-        let maxDemandToday = 0
+        // let maxDemandLastMonth = 0
+        // let maxDemandThisMonth = 0
+        // let maxDemandYesterday = 0
+        // let maxDemandToday = 0
 
         let group = await db.group.findOne({
             where: { showDashboard: true }
@@ -457,6 +458,10 @@ export function initAPI() {
         let all = true
         var snmKey = []
         let prevEnergy = {}
+        let maxDemandLastMonth = {}
+        let maxDemandThisMonth = {}
+        let maxDemandYesterday = {}
+        let maxDemandToday = {}
 
         if (group !== null) {
             let members = await db.gmember.findAll({
@@ -468,7 +473,7 @@ export function initAPI() {
                     let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
 
                     snmKey.push(key)
-                    prevEnergy[key] = 0;
+                    prevEnergy[key] = 0
                 }
 
                 all = false
@@ -481,7 +486,7 @@ export function initAPI() {
                     DateTimeUpdate: {
                         [Op.and]: {
                             [Op.gte]: tLastMonth,
-                            [Op.lt]: now
+                            [Op.lte]: now
                         }
                     }
                 },
@@ -493,7 +498,7 @@ export function initAPI() {
                     DateTimeUpdate: {
                         [Op.and]: {
                             [Op.gte]: tLastMonth,
-                            [Op.lt]: now
+                            [Op.lte]: now
                         }
                     },
                     snmKey: snmKey
@@ -512,11 +517,13 @@ export function initAPI() {
                 continue
             }
 
+            let tKey = e.DateTimeUpdate.getUTCFullYear() + '-' + e.DateTimeUpdate.getUTCMonth() + '-' + e.DateTimeUpdate.getUTCDate() + '-' + e.DateTimeUpdate.getUTCHours() + '-' + e.DateTimeUpdate.getUTCMinutes()
+
             let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
 
-            if (absEnergy < 0 || absEnergy > 1000) {
-                absEnergy = 0
-            }
+            // if (absEnergy < 0 || absEnergy > 1000) {
+            //     absEnergy = 0
+            // }
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
@@ -526,8 +533,13 @@ export function initAPI() {
                 {
                     energyLastMonth += absEnergy
 
-                    if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandLastMonth) {
-                        maxDemandLastMonth = absEnergy * 4
+                    if (isOnPeak(e.DateTimeUpdate)) {
+                        if(!(tKey in maxDemandLastMonth))
+                        {
+                            maxDemandLastMonth[tKey] = {}
+                        }
+
+                        maxDemandLastMonth[tKey][e.snmKey] = absEnergy * 4
                     }
                 }
                 
@@ -537,8 +549,13 @@ export function initAPI() {
                 {
                     energyThisMonth += absEnergy
 
-                    if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandThisMonth) {
-                        maxDemandThisMonth = absEnergy * 4
+                    if (isOnPeak(e.DateTimeUpdate)) {
+                        if(!(tKey in maxDemandThisMonth))
+                        {
+                            maxDemandThisMonth[tKey] = {}
+                        }
+
+                        maxDemandThisMonth[tKey][e.snmKey] = absEnergy * 4
                     }
 
                     if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate < tToday) {
@@ -547,16 +564,26 @@ export function initAPI() {
                         {
                             energyYesterday += absEnergy
 
-                            if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandYesterday) {
-                                maxDemandYesterday = absEnergy * 4
+                            if (isOnPeak(e.DateTimeUpdate)) {
+                                if(!(tKey in maxDemandYesterday))
+                                {
+                                    maxDemandYesterday[tKey] = {}
+                                }
+
+                                maxDemandYesterday[tKey][e.snmKey] = absEnergy * 4
                             }
                         }
                         
                     } else if (e.DateTimeUpdate >= tToday && prevTime < tTomorrow) {
                         energyToday += absEnergy
 
-                        if (isOnPeak(e.DateTimeUpdate) && absEnergy * 4 > maxDemandToday) {
-                            maxDemandToday = absEnergy * 4
+                        if (isOnPeak(e.DateTimeUpdate)) {
+                            if(!(tKey in maxDemandToday))
+                            {
+                                maxDemandToday[tKey] = {}
+                            }
+
+                            maxDemandToday[tKey][e.snmKey] = absEnergy * 4
                         }
                     }
                 }
@@ -566,15 +593,85 @@ export function initAPI() {
             prevTime = e.DateTimeUpdate
         }
 
+        let todayKeys = Object.keys(maxDemandToday)
+        let yesterdayKeys = Object.keys(maxDemandYesterday)
+        let thisMonthKeys = Object.keys(maxDemandThisMonth)
+        let lastMonthKeys = Object.keys(maxDemandLastMonth)
+
+        let sumMaxDemandToday = 0
+        let sumMaxDemandYesterday = 0
+        let sumMaxDemandThisMonth = 0
+        let sumMaxDemandLastMonth = 0
+        
+        for(let k of todayKeys)
+        {
+            let tmpSum = 0
+
+            for(let snm of snmKey)
+            {
+                tmpSum += maxDemandToday[k][snm]
+            }
+
+            if(tmpSum > sumMaxDemandToday)
+            {
+                sumMaxDemandToday = tmpSum
+            }
+        }
+
+        for(let k of yesterdayKeys)
+        {
+            let tmpSum = 0
+
+            for(let snm of snmKey)
+            {
+                tmpSum += maxDemandYesterday[k][snm]
+            }
+
+            if(tmpSum > sumMaxDemandYesterday)
+            {
+                sumMaxDemandYesterday = tmpSum
+            }
+        }
+
+        for(let k of thisMonthKeys)
+        {
+            let tmpSum = 0
+
+            for(let snm of snmKey)
+            {
+                tmpSum += maxDemandThisMonth[k][snm]
+            }
+
+            if(tmpSum > sumMaxDemandThisMonth)
+            {
+                sumMaxDemandThisMonth = tmpSum
+            }
+        }
+
+        for(let k of lastMonthKeys)
+            {
+                let tmpSum = 0
+    
+                for(let snm of snmKey)
+                {
+                    tmpSum += maxDemandLastMonth[k][snm]
+                }
+    
+                if(tmpSum > sumMaxDemandLastMonth)
+                {
+                    sumMaxDemandLastMonth = tmpSum
+                }
+            }
+
         ret = {
             t_last_month: energyLastMonth,
             t_this_month: energyThisMonth,
             t_yesterday: energyYesterday,
             t_today: energyToday,
-            b_last_month: maxDemandLastMonth,
-            b_this_month: maxDemandThisMonth,
-            b_yesterday: maxDemandYesterday,
-            b_today: maxDemandToday
+            b_last_month: sumMaxDemandLastMonth,
+            b_this_month: sumMaxDemandThisMonth,
+            b_yesterday: sumMaxDemandYesterday,
+            b_today: sumMaxDemandToday
         }
 
         res.json(ret)
@@ -596,8 +693,8 @@ export function initAPI() {
         let month = parseInt(req.params.month) - 1
         let day = req.params.day
 
-        let startTime = new Date(Date.UTC(year, month, day))
-        let endTime = new Date(Date.UTC(year, month, day, 23, 59, 59))
+        let startTime = new Date(Date.UTC(year, month, day, 0, 0, 0))
+        let endTime = new Date(Date.UTC(year, month, day + 1, 0, 0, 0))
 
         let group = await db.group.findOne({
             where: { showDashboard: true }
@@ -631,7 +728,7 @@ export function initAPI() {
                     DateTimeUpdate: {
                         [Op.and]: {
                             [Op.gte]: startTime,
-                            [Op.lt]: endTime
+                            [Op.lte]: endTime
                         }
                     }
                 },
@@ -643,7 +740,7 @@ export function initAPI() {
                     DateTimeUpdate: {
                         [Op.and]: {
                             [Op.gte]: startTime,
-                            [Op.lt]: endTime
+                            [Op.lte]: endTime
                         }
                     },
                     snmKey: snmKey
@@ -660,9 +757,9 @@ export function initAPI() {
 
             let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
 
-            if (absEnergy < 0) {
-                absEnergy = 0
-            }
+            // if (absEnergy < 0) {
+            //     absEnergy = 0
+            // }
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
@@ -694,8 +791,8 @@ export function initAPI() {
             }
         }
 
-        let startTime = new Date(Date.UTC(year, month, 1))
-        let endTime = new Date(Date.UTC(year, month, totalDays, 23, 59, 59))
+        let startTime = new Date(Date.UTC(year, month, 1, 0, 0, 0))
+        let endTime = new Date(Date.UTC(year, month + 1, 0, 0, 0, 0))
 
         let group = await db.group.findOne({
             where: { showDashboard: true }
@@ -729,7 +826,7 @@ export function initAPI() {
                     DateTimeUpdate: {
                         [Op.and]: {
                             [Op.gte]: startTime,
-                            [Op.lt]: endTime
+                            [Op.lte]: endTime
                         }
                     }
                 },
@@ -741,7 +838,7 @@ export function initAPI() {
                     DateTimeUpdate: {
                         [Op.and]: {
                             [Op.gte]: startTime,
-                            [Op.lt]: endTime
+                            [Op.lte]: endTime
                         }
                     },
                     snmKey: snmKey
@@ -758,9 +855,9 @@ export function initAPI() {
 
             let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
 
-            if (absEnergy < 0) {
-                absEnergy = 0
-            }
+            // if (absEnergy < 0) {
+            //     absEnergy = 0
+            // }
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
@@ -789,8 +886,8 @@ export function initAPI() {
             }
         }
 
-        let startTime = new Date(Date.UTC(year, 0, 1))
-        let endTime = new Date(Date.UTC(year, 11, 31, 59, 59, 59))
+        let startTime = new Date(Date.UTC(year, 0, 1, 0, 0, 0))
+        let endTime = new Date(Date.UTC(year + 1, 0, 1, 0, 0, 0))
 
         let group = await db.group.findOne({
             where: { showDashboard: true }
@@ -824,7 +921,7 @@ export function initAPI() {
                     DateTimeUpdate: {
                         [Op.and]: {
                             [Op.gte]: startTime,
-                            [Op.lt]: endTime
+                            [Op.lte]: endTime
                         }
                     }
                 },
@@ -836,7 +933,7 @@ export function initAPI() {
                     DateTimeUpdate: {
                         [Op.and]: {
                             [Op.gte]: startTime,
-                            [Op.lt]: endTime
+                            [Op.lte]: endTime
                         }
                     },
                     snmKey: snmKey
@@ -853,9 +950,9 @@ export function initAPI() {
 
             let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
 
-            if (absEnergy < 0) {
-                absEnergy = 0
-            }
+            // if (absEnergy < 0) {
+            //     absEnergy = 0
+            // }
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
@@ -882,8 +979,8 @@ export function initAPI() {
             }
         }
 
-        let startTime = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-        let endTime = new Date(Date.UTC(year, month, day, 0, 0, 0))
+        let startTime = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()))
+        let endTime = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
 
         let group = await db.group.findOne({
             where: { showDashboard: true }
@@ -917,7 +1014,7 @@ export function initAPI() {
                     DateTimeUpdate: {
                         [Op.and]: {
                             [Op.gte]: startTime,
-                            [Op.lt]: endTime
+                            [Op.lte]: endTime
                         }
                     }
                 },
@@ -929,7 +1026,7 @@ export function initAPI() {
                     DateTimeUpdate: {
                         [Op.and]: {
                             [Op.gte]: startTime,
-                            [Op.lt]: endTime
+                            [Op.lte]: endTime
                         }
                     },
                     snmKey: snmKey
@@ -946,9 +1043,9 @@ export function initAPI() {
 
             let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
 
-            if (absEnergy < 0) {
-                absEnergy = 0
-            }
+            // if (absEnergy < 0) {
+            //     absEnergy = 0
+            // }
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
@@ -1234,49 +1331,86 @@ export function initAPI() {
 
         let ret;
 
-        if (
-            lastUpdateTime &&
-            lastUpdateTime[snid] &&
-            now.getTime() - lastUpdateTime[snid].getTime() < 60 * 1000
-        ) {
-            ret = {
-                sn: sn,
-                modbusid: modbusid,
-                name: blacknode[sn].meter_list[modbusid].name,
-                V1: lastUpdateData[snid].V1,
-                I1: lastUpdateData[snid].I1,
-                P1: lastUpdateData[snid].P1,
-                Q1: lastUpdateData[snid].Q1,
-                S1: lastUpdateData[snid].S1,
-                PF1: lastUpdateData[snid].PF1,
-                THD_U1: lastUpdateData[snid].THD_U1,
-                THD_I1: lastUpdateData[snid].THD_I1,
-                i1: (180 / Math.PI) * Math.acos(lastUpdateData[snid].PF1),
-                V2: lastUpdateData[snid].V2,
-                I2: lastUpdateData[snid].I2,
-                P2: lastUpdateData[snid].P2,
-                Q2: lastUpdateData[snid].Q2,
-                S2: lastUpdateData[snid].S2,
-                PF2: lastUpdateData[snid].PF2,
-                THD_U2: lastUpdateData[snid].THD_U2,
-                THD_I2: lastUpdateData[snid].THD_I2,
-                i2: (180 / Math.PI) * Math.acos(lastUpdateData[snid].PF2) + 120,
-                V3: lastUpdateData[snid].V3,
-                I3: lastUpdateData[snid].I3,
-                P3: lastUpdateData[snid].P3,
-                Q3: lastUpdateData[snid].Q3,
-                S3: lastUpdateData[snid].S3,
-                PF3: lastUpdateData[snid].PF3,
-                THD_U3: lastUpdateData[snid].THD_U3,
-                THD_I3: lastUpdateData[snid].THD_I3,
-                i3: (180 / Math.PI) * Math.acos(lastUpdateData[snid].PF3) + 240,
-                lastUpdateTime: lastUpdateTime[snid].toLocaleString()
-            };
+        if(blacknode[sn].meter_list.length > modbusid)
+        {
+            if (
+                lastUpdateTime &&
+                lastUpdateTime[snid] &&
+                now.getTime() - lastUpdateTime[snid].getTime() < 60 * 1000
+            ) {
+                ret = {
+                    sn: sn,
+                    modbusid: modbusid,
+                    name: blacknode[sn].meter_list[modbusid].name,
+                    V1: lastUpdateData[snid].V1,
+                    I1: lastUpdateData[snid].I1,
+                    P1: lastUpdateData[snid].P1,
+                    Q1: lastUpdateData[snid].Q1,
+                    S1: lastUpdateData[snid].S1,
+                    PF1: lastUpdateData[snid].PF1,
+                    THD_U1: lastUpdateData[snid].THD_U1,
+                    THD_I1: lastUpdateData[snid].THD_I1,
+                    i1: (180 / Math.PI) * Math.acos(lastUpdateData[snid].PF1),
+                    V2: lastUpdateData[snid].V2,
+                    I2: lastUpdateData[snid].I2,
+                    P2: lastUpdateData[snid].P2,
+                    Q2: lastUpdateData[snid].Q2,
+                    S2: lastUpdateData[snid].S2,
+                    PF2: lastUpdateData[snid].PF2,
+                    THD_U2: lastUpdateData[snid].THD_U2,
+                    THD_I2: lastUpdateData[snid].THD_I2,
+                    i2: (180 / Math.PI) * Math.acos(lastUpdateData[snid].PF2) + 120,
+                    V3: lastUpdateData[snid].V3,
+                    I3: lastUpdateData[snid].I3,
+                    P3: lastUpdateData[snid].P3,
+                    Q3: lastUpdateData[snid].Q3,
+                    S3: lastUpdateData[snid].S3,
+                    PF3: lastUpdateData[snid].PF3,
+                    THD_U3: lastUpdateData[snid].THD_U3,
+                    THD_I3: lastUpdateData[snid].THD_I3,
+                    i3: (180 / Math.PI) * Math.acos(lastUpdateData[snid].PF3) + 240,
+                    lastUpdateTime: lastUpdateTime[snid].toLocaleString()
+                };
+            } else {
+                ret = {
+                    sn: sn,
+                    modbusid: modbusid,
+                    name: blacknode[sn].meter_list[modbusid].name,
+                    V1: 0,
+                    I1: 0,
+                    P1: 0,
+                    Q1: 0,
+                    S1: 0,
+                    PF1: 0,
+                    THD_U1: 0,
+                    THD_I1: 0,
+                    i1: (180 / Math.PI) * Math.acos(0),
+                    V2: 0,
+                    I2: 0,
+                    P2: 0,
+                    Q2: 0,
+                    S2: 0,
+                    PF2: 0,
+                    THD_U2: 0,
+                    THD_I2: 0,
+                    i2: (180 / Math.PI) * Math.acos(0) + 120,
+                    V3: 0,
+                    I3: 0,
+                    P3: 0,
+                    Q3: 0,
+                    S3: 0,
+                    PF3: 0,
+                    THD_U3: 0,
+                    THD_I3: 0,
+                    i3: (180 / Math.PI) * Math.acos(0) + 240,
+                    lastUpdateTime: now.toLocaleString()
+                };
+            }
         } else {
             ret = {
                 sn: sn,
                 modbusid: modbusid,
-                name: blacknode[sn].meter_list[modbusid].name,
+                name: "Invalid Modbus ID",
                 V1: 0,
                 I1: 0,
                 P1: 0,
@@ -1327,6 +1461,8 @@ export function initAPI() {
         if (paths && paths['META_CFG_PATH']) {
             try {
                 writeFile(paths['META_CFG_PATH'], req.files.file.data, { flag: 'w' })
+
+                await loadMetaCFG();
 
                 await syncDB();
                 await loadMetaDB();
@@ -1546,7 +1682,15 @@ export function initAPI() {
                 let dev = ''
 
                 if (a.ModbusID != 0) {
-                    dev = blacknode[a.SerialNo].meter_list[a.ModbusID-1].name
+                    if(blacknode[a.SerialNo].meter_list.length > a.ModbusID - 1)
+                    {
+                        dev = blacknode[a.SerialNo].meter_list[a.ModbusID-1].name
+                    }
+                    else
+                    {
+                        dev = "Invalid Modbus ID"
+                    }
+                    
                 } else {
                     dev = blacknode[a.SerialNo].name
                 }

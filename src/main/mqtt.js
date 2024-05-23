@@ -181,8 +181,19 @@ export function startMQTT(BN_CFG_PATH) {
                     blacknode[sn].status = 'on'
                     blacknode[sn].clientid = _client.id
 
-                    blacknode[sn].meter_list[modbusid].last_update = blacknode[sn].last_update
-                    blacknode[sn].meter_list[modbusid].status = 'on'
+                    if(blacknode[sn].meter_list.length > modbusid)
+                    {
+                        blacknode[sn].meter_list[modbusid].last_update = blacknode[sn].last_update
+                        blacknode[sn].meter_list[modbusid].status = 'on'
+                    }
+                    else
+                    {
+                        last['message'] = 'Received data from modbus ' + data_m[5] + ' that is out of range. Ignored.'
+                        last['time'] = new Date()
+                        last['status'] = 'error'
+                        console.log('Received data from a modbusid that is out of range. Ignored.')
+                    }
+                    
                 }
             } else {
                 last['message'] =
@@ -226,7 +237,7 @@ export function startMQTT(BN_CFG_PATH) {
                                         '/' +
                                         nodeid +
                                         '/' +
-                                        String(modbusid + 1),
+                                        String(modbusid + 1).padStart(2, '0'),
                                     payload: 'ERROR: database'
                                 },
                                 function () {}
@@ -323,7 +334,7 @@ export function startMQTT(BN_CFG_PATH) {
                                         '/' +
                                         nodeid +
                                         '/' +
-                                        String(modbusid + 1),
+                                        String(modbusid + 1).padStart(2, '0'),
                                     payload: 'OK'
                                 },
                                 function () {}
@@ -343,7 +354,7 @@ export function startMQTT(BN_CFG_PATH) {
                                         '/' +
                                         nodeid +
                                         '/' +
-                                        String(modbusid + 1),
+                                        String(modbusid + 1).padStart(2, '0'),
                                     payload: 'ERROR: database'
                                 },
                                 function () {}
@@ -365,7 +376,7 @@ export function startMQTT(BN_CFG_PATH) {
                                     '/' +
                                     nodeid +
                                     '/' +
-                                    String(modbusid + 1),
+                                    String(modbusid + 1).padStart(2, '0'),
                                 payload: 'ERROR: parameter'
                             },
                             function () {}
@@ -386,7 +397,7 @@ export function startMQTT(BN_CFG_PATH) {
                                 '/' +
                                 nodeid +
                                 '/' +
-                                String(modbusid + 1),
+                                String(modbusid + 1).padStart(2, '0'),
                             payload: 'ERROR: time'
                         },
                         function () {}
