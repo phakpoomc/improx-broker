@@ -20,6 +20,8 @@ import { api_server, initAPI } from './api.js'
 import { web_server, initWeb } from './web.js'
 import { syncDB } from './db.js'
 
+const QOS = 2
+
 function loginWith(uname, pwd)
 {
     if((uname == '' && pwd == '') ||
@@ -200,7 +202,8 @@ app.whenReady().then(async () => {
                     name: 'undefined',
                     type: 0,
                     status: 'off',
-                    last_update: new Date()
+                    last_update: new Date(),
+                    last_db: new Date()
                 }
 
                 blacknode[sn].meter_list[i] = initMeter
@@ -245,7 +248,7 @@ app.whenReady().then(async () => {
         writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
 
         aedesInst.publish(
-            { cmd: 'publish', qos: 2, dup: false, retain: false, topic: 'ACK/' + sn, payload: pkt },
+            { cmd: 'publish', qos: QOS, dup: false, retain: false, topic: 'ACK/' + sn, payload: pkt },
             function () {}
         )
     })
@@ -258,7 +261,7 @@ app.whenReady().then(async () => {
         aedesInst.publish(
             {
                 cmd: 'publish',
-                qos: 2,
+                qos: QOS,
                 dup: false,
                 retain: false,
                 topic: 'RESET/' + key,
@@ -497,7 +500,7 @@ let gettimeInterval = setInterval(() => {
             aedesInst.publish(
                 {
                     cmd: 'publish',
-                    qos: 2,
+                    qos: QOS,
                     dup: false,
                     retain: false,
                     topic: 'GETTIME',

@@ -25,371 +25,334 @@ import { syncDB } from './db.js'
 
 export var api_server
 
-const pmap = [
-    {
+const MAX_NUMBER = 99999999999
+const TIME_PERIOD = 15*60*1000
+
+// gtype = Group Method, dtype = data storage type (accumulative/instance)
+const cmap = {
+    'Import_kWh': {
         name: 'Import_kWh',
         unit: '',
         group: 'sum',
-        calc_type: 'accumulative',
+        storage: 'accumulative',
         weight: true,
-        alarm: false
+        alarm: false,
     },
-    {
+    'Export_kWh': {
         name: 'Export_kWh',
         unit: '',
         group: 'sum',
-        calc_type: 'accumulative',
+        storage: 'accumulative',
         weight: true,
-        alarm: false
+        alarm: false,
     },
-    {
+    'TotalkWh': {
         name: 'TotalkWh',
         unit: '',
         group: 'sum',
-        calc_type: 'accumulative',
+        storage: 'accumulative',
         weight: true,
-        alarm: false
+        alarm: false,
     },
-    {
+    'Total_kvarh': {
         name: 'Total_kvarh',
         unit: '',
         group: 'sum',
-        calc_type: 'accumulative',
+        storage: 'accumulative',
         weight: true,
-        alarm: false
+        alarm: false,
     },
-    {
+    'Ind_kvarh': {
         name: 'Ind_kvarh',
         unit: '',
         group: 'sum',
-        calc_type: 'accumulative',
+        storage: 'accumulative',
         weight: true,
-        alarm: false
+        alarm: false,
     },
-    {
+    'Cap_kvarh': {
         name: 'Cap_kvarh',
         unit: '',
         group: 'sum',
-        calc_type: 'accumulative',
+        storage: 'accumulative',
         weight: true,
-        alarm: false
+        alarm: false,
     },
-    {
+    'kVAh': {
         name: 'kVAh',
         unit: '',
         group: 'sum',
-        calc_type: 'accumulative',
+        storage: 'accumulative',
         weight: true,
-        alarm: false
+        alarm: false,
     },
-    {
+    'V1': {
         name: 'V1',
         unit: '(V)',
         group: 'avg',
-        calc_type: 'max',
+        storage: 'instance',
         weight: false,
-        alarm: true
+        alarm: true,
     },
-    {
+    'V2': {
         name: 'V2',
         unit: '(V)',
         group: 'avg',
-        calc_type: 'max',
+        storage: 'instance',
         weight: false,
-        alarm: true
+        alarm: true,
     },
-    {
+    'V3': {
         name: 'V3',
         unit: '(V)',
         group: 'avg',
-        calc_type: 'max',
+        storage: 'instance',
         weight: false,
-        alarm: true
+        alarm: true,
     },
-    {
+    'V12': {
         name: 'V12',
         unit: '(V)',
         group: 'avg',
-        calc_type: 'max',
+        storage: 'instance',
         weight: false,
-        alarm: true
+        alarm: true,
     },
-    {
+    'V23': {
         name: 'V23',
         unit: '(V)',
         group: 'avg',
-        calc_type: 'max',
+        storage: 'instance',
         weight: false,
-        alarm: true
+        alarm: true,
     },
-    {
+    'V31': {
         name: 'V31',
         unit: '(V)',
         group: 'avg',
-        calc_type: 'max',
+        storage: 'instance',
         weight: false,
-        alarm: true
+        alarm: true,
     },
-    {
+    'I1': {
         name: 'I1',
         unit: '(A)',
         group: 'sum',
-        calc_type: 'min',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
+    'I2': {
         name: 'I2',
         unit: '(A)',
         group: 'sum',
-        calc_type: 'min',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
+    'I3': {
         name: 'I3',
         unit: '(A)',
         group: 'sum',
-        calc_type: 'min',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
+    'P1': {
         name: 'P1',
         unit: '(kW)',
         group: 'sum',
-        calc_type: 'max',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
+    'P2': {
         name: 'P2',
         unit: '(kW)',
         group: 'sum',
-        calc_type: 'max',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
+    'P3': {
         name: 'P3',
         unit: '(kW)',
         group: 'sum',
-        calc_type: 'max',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
-        name: 'P_Sum',
+    'P_Sum': {
+        name: 'P3',
         unit: '(kW)',
         group: 'sum',
-        calc_type: 'max',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
+    'Q1': {
         name: 'Q1',
         unit: '(kvar)',
         group: 'sum',
-        calc_type: 'max',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
+    'Q2': {
         name: 'Q2',
         unit: '(kvar)',
         group: 'sum',
-        calc_type: 'max',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
+    'Q3': {
         name: 'Q3',
         unit: '(kvar)',
         group: 'sum',
-        calc_type: 'max',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
+    'Q_Sum': {
         name: 'Q_Sum',
         unit: '(kvar)',
         group: 'sum',
-        calc_type: 'max',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
+    'S1': {
         name: 'S1',
         unit: '(kVA)',
         group: 'sum',
-        calc_type: 'max',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
+    'S2': {
         name: 'S2',
         unit: '(kVA)',
         group: 'sum',
-        calc_type: 'max',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
+    'S3': {
         name: 'S3',
         unit: '(kVA)',
         group: 'sum',
-        calc_type: 'max',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
+    'S_Sum': {
         name: 'S_Sum',
         unit: '(kVA)',
         group: 'sum',
-        calc_type: 'max',
+        storage: 'instance',
         weight: true,
-        alarm: true
+        alarm: true,
     },
-    {
+    'PF1': {
         name: 'PF1',
         unit: '',
         group: 'avg',
-        calc_type: 'avg',
+        storage: 'instance',
         weight: false,
-        alarm: true
+        alarm: true,
     },
-    {
+    'PF2': {
         name: 'PF2',
         unit: '',
         group: 'avg',
-        calc_type: 'avg',
+        storage: 'instance',
         weight: false,
-        alarm: true
+        alarm: true,
     },
-    {
+    'PF3': {
         name: 'PF3',
         unit: '',
         group: 'avg',
-        calc_type: 'avg',
+        storage: 'instance',
         weight: false,
-        alarm: true
+        alarm: true,
     },
-    {
+    'PF_Sum': {
         name: 'PF_Sum',
         unit: '',
         group: 'avg',
-        calc_type: 'avg',
+        storage: 'instance',
         weight: false,
-        alarm: true
+        alarm: true,
     },
-    {
+    'THD_U1': {
         name: 'THD_U1',
         unit: '(%)',
         group: 'avg',
-        calc_type: 'avg',
+        storage: 'instance',
         weight: false,
-        alarm: false
+        alarm: false,
     },
-    {
+    'THD_U2': {
         name: 'THD_U2',
         unit: '(%)',
         group: 'avg',
-        calc_type: 'avg',
+        storage: 'instance',
         weight: false,
-        alarm: false
+        alarm: false,
     },
-    {
+    'THD_U3': {
         name: 'THD_U3',
         unit: '(%)',
         group: 'avg',
-        calc_type: 'avg',
+        storage: 'instance',
         weight: false,
-        alarm: false
+        alarm: false,
     },
-    {
+    'THD_I1': {
         name: 'THD_I1',
         unit: '(%)',
         group: 'avg',
-        calc_type: 'avg',
+        storage: 'instance',
         weight: false,
-        alarm: false
+        alarm: false,
     },
-    {
+    'THD_I2': {
         name: 'THD_I2',
         unit: '(%)',
         group: 'avg',
-        calc_type: 'avg',
+        storage: 'instance',
         weight: false,
-        alarm: false
+        alarm: false,
     },
-    {
+    'THD_I3': {
         name: 'THD_I3',
         unit: '(%)',
         group: 'avg',
-        calc_type: 'avg',
+        storage: 'instance',
         weight: false,
-        alarm: false
+        alarm: false,
     },
-    {
+    'Frequency': {
         name: 'Frequency',
         unit: '(Hz)',
         group: 'avg',
-        calc_type: 'avg',
+        storage: 'instance',
         weight: false,
-        alarm: true
+        alarm: true,
     },
-    {
+    'kWdemand': {
         name: 'kWdemand',
         unit: '',
         group: 'sum',
-        calc_type: 'sum',
+        storage: 'instance',
         weight: false,
-        alarm: false
-    }
-]
-
-const cmap = {
-    'Import_kWh': 'sum',
-    'Export_kWh': 'sum',
-    'TotalkWh': 'sum',
-    'Total_kvarh': 'sum',
-    'Ind_kvarh': 'sum',
-    'Cap_kvarh': 'sum',
-    'kVAh': 'sum',
-    'V1': 'avg',
-    'V2': 'avg',
-    'V3': 'avg',
-    'V12': 'avg',
-    'V23': 'avg',
-    'V31': 'avg',
-    'I1': 'sum',
-    'I2': 'sum',
-    'I3': 'sum',
-    'P1': 'sum',
-    'P2': 'sum',
-    'P3': 'sum',
-    'P_Sum': 'sum',
-    'Q1': 'sum',
-    'Q2': 'sum',
-    'Q3': 'sum',
-    'Q_Sum': 'sum',
-    'S1': 'sum',
-    'S2': 'sum',
-    'S3': 'sum',
-    'S_Sum': 'sum',
-    'PF1': 'avg',
-    'PF2': 'avg',
-    'PF3': 'avg',
-    'PF_Sum': 'avg',
-    'THD_U1': 'avg',
-    'THD_U2': 'avg',
-    'THD_U3': 'avg',
-    'THD_I1': 'avg',
-    'THD_I2': 'avg',
-    'THD_I3': 'avg',
-    'Frequency': 'avg',
-    'kWdemand': 'max'
+        alarm: false,
+    },
 }
+
+const pmap = Object.keys(cmap)
 
 function isOnPeak(dt) {
     let dayinweek = dt.getUTCDay()
@@ -521,9 +484,9 @@ export function initAPI() {
 
             let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
 
-            // if (absEnergy < 0 || absEnergy > 1000) {
-            //     absEnergy = 0
-            // }
+            if (absEnergy == -1) {
+                absEnergy = 0
+            }
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
@@ -757,9 +720,9 @@ export function initAPI() {
 
             let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
 
-            // if (absEnergy < 0) {
-            //     absEnergy = 0
-            // }
+            if (absEnergy == -1) {
+                absEnergy = 0
+            }
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
@@ -855,9 +818,9 @@ export function initAPI() {
 
             let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
 
-            // if (absEnergy < 0) {
-            //     absEnergy = 0
-            // }
+            if (absEnergy == -1) {
+                absEnergy = 0
+            }
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
@@ -950,9 +913,9 @@ export function initAPI() {
 
             let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
 
-            // if (absEnergy < 0) {
-            //     absEnergy = 0
-            // }
+            if (absEnergy == -1) {
+                absEnergy = 0
+            }
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
@@ -1074,7 +1037,7 @@ export function initAPI() {
 
             if (groupInfo !== null) {
                 for (let g of groupInfo) {
-                    if (!(g.GroupID in initGroup)) {
+                    if (!(initGroup.includes(g.GroupID))) {
                         groups[g.GroupID] = {
                             id: g.GroupID,
                             name: group[g.GroupID].name,
@@ -1082,22 +1045,24 @@ export function initAPI() {
                             member: []
                         }
 
+                        initGroup.push(g.GroupID)
+
                         for (let i = 0; i < pmap.length; i++) {
                             groups[g.GroupID].parameter.push({
-                                name: pmap[i].name + ' ' + pmap[i].unit,
+                                name: cmap[pmap[i]].name + ' ' + cmap[pmap[i]].unit,
                                 display:
                                     group[g.GroupID].name +
                                     ' - ' +
-                                    pmap[i].name +
+                                    cmap[pmap[i]].name +
                                     ' ' +
-                                    pmap[i].unit,
-                                selectedSeries: 'G@' + String(g.GroupID) + '%' + pmap[i].name
+                                    cmap[pmap[i]].unit,
+                                selectedSeries: 'G@' + String(g.GroupID) + '%' + cmap[pmap[i]].name
                             })
                         }
                     }
 
                     groups[g.GroupID].member.push({
-                        name: blacknode[g.SerialNo].name,
+                        name: blacknode[g.SerialNo].meter_list[g.ModbusID-1].name,
                         SerialNo: g.SerialNo
                     })
                 }
@@ -1125,13 +1090,13 @@ export function initAPI() {
 
                 for (let j = 0; j < pmap.length; j++) {
                     obj.parameter.push({
-                        name: pmap[j].name + ' ' + pmap[j].unit,
+                        name: cmap[pmap[j]].name + ' ' + cmap[pmap[j]].unit,
                         display:
                             blacknode[sn].meter_list[i].name +
                             ' - ' +
-                            pmap[j].name +
+                            cmap[pmap[j]].name +
                             ' ' +
-                            pmap[j].unit,
+                            cmap[pmap[j]].unit,
                         selectedSeries:
                             'M@' +
                             sn +
@@ -1142,7 +1107,7 @@ export function initAPI() {
                             '@' +
                             String(i) +
                             '%' +
-                            pmap[j].name
+                            cmap[pmap[j]].name
                     })
                 }
 
@@ -1216,14 +1181,14 @@ export function initAPI() {
                     }
                 }
 
-                if(cmap[param] == 'avg')
+                if(cmap[param].group == 'avg')
                 {
                     ret[k] = {
                         time: new Date(),
                         value: total/count
                     };
                 }
-                else if(cmap[param] == 'sum')
+                else if(cmap[param].group == 'sum')
                 {
                     ret[k] = {
                         time: new Date(),
@@ -1253,7 +1218,7 @@ export function initAPI() {
 
         for (let i = 0; i < pmap.length; i++) {
             ret[i] = {}
-            ret[i]['parameter'] = pmap[i].name + ' ' + pmap[i].unit
+            ret[i]['parameter'] = cmap[pmap[i]].name + ' ' + cmap[pmap[i]].unit
 
             for (let s of sn) {
                 for (let j = 0; j < blacknode[s].meter_list.length; j++) {
@@ -1265,7 +1230,7 @@ export function initAPI() {
                         now.getTime() - lastUpdateData[k].DateTimeUpdate.getTime() < 60 * 1000
                     ) {
                         ret[i][blacknode[s].meter_list[j].name] =
-                            lastUpdateData[k][pmap[i].name]
+                            lastUpdateData[k][cmap[pmap[i]].name]
                     } else {
                         ret[i][blacknode[s].meter_list[j].name] = -1
                     }
@@ -1994,6 +1959,8 @@ export function initAPI() {
             arr_size /= 96;
         }
 
+        arr_size += 1
+
         let ret = {}
 
         let p = req.body
@@ -2022,7 +1989,7 @@ export function initAPI() {
                             DateTimeUpdate: {
                                 [Op.and]: {
                                     [Op.gte]: start_date,
-                                    [Op.lt]: end_date
+                                    [Op.lte]: end_date
                                 }
                             },
                             snmKey: siteid + "%" + nodeid + "%" + modbusid
@@ -2038,7 +2005,7 @@ export function initAPI() {
                             DateTimeUpdate: {
                                 [Op.and]: {
                                     [Op.gte]: start_date,
-                                    [Op.lt]: end_date
+                                    [Op.lte]: end_date
                                 }
                             },
                             snmKey: siteid + "%" + nodeid + "%" + modbusid
@@ -2047,8 +2014,8 @@ export function initAPI() {
                     })
                 }
 
-                ret[k] = [];
-                let count = [];
+                ret[k] = []
+                let count = []
 
                 for(let i=0; i<arr_size; i++)
                 {
@@ -2071,19 +2038,21 @@ export function initAPI() {
 
                     ret[k].push({
                         time: time,
-                        value: 0
+                        value: 0,
+                        maxv: (-1) * MAX_NUMBER,
+                        minv: MAX_NUMBER
                     });
 
-                    count.push(0);
+                    count.push(0)
                 }
 
-                let prev_total  = 0;
+                let prev_dval  = -1;
+                let prev_time = null;
 
                 for(let e of eData)
                 {
                     let seq;
-                    
-                    // let time;
+                    let dval;
                     
                     if(req.params.type == 'year')
                     {
@@ -2098,79 +2067,78 @@ export function initAPI() {
                         seq = Math.trunc(e.DateTimeUpdate.getTime()/1000/60/15) - start_seq;
                     }
 
-                    if(cmap[param].calc_type == "avg")
+                    if(cmap[param].storage == "accumulative")
                     {
-                        if(param != 'kWdemand')
+                        if(prev_time == null || e.DateTimeUpdate.getTime() - prev_time.getTime() != TIME_PERIOD)
                         {
-                            ret[k][seq].value += e[param];
+                            prev_time = e.DateTimeUpdate
+
+                            if(param == 'kWdemand')
+                            {
+                                prev_dval = e['TotalkWh']
+                            }
+                            else
+                            {
+                                prev_dval = e[param]
+                            }
+
+                            continue
                         }
                         else
                         {
-                            ret[k][seq].value += (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
-                        }
-
-                        count[seq]++;
-                    }
-                    else if(cmap[param].calc_type == "max")
-                    {
-                        if(param != 'kWdemand')
-                        {
-                            if(e[param] > ret[k][seq].value)
+                            if(param == 'kWdemand')
                             {
-                                ret[k][seq].value = e[param]
+                                if(e['TotalkWh'])
+                                {
+                                    dval = (e['TotalkWh'] - prev_dval) * 4
+                                }
+                                else
+                                {
+                                    console.log('Error: cannot calculate demand')
+                                    dval = 0
+                                }
                             }
-                        }
-                        else
-                        {
-                            let demand = (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
-
-                            if(demand > ret[k][seq].value)
+                            else
                             {
-                                ret[k][seq].value = demand
+                                dval = e[param] - prev_dval
                             }
-                        }
-                    }
-                    else if(cmap[param].calc_type == "min")
-                    {
-                        if(param != 'kWdemand')
-                        {
-                            if(e[param] < ret[k][seq].value)
-                            {
-                                ret[k][seq].value = e[param]
-                            }
-                        }
-                        else
-                        {
-                            let demand = (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
-
-                            if(demand < ret[k][seq].value)
-                            {
-                                ret[k][seq].value = demand
-                            }
+                            
                         }
                     }
                     else
                     {
-                        if(param != 'kWdemand')
-                        {
-                            ret[k][seq].value = e[param];
-                        }
-                        else
-                        {
-                            ret[k][seq].value = (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
-                        }
+                        dval = e[param]
                     }
 
-                    prev_total = e['TotalkWh']
+                    //Get the average
+
+                    ret[k][seq].value += dval;
+                    count[seq]++;
+                    
+                    if(dval > ret[k][seq].maxv)
+                    {
+                        ret[k][seq].maxv = dval
+                    }
+
+                    if(dval < ret[k][seq].minv)
+                    {
+                        ret[k][seq].minv = dval
+                    }
+
+                    prev_dval = dval
+                    prev_time = e.DateTimeUpdate
                 }
 
-                if(cmap[param].calc_type == "avg")
+
+                for(let i=0; i<arr_size; i++)
                 {
-                    for(let i=0; i<arr_size; i++)
+                    if(count[i] > 0)
                     {
                         ret[k][i].value /= count[i];
                     }
                 }
+
+                // ret[k].length = ret[k].length - 1
             }
             else if(arr[0] == 'G')
             {
@@ -2180,11 +2148,9 @@ export function initAPI() {
 
                 let param = arr[1];
 
-                let count = 0;
-
                 ret[k] = [];
-                let tmp = [];
-                let gcount = [];
+                let dxt = {};
+                let count = []
 
                 for(let i=0; i<arr_size; i++)
                 {
@@ -2207,11 +2173,12 @@ export function initAPI() {
 
                     ret[k].push({
                         time: time,
-                        value: 0
+                        value: 0,
+                        minv: MAX_NUMBER,
+                        maxv: (-1)*MAX_NUMBER
                     });
 
-                    tmp.push(0);
-                    gcount.push(0);
+                    count.push(0)
                 }
 
                 for(let m of group[gid].member)
@@ -2231,7 +2198,7 @@ export function initAPI() {
                                 DateTimeUpdate: {
                                     [Op.and]: {
                                         [Op.gte]: start_date,
-                                        [Op.lt]: end_date
+                                        [Op.lte]: end_date
                                     }
                                 },
                                 snmKey: siteid + "%" + nodeid + "%" + modbusid
@@ -2247,7 +2214,7 @@ export function initAPI() {
                                 DateTimeUpdate: {
                                     [Op.and]: {
                                         [Op.gte]: start_date,
-                                        [Op.lt]: end_date
+                                        [Op.lte]: end_date
                                     }
                                 },
                                 snmKey: siteid + "%" + nodeid + "%" + modbusid
@@ -2256,124 +2223,124 @@ export function initAPI() {
                         })
                     }
 
-                    let prev_total = 0;
+                    let prev_time = null
+                    let prev_dval = -1
 
                     for(let e of eData)
                     {
-                        let seq;
+                        let dval
+                        let tkey = e.DateTimeUpdate.getUTCFullYear() + '-' + e.DateTimeUpdate.getUTCMonth() + '-' + e.DateTimeUpdate.getUTCDate() + '-' + e.DateTimeUpdate.getUTCHours() + '-' + e.DateTimeUpdate.getUTCMinutes()
 
-                        if(req.params.type == 'year')
+                        if(!dxt.hasOwnProperty(tkey))
                         {
-                            seq = e.DateTimeUpdate.getUTCMonth();
-                                                    
+                            dxt[tkey] = 0
                         }
-                        else if(req.params.type == 'month')
+    
+                        if(cmap[param].storage == "accumulative")
                         {
-                            seq = e.DateTimeUpdate.getUTCDate()-1;
-                                                   
+                            if(prev_time == null || e.DateTimeUpdate.getTime() - prev_time.getTime() != TIME_PERIOD)
+                            {
+                                prev_time = e.DateTimeUpdate
+
+                                if(param == 'kWdemand')
+                                {
+                                    prev_dval = e['TotalkWh']
+                                }
+                                else
+                                {
+                                    prev_dval = e[param]
+                                }
+                                
+                                continue
+                            }
+                            else
+                            {
+                                if(param == 'kWdemand')
+                                {
+                                    if(e['TotalkWh'])
+                                    {
+                                        dval = (e['TotalkWh'] - prev_dval) * 4
+                                    }
+                                    else
+                                    {
+                                        console.log('Error: cannot calculate demand')
+                                        dval = 0
+                                    }
+                                }
+                                else
+                                {
+                                    dval = e[param] - prev_dval
+                                }
+                                
+                            }
                         }
                         else
                         {
-                            seq = Math.trunc(e.DateTimeUpdate.getTime()/1000/60/15) - start_seq;
+                            dval = e[param]
                         }
 
-                        // ret[k][seq].value += e.TotalkWh;
-                        // [TODO] Calculate depending on parameter type (accumulative/instance)
-                        if(cmap[param].calc_type == "avg")
-                        {
-                            if(param != 'kWdemand')
-                            {
-                                tmp[seq] += e[param];
-                            }
-                            else
-                            {
-                                tmp[seq] += (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
-                                console.log('AVG Demand: ', demand);
-                            }
-                            
-                            gcount[seq]++;
+                        dxt[tkey] += dval
 
-                            
-                        }
-                        else if(cmap[param].calc_type == "max")
-                        {
-                            if(param != 'kWdemand')
-                            {
-                                if(e[param] > tmp[seq])
-                                {
-                                    tmp[seq] = e[param]
-                                }
-                            }
-                            else
-                            {
-                                let demand = (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
-
-                                if(demand > tmp[seq].value)
-                                {
-                                    tmp[seq] = demand
-                                }
-                            }
-                        }
-                        else if(cmap[param].calc_type == "min")
-                        {
-                            if(param != 'kWdemand')
-                            {
-                                if(e[param] < tmp[seq])
-                                {
-                                    tmp[seq] = e[param]
-                                }
-                            }
-                            else
-                            {
-                                let demand = (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
-
-                                if(demand < tmp[seq])
-                                {
-                                    tmp[seq] = demand
-                                }
-                            }
-                        }
-                        else
-                        {   
-                            if(param != 'kWdemand')
-                            {
-                                tmp[seq] = e[param];
-                            }
-                            else
-                            {
-                                tmp[seq] = (!prev_total || prev_total == 0 || !e['TotalkWh']) ? 0 : (e['TotalkWh'] - prev_total)*4;
-                            }
-                        }
-
-                        prev_total = e['TotalkWh']
-
+                        prev_dval = dval
+                        prev_time = e.DateTimeUpdate
                     }
-
-                    if(cmap[param].calc_type == "avg")
-                    {
-                        for(let i=0; i<arr_size; i++)
-                        {
-                            tmp[seq] /= count[i];
-                        }
-                    }
-
-                    for(let i=0; i<arr_size; i++)
-                    {
-                        ret[k][i].value += tmp[i];
-                        tmp[i] = 0;
-                    }
-                    
-                    count += 1;
                 }
 
-                if(cmap[param] == 'avg')
+                let dKey = Object.keys(dxt)
+                
+                for(let dk of dKey)
                 {
-                    for(let i=0; i<arr_size; i++)
+                    if(cmap[param].group == 'avg')
                     {
-                        ret[k][i].value = ret[k][i].value/count;
+                        if(group[gid].member.length > 0)
+                        {
+                            dxt[dk] /= group[gid].member.length
+                        }  
+                    }
+
+                    let arr = dk.split('-')
+                    let tt = new Date(Date.UTC(arr[0], arr[1], arr[2], arr[3], arr[4]))
+
+                    let seq;
+
+                    if(req.params.type == 'year')
+                    {
+                        seq = tt.getUTCMonth();
+                                                
+                    }
+                    else if(req.params.type == 'month')
+                    {
+                        seq = tt.getUTCDate()-1;
+                                                
+                    }
+                    else
+                    {
+                        seq = Math.trunc(tt.getTime()/1000/60/15) - start_seq;
+                    }
+                    
+                    ret[k][seq].value += dxt[dk];
+                    count[seq]++;
+                    
+                    if(dxt[dk] > ret[k][seq].maxv)
+                    {
+                        ret[k][seq].maxv = dxt[dk]
+                    }
+
+                    if(dxt[dk] < ret[k][seq].minv)
+                    {
+                        ret[k][seq].minv = dxt[dk]
                     }
                 }
                 
+                for(let i=0; i<arr_size; i++)
+                {
+                    if(count[i] > 0)
+                    {
+                        ret[k][i].value /= count[i];
+                    }
+                }
+
+                // ret[k].length = ret[k].length - 1;
             }
         }
 

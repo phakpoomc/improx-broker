@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { aedesInst } from './mqtt.js'
+// import { aedesInst } from './mqtt.js'
 
 export var last = {
     message: '',

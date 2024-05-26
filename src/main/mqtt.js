@@ -17,7 +17,7 @@ export var aedesInst
 export var httpServer
 
 const WS_PORT = 8884
-const QOS = 0
+const QOS = 2
 
 export function startMQTT(BN_CFG_PATH) {
     aedesInst = new Aedes()
@@ -297,7 +297,60 @@ export function startMQTT(BN_CFG_PATH) {
                                 // kWdemand: parseFloat(e[2]) * 4
                             }
 
-                            checkOverRange(obj)
+                            // Check duplicate
+                            if(blacknode[sn].meter_list[modbusid].last_db < dt)
+                            {
+                                blacknode[sn].meter_list[modbusid].last_db = dt
+
+                                checkOverRange(obj)
+
+                                db.energy.create(obj)
+
+                                aedesInst.publish(
+                                    {
+                                        cmd: 'publish',
+                                        qos: QOS,
+                                        dup: false,
+                                        retain: false,
+                                        topic:
+                                            'LOG/DATABASE/' +
+                                            sn +
+                                            '/' +
+                                            siteid +
+                                            '/' +
+                                            nodeid +
+                                            '/' +
+                                            String(modbusid + 1).padStart(2, '0'),
+                                        payload: 'OK'
+                                    },
+                                    function () {}
+                                )
+                            }
+                            else
+                            {
+                                console.log('Received duplicated packet. Ignored.')
+
+                                aedesInst.publish(
+                                    {
+                                        cmd: 'publish',
+                                        qos: QOS,
+                                        dup: false,
+                                        retain: false,
+                                        topic:
+                                            'LOG/DATABASE/' +
+                                            sn +
+                                            '/' +
+                                            siteid +
+                                            '/' +
+                                            nodeid +
+                                            '/' +
+                                            String(modbusid + 1).padStart(2, '0'),
+                                        payload: 'OK'
+                                    },
+                                    function () {}
+                                )
+                            }
+                            
 
                             // let aQ = {
                             //     cmd: 'publish',
@@ -318,32 +371,12 @@ export function startMQTT(BN_CFG_PATH) {
 
                             // addQueue(obj, aQ)
 
-                            db.energy.create(obj)
-
-                            aedesInst.publish(
-                                {
-                                    cmd: 'publish',
-                                    qos: 0,
-                                    dup: false,
-                                    retain: false,
-                                    topic:
-                                        'LOG/DATABASE/' +
-                                        sn +
-                                        '/' +
-                                        siteid +
-                                        '/' +
-                                        nodeid +
-                                        '/' +
-                                        String(modbusid + 1).padStart(2, '0'),
-                                    payload: 'OK'
-                                },
-                                function () {}
-                            )
+                            
                         } catch (err) {
                             aedesInst.publish(
                                 {
                                     cmd: 'publish',
-                                    qos: 2,
+                                    qos: QOS,
                                     dup: false,
                                     retain: false,
                                     topic:

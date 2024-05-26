@@ -11,14 +11,14 @@ export function initWeb() {
     var web = express()
     let webpath = path.join(process.cwd(), 'webserver')
 
+    web.get('/api_info', (req, res) => {
+        res.json(meta_cfg.api)
+    })
+
     web.use(express.static(webpath))
 
     web.get('/', (req, res) => {
         res.sendFile(path.join(webpath, 'index.html'))
-    })
-
-    web.get('/api_info', (req, res) => {
-        res.json(meta_cfg.api)
     })
 
     web_server = web.listen(8844, () => {
