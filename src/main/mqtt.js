@@ -298,7 +298,13 @@ export function startMQTT(BN_CFG_PATH) {
                             }
 
                             // Check duplicate
-                            if(blacknode[sn].meter_list[modbusid].last_db < dt)
+                            
+                            if(!blacknode[sn].meter_list[modbusid].last_db)
+                            {
+                                blacknode[sn].meter_list[modbusid].last_db = new Date(0)
+                            }
+
+                            if(new Date(blacknode[sn].meter_list[modbusid].last_db).getTime() < dt.getTime())
                             {
                                 blacknode[sn].meter_list[modbusid].last_db = dt
 

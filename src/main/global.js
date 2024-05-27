@@ -27,6 +27,7 @@ export var lastUpdateTime = {}
 export var lastUpdateData = {}
 
 var MAX_HEARTBEAT = 20 * 60 * 1000
+const MINIMUM_REALERT = 14 * 60 * 1000
 
 // var dbQueue = [];
 // var aedesQueue = [];
@@ -343,6 +344,11 @@ export function checkOverRange(obj, shift) {
 
     let smKey = obj['SerialNo'] + ':' + String(obj['ModbusID'])
 
+    if(!meta_cfg.param.hasOwnProperty(smKey))
+    {
+        return
+    }
+
     if(!meta_cfg.param[smKey].enable)
     {
         return
@@ -353,12 +359,12 @@ export function checkOverRange(obj, shift) {
 
     let id = obj['SiteID'] + '%' + obj['NodeID'] + '%' + String(obj['ModbusID'])
 
-    if (lastAlarm[id] && now.getTime() - lastAlarm[id].getTime() < meta_cfg.param['mininum_realert']) {
+    if (lastAlarm[id] && now.getTime() - lastAlarm[id].getTime() < MINIMUM_REALERT) {
         return
     }
 
     for (let k of keys) {
-        if (obj[k] < meta_cfg.param.mm[k].min || obj[k] > meta_cfg.param.mm[k].max) {
+        if (obj[k] < meta_cfg.param[smKey].mm[k].min || obj[k] > meta_cfg.param[smKey].mm[k].max) {
             if (db && db.alarm) {
                 db.alarm.create({
                     SerialNo: obj.SerialNo,
