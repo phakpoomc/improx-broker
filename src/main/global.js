@@ -111,37 +111,38 @@ export async function loadMetaCFG()
         }
         if(!meta_cfg.param)
         {
-            meta_cfg.param = {
-                minimum_realert: 14 * 60 * 1000,
-                mm: {
-                    V1: { min: 0, max: 230 },
-                    V2: { min: 0, max: 230 },
-                    V3: { min: 0, max: 230 },
-                    V12: { min: 0, max: 230 },
-                    V23: { min: 0, max: 230 },
-                    V31: { min: 0, max: 230 },
-                    I1: { min: 0, max: 100 },
-                    I2: { min: 0, max: 100 },
-                    I3: { min: 0, max: 100 },
-                    P1: { min: 0, max: 230000 },
-                    P2: { min: 0, max: 230000 },
-                    P3: { min: 0, max: 230000 },
-                    P_Sum: { min: 0, max: 230000 },
-                    Q1: { min: 0, max: 1000000 },
-                    Q2: { min: 0, max: 1000000 },
-                    Q3: { min: 0, max: 1000000 },
-                    Q_Sum: { min: 0, max: 1000000 },
-                    S1: { min: 0, max: 1000000 },
-                    S2: { min: 0, max: 1000000 },
-                    S3: { min: 0, max: 1000000 },
-                    S_Sum: { min: 0, max: 1000000 },
-                    PF1: { min: -1, max: 1 },
-                    PF2: { min: -1, max: 1 },
-                    PF3: { min: -1, max: 1 },
-                    PF_Sum: { min: -1, max: 1 },
-                    Frequency: { min: 0, max: 120 }
-                }
-            };
+            meta_cfg.param = {};
+            // {
+            //     minimum_realert: 14 * 60 * 1000,
+            //     mm: {
+            //         V1: { min: 0, max: 230 },
+            //         V2: { min: 0, max: 230 },
+            //         V3: { min: 0, max: 230 },
+            //         V12: { min: 0, max: 230 },
+            //         V23: { min: 0, max: 230 },
+            //         V31: { min: 0, max: 230 },
+            //         I1: { min: 0, max: 100 },
+            //         I2: { min: 0, max: 100 },
+            //         I3: { min: 0, max: 100 },
+            //         P1: { min: 0, max: 230000 },
+            //         P2: { min: 0, max: 230000 },
+            //         P3: { min: 0, max: 230000 },
+            //         P_Sum: { min: 0, max: 230000 },
+            //         Q1: { min: 0, max: 1000000 },
+            //         Q2: { min: 0, max: 1000000 },
+            //         Q3: { min: 0, max: 1000000 },
+            //         Q_Sum: { min: 0, max: 1000000 },
+            //         S1: { min: 0, max: 1000000 },
+            //         S2: { min: 0, max: 1000000 },
+            //         S3: { min: 0, max: 1000000 },
+            //         S_Sum: { min: 0, max: 1000000 },
+            //         PF1: { min: -1, max: 1 },
+            //         PF2: { min: -1, max: 1 },
+            //         PF3: { min: -1, max: 1 },
+            //         PF_Sum: { min: -1, max: 1 },
+            //         Frequency: { min: 0, max: 120 }
+            //     }
+            // };
         }
         if(!meta_cfg.auth_cred)
         {
@@ -335,13 +336,20 @@ export function checkHeartbeat() {
 }
 
 export function checkOverRange(obj, shift) {
-    let keys = Object.keys(meta_cfg.param.mm)
-    let now = new Date()
-
     if(shift)
     {
         obj['ModbusID'] = parseInt(obj['ModbusID']) + 1;
     }
+
+    let smKey = obj['SerialNo'] + ':' + String(obj['ModbusID'])
+
+    if(!meta_cfg.param[smKey].enable)
+    {
+        return
+    }
+
+    let keys = Object.keys(meta_cfg.param[smKey].mm)
+    let now = new Date()
 
     let id = obj['SiteID'] + '%' + obj['NodeID'] + '%' + String(obj['ModbusID'])
 

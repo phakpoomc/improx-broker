@@ -13,6 +13,7 @@ import {
     loadMetaCFG,
     loadMetaDB,
     checkHeartbeat,
+    db,
     // savetoDB
 } from './global.js'
 
@@ -161,7 +162,7 @@ app.whenReady().then(async () => {
         return bn_cb_registered
     })
 
-    ipcMain.handle('cmd:updateBN', (_event, cfg, sn) => {
+    ipcMain.handle('cmd:updateBN', async (_event, cfg, sn) => {
         // console.log('Update: ', cfg);
 
         let prev_max = parseInt(blacknode[sn].maxmeter)
@@ -193,6 +194,24 @@ app.whenReady().then(async () => {
         blacknode[sn].mqtt = cfg.mqtt
         blacknode[sn].maxmeter = curr_max
 
+        if(curr_max < prev_max)
+        {
+            for(let i = curr_max; i < prev_max; i++)
+            {
+                if(db && db.gmember)
+                {
+                    await db.gmember.destroy({
+                        where: {
+                            SerialNo: sn,
+                            SiteID: cfg.siteid,
+                            NodeID: cfg.nodeid,
+                            ModbusID: i
+                        }
+                    })
+                }
+            }
+        }
+
         blacknode[sn].meter_list.length = curr_max
 
         if (curr_max > prev_max) {
@@ -203,7 +222,7 @@ app.whenReady().then(async () => {
                     type: 0,
                     status: 'off',
                     last_update: new Date(),
-                    last_db: new Date()
+                    last_db: new Date(0)
                 }
 
                 blacknode[sn].meter_list[i] = initMeter
