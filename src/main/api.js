@@ -184,7 +184,7 @@ const cmap = {
         alarm: true,
     },
     'P_Sum': {
-        name: 'P3',
+        name: 'P_Sum',
         unit: '(kW)',
         group: 'sum',
         storage: 'instance',
