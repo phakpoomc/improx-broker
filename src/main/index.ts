@@ -268,10 +268,14 @@ app.whenReady().then(async () => {
         writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
         await loadMetaDB()
 
-        aedesInst.publish(
-            { cmd: 'publish', qos: QOS, dup: false, retain: false, topic: 'ACK/' + sn, payload: pkt },
-            function () {}
-        )
+        if(cfg.sendack)
+        {
+
+            aedesInst.publish(
+                { cmd: 'publish', qos: QOS, dup: false, retain: false, topic: 'ACK/' + sn, payload: pkt },
+                function () {}
+            )
+        }
     })
 
     ipcMain.handle('cmd:resetBN', (_event, key) => {

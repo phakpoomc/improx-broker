@@ -30,7 +30,7 @@ let period_choices = [
     { value: '30', text: '30 Minutes' }
 ]
 
-function save() {
+function save(sendack) {
     let bnName = document.getElementById('bn-name').value
     let period = document.getElementById('period').value
     let mqtt = document.getElementById('mqtt').value
@@ -60,7 +60,8 @@ function save() {
         siteid: siteid.replaceAll(/[^\w\d\(\)-]/g, ''),
         nodeid: nodeid.replaceAll(/[^\w\d\(\)-]/g, ''),
         maxmeter: maxmeter,
-        meter_list: meters_info
+        meter_list: meters_info,
+        sendack: sendack
     }
 
     window.mainprocess.updateBN(obj, route.params.id)
@@ -310,7 +311,8 @@ var nodes = [
 
             <div class="row mt-3">
                 <div class="col-12 d-flex justify-content-end">
-                    <button class="btn btn-secondary ms-2" @click="save()">Save</button>
+                    <button class="btn btn-secondary ms-2" @click="save(false)">Save</button>
+                    <button class="btn btn-secondary ms-2" @click="save(true)">Save and Send ACK</button>
                     <button class="btn btn-secondary ms-2" @click="reset(route.params.id)">
                         Reboot
                     </button>
