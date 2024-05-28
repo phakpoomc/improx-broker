@@ -79,7 +79,7 @@ export function startMQTT(BN_CFG_PATH) {
         writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
     })
 
-    aedesInst.on('publish', function (pkt, _client) {
+    aedesInst.on('publish', async function (pkt, _client) {
         //console.log(_client);
 
         const data_re = /^(DATABASE|REALTIME)\/(.*?)\/(.*?)\/(.*?)\/(\d*)$/
@@ -310,7 +310,7 @@ export function startMQTT(BN_CFG_PATH) {
 
                                 checkOverRange(obj)
 
-                                db.energy.create(obj)
+                                await db.energy.create(obj)
 
                                 aedesInst.publish(
                                     {

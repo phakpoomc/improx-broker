@@ -200,12 +200,13 @@ app.whenReady().then(async () => {
             {
                 if(db && db.gmember)
                 {
+                    // console.log('Delete: ', sn, cfg.siteid, cfg.nodeid, i)
                     await db.gmember.destroy({
                         where: {
                             SerialNo: sn,
                             SiteID: cfg.siteid,
                             NodeID: cfg.nodeid,
-                            ModbusID: i
+                            ModbusID: i+1
                         }
                     })
                 }
@@ -265,6 +266,7 @@ app.whenReady().then(async () => {
         // }
 
         writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
+        await loadMetaDB()
 
         aedesInst.publish(
             { cmd: 'publish', qos: QOS, dup: false, retain: false, topic: 'ACK/' + sn, payload: pkt },

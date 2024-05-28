@@ -364,7 +364,7 @@ function isOnPeak(dt) {
     }
 
     // In case of holidays...
-    let k = String(dt.getUTCFullYear()) + String(dt.getUTCMonth()) + String(dt.getUTCDate())
+    let k = String(dt.getUTCFullYear()) + String(parseInt(dt.getUTCMonth()) + 1) + String(dt.getUTCDate())
 
     if (holidays[k]) {
         return false
@@ -398,21 +398,16 @@ export function initAPI() {
         // calculate value and return
         let now = new Date()
 
-        let tLastMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1, 0, 0, 0))
-        let tThisMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0))
-        let tYesterday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1, 0, 0, 0))
-        let tToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0))
-        let tTomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0))
+        let tLastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0))
+        let tThisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0))
+        let tYesterday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0))
+        let tToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0))
+        let tTomorrow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0))
 
         let energyLastMonth = 0
         let energyThisMonth = 0
         let energyYesterday = 0
         let energyToday = 0
-
-        // let maxDemandLastMonth = 0
-        // let maxDemandThisMonth = 0
-        // let maxDemandYesterday = 0
-        // let maxDemandToday = 0
 
         let group = await db.group.findOne({
             where: { showDashboard: true }
@@ -518,12 +513,6 @@ export function initAPI() {
                 {
                     energyThisMonth += absEnergy
 
-                    if(absEnergy > 10000)
-                    {
-                        console.log(absEnergy, e.DateTimeUpdate)
-                    }
-                    
-
                     if (isOnPeak(e.DateTimeUpdate)) {
                         if(!(tKey in maxDemandThisMonth))
                         {
@@ -586,7 +575,7 @@ export function initAPI() {
 
             for(let snm of snmKey)
             {
-                tmpSum += maxDemandToday[k][snm]
+                tmpSum += (maxDemandToday[k][snm]) ? maxDemandToday[k][snm] : 0
             }
 
             if(tmpSum > sumMaxDemandToday)
@@ -601,7 +590,7 @@ export function initAPI() {
 
             for(let snm of snmKey)
             {
-                tmpSum += maxDemandYesterday[k][snm]
+                tmpSum += (maxDemandYesterday[k][snm]) ? maxDemandYesterday[k][snm] : 0
             }
 
             if(tmpSum > sumMaxDemandYesterday)
@@ -616,7 +605,8 @@ export function initAPI() {
 
             for(let snm of snmKey)
             {
-                tmpSum += maxDemandThisMonth[k][snm]
+                
+                tmpSum += (maxDemandThisMonth[k][snm]) ? maxDemandThisMonth[k][snm] : 0
             }
 
             if(tmpSum > sumMaxDemandThisMonth)
@@ -631,7 +621,7 @@ export function initAPI() {
     
                 for(let snm of snmKey)
                 {
-                    tmpSum += maxDemandLastMonth[k][snm]
+                    tmpSum += (maxDemandLastMonth[k][snm]) ? maxDemandLastMonth[k][snm] : 0
                 }
     
                 if(tmpSum > sumMaxDemandLastMonth)
@@ -672,6 +662,14 @@ export function initAPI() {
 
         let startTime = new Date(Date.UTC(year, month, day, 0, 0, 0))
         let endTime = new Date(Date.UTC(year, month, day + 1, 0, 0, 0))
+
+        let now = new Date()
+        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
+
+        if(now < endTime)
+        {
+            endTime = new Date(now)
+        }
 
         let group = await db.group.findOne({
             where: { showDashboard: true }
@@ -754,6 +752,7 @@ export function initAPI() {
             ret[hour].value1 += absEnergy
 
             prevTime[e.snmKey] = e.DateTimeUpdate
+
         }
 
         res.json(ret)
@@ -777,7 +776,15 @@ export function initAPI() {
         }
 
         let startTime = new Date(Date.UTC(year, month, 1, 0, 0, 0))
-        let endTime = new Date(Date.UTC(year, month + 1, 0, 0, 0, 0))
+        let endTime = new Date(Date.UTC(year, month + 1, 1, 0, 0, 0))
+
+        let now = new Date()
+        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
+
+        if(now < endTime)
+        {
+            endTime = new Date(now)
+        }
 
         let group = await db.group.findOne({
             where: { showDashboard: true }
@@ -850,6 +857,8 @@ export function initAPI() {
                 absEnergy = 0
             }
 
+            
+
             prevEnergy[e.snmKey] = e.TotalkWh
 
             let adjustedTime = new Date(e.DateTimeUpdate)
@@ -881,6 +890,14 @@ export function initAPI() {
 
         let startTime = new Date(Date.UTC(year, 0, 1, 0, 0, 0))
         let endTime = new Date(Date.UTC(year + 1, 0, 1, 0, 0, 0))
+
+        let now = new Date()
+        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
+
+        if(now < endTime)
+        {
+            endTime = new Date(now)
+        }
 
         let group = await db.group.findOne({
             where: { showDashboard: true }
@@ -980,9 +997,9 @@ export function initAPI() {
             }
         }
 
-        let startTime = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds()))
-        let endTime = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-
+        let startTime = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0))
+        let endTime = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds()))
+        
         let group = await db.group.findOne({
             where: { showDashboard: true }
         })
@@ -2023,10 +2040,20 @@ export function initAPI() {
             end_date.setUTCDate(end_date.getUTCDate() + 1);
         }
 
+        let now = new Date()
+        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
+
+        if(now < end_date)
+        {
+            end_date = new Date(now)
+        }
+
         let start_seq = Math.trunc(start_date.getTime()/1000/60/15);
         let end_seq = Math.trunc(end_date.getTime()/1000/60/15);
 
         let arr_size = end_seq-start_seq;
+
+
 
         if(req.params.type == 'year')
         {
@@ -2062,7 +2089,7 @@ export function initAPI() {
                 if(param == 'kWdemand')
                 {
                     eData = await db.energy.findAll({
-                        attributes: ['DateTimeUpdate', 'TotalkWh', param],
+                        attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh', param],
                         where: {
                             DateTimeUpdate: {
                                 [Op.and]: {
@@ -2078,7 +2105,7 @@ export function initAPI() {
                 else
                 {
                     eData = await db.energy.findAll({
-                        attributes: ['DateTimeUpdate', param],
+                        attributes: ['DateTimeUpdate', 'SerialNo', param],
                         where: {
                             DateTimeUpdate: {
                                 [Op.and]: {
@@ -2131,18 +2158,26 @@ export function initAPI() {
                 {
                     let seq;
                     let dval;
+
+                    let adjustedTime = new Date(e.DateTimeUpdate.getTime())
+                    adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes()-1)
                     
                     if(req.params.type == 'year')
                     {
-                        seq = e.DateTimeUpdate.getUTCMonth();
+                        seq = adjustedTime.getUTCMonth();
                     }
                     else if(req.params.type == 'month')
                     {
-                        seq = e.DateTimeUpdate.getUTCDate()-1;
+                        seq = adjustedTime.getUTCDate()-1;
                     }
                     else
                     {
-                        seq = Math.trunc(e.DateTimeUpdate.getTime()/1000/60/15) - start_seq;
+                        seq = Math.trunc(adjustedTime.getTime()/1000/60/15) - start_seq;
+
+                        if(seq < 0) 
+                        {
+                            seq = 0
+                        }
                     }
 
                     if(cmap[param].storage == "accumulative")
@@ -2206,20 +2241,31 @@ export function initAPI() {
                         ret[k][seq].minv = dval
                     }
 
-                    prev_dval = dval
+                    if(param == 'kWdemand')
+                    {
+                        prev_dval = e['TotalkWh']
+                    }
+                    else
+                    {
+                        prev_dval = e[param]
+                    }
+                    
                     prev_time = e.DateTimeUpdate
                 }
 
 
-                for(let i=0; i<arr_size; i++)
+                if(cmap[param].storage != "accumulative")
                 {
-                    if(count[i] > 0)
+                    for(let i=0; i<arr_size; i++)
                     {
-                        ret[k][i].value /= count[i];
+                        if(count[i] > 0)
+                        {
+                            ret[k][i].value /= count[i];
+                        }
                     }
                 }
 
-                // ret[k].length = ret[k].length - 1
+                ret[k].length = ret[k].length - 1
             }
             else if(arr[0] == 'G')
             {
@@ -2274,7 +2320,7 @@ export function initAPI() {
                     if(param == 'kWdemand')
                     {
                         eData = await db.energy.findAll({
-                            attributes: ['DateTimeUpdate', 'TotalkWh',  param],
+                            attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh',  param],
                             where: {
                                 DateTimeUpdate: {
                                     [Op.and]: {
@@ -2290,7 +2336,7 @@ export function initAPI() {
                     else
                     {
                         eData = await db.energy.findAll({
-                            attributes: ['DateTimeUpdate', param],
+                            attributes: ['DateTimeUpdate', 'SerialNo', param],
                             where: {
                                 DateTimeUpdate: {
                                     [Op.and]: {
@@ -2365,7 +2411,15 @@ export function initAPI() {
 
                         dxt[tkey] += dval
 
-                        prev_dval = dval
+                        if(param == 'kWdemand')
+                        {
+                            prev_dval = e['TotalkWh']
+                        }
+                        else
+                        {
+                            prev_dval = e[param]
+                        }
+
                         prev_time = e.DateTimeUpdate
                     }
                 }
@@ -2385,6 +2439,8 @@ export function initAPI() {
                     let arr = dk.split('-')
                     let tt = new Date(Date.UTC(arr[0], arr[1], arr[2], arr[3], arr[4]))
 
+                    tt.setUTCMinutes(tt.getUTCMinutes() - 1)
+
                     let seq;
 
                     if(req.params.type == 'year')
@@ -2400,6 +2456,11 @@ export function initAPI() {
                     else
                     {
                         seq = Math.trunc(tt.getTime()/1000/60/15) - start_seq;
+
+                        if(seq < 0)
+                        {
+                            seq = 0
+                        }
                     }
                     
                     ret[k][seq].value += dxt[dk];
@@ -2415,16 +2476,19 @@ export function initAPI() {
                         ret[k][seq].minv = dxt[dk]
                     }
                 }
-                
-                for(let i=0; i<arr_size; i++)
+
+                if(cmap[param].storage != 'accumulative')
                 {
-                    if(count[i] > 0)
+                    for(let i=0; i<arr_size; i++)
                     {
-                        ret[k][i].value /= count[i];
+                        if(count[i] > 0)
+                        {
+                            ret[k][i].value /= count[i];
+                        }
                     }
                 }
 
-                // ret[k].length = ret[k].length - 1;
+                ret[k].length = ret[k].length - 1;
             }
         }
 
