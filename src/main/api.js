@@ -22,6 +22,8 @@ import {
 } from './global.js'
 import { createReadStream } from 'fs'
 import { syncDB } from './db.js'
+import ExcelJS from 'exceljs'
+import * as path from 'path'
 
 export var api_server
 
@@ -2493,6 +2495,20 @@ export function initAPI() {
         }
 
         res.json(ret)
+    })
+
+    api.get('/rp_export/:type/:year/:month/:day', async (req, res) => {
+        const workbook = new ExcelJS.Workbook()
+
+        await workbook.xlsx.readFile(path.join(process.cwd(), 'test-template.xlsx'))
+        let worksheet = workbook.getWorksheet('Sheet1')
+        let cell = worksheet.getCell('A2')
+        cell.value = 10
+
+        res.attachment('report.xlsx')
+        workbook.xlsx.write(res).then(() => {
+            res.end()
+        })
     })
 
     api_server = api.listen(8888, () => {
