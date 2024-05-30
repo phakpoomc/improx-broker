@@ -80,8 +80,6 @@ export function startMQTT(BN_CFG_PATH) {
     })
 
     aedesInst.on('publish', async function (pkt, _client) {
-        //console.log(_client);
-
         const data_re = /^(DATABASE|REALTIME)\/(.*?)\/(.*?)\/(.*?)\/(\d*)$/
         const cfg_re = /^CFG\/([^\/]*)$/
 
@@ -93,8 +91,6 @@ export function startMQTT(BN_CFG_PATH) {
 
             let sn = cfg_m[1]
             let cmd = pkt.payload.toString()
-
-            // console.log('SN: ', sn, cfg_m);
 
             if (cmd == 'request_config') {
                 if (!blacknode.hasOwnProperty(sn)) {
@@ -160,8 +156,6 @@ export function startMQTT(BN_CFG_PATH) {
             }
         } else if (data_m) {
             // Data topic
-
-            // console.log(data_m);
             let dtype = data_m[1]
             let sn = data_m[2]
             let siteid = data_m[3]
@@ -244,8 +238,6 @@ export function startMQTT(BN_CFG_PATH) {
                             )
                             return
                         }
-
-                        // console.log(siteid + '%' + nodeid + '%' + String(modbusid+1));
 
                         try {
                             let obj = {
@@ -470,16 +462,18 @@ export function startMQTT(BN_CFG_PATH) {
 
                             let lastFifteenTime = new Date()
                             lastFifteenTime.setUTCMinutes(
-                                parseInt(Math.floor(lastFifteenTime.getUTCMinutes() / 15) * 15)
+                                parseInt(Math.trunc(lastFifteenTime.getUTCMinutes() / 15) * 15)
                             )
-                            let lastFifteenData = parseFloat(e[2])
+                            lastFifteenTime.setUTCSeconds(0)
+                            lastFifteenTime.setUTCMilliseconds(0)
+                            let lastFifteenData = (lastUpdateData[snid].lastFifteenData) ? lastUpdateData[snid].lastFifteenData : parseFloat(e[2])
 
                             if (
                                 lastUpdateData[snid] &&
                                 lastUpdateData[snid].lastFifteenTime &&
-                                lastUpdateData[snid].lastFifteenTime != lastFifteenTime
+                                lastUpdateData[snid].lastFifteenTime.getTime() != lastFifteenTime.getTime()
                             ) {
-                                lastFifteenData = lastUpdateData[snid].lastFifteenData
+                                lastFifteenData = parseFloat(e[2])
                             }
 
                             let obj = {
@@ -543,7 +537,6 @@ export function startMQTT(BN_CFG_PATH) {
             // Invalid topic
         }
 
-        // console.log(pkt.topic, pkt.payload.toString(), client);
     })
 
     httpServer.listen(WS_PORT, function () {

@@ -2017,7 +2017,7 @@ export function initAPI() {
         }
     });
 
-    api.post('/rp_chart/:type/:year/:month/:day', async (req, res) => {
+    api.post('/rp_chart/:type/:year/:month/:day/:syear/:smonth/:sday', async (req, res) => {
         let start_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
         let end_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
 
@@ -2037,6 +2037,12 @@ export function initAPI() {
             end_date.setUTCMonth(end_date.getUTCMonth() + 1);
             end_date.setUTCDate(1);
         }
+        else if(req.params.type == "range")
+        {
+            start_date.setUTCFullYear(parseInt(req.params.syear))
+            start_date.setUTCMonth(parseInt(req.params.smonth) - 1)
+            start_date.setUTCDate(req.params.sday)
+        }
         else
         {
             end_date.setUTCDate(end_date.getUTCDate() + 1);
@@ -2055,13 +2061,11 @@ export function initAPI() {
 
         let arr_size = end_seq-start_seq;
 
-
-
         if(req.params.type == 'year')
         {
             arr_size = 12;
         }
-        else if(req.params.type == 'month')
+        else if(req.params.type == 'month' || req.params.type == "range")
         {
             arr_size /= 96;
         }
@@ -2133,7 +2137,7 @@ export function initAPI() {
                         time = new Date(start_date);
                         time.setUTCMonth(time.getUTCMonth() + i);
                     }
-                    else if(req.params.type == 'month')
+                    else if(req.params.type == 'month' || req.params.type == "range")
                     {
                         time = new Date(start_date);
                         time.setUTCDate(time.getUTCDate() + i);
@@ -2162,15 +2166,15 @@ export function initAPI() {
                     let dval;
 
                     let adjustedTime = new Date(e.DateTimeUpdate.getTime())
-                    adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes()-1)
+                    // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes()-1)
                     
                     if(req.params.type == 'year')
                     {
                         seq = adjustedTime.getUTCMonth();
                     }
-                    else if(req.params.type == 'month')
+                    else if(req.params.type == 'month' || req.params.type == "range")
                     {
-                        seq = adjustedTime.getUTCDate()-1;
+                        seq = Math.trunc((adjustedTime.getTime() - start_date.getTime())/(24*60*60*1000))
                     }
                     else
                     {
@@ -2267,7 +2271,10 @@ export function initAPI() {
                     }
                 }
 
-                ret[k].length = ret[k].length - 1
+                if(req.params.type != 'day')
+                {
+                    ret[k].length = ret[k].length - 1
+                }
             }
             else if(arr[0] == 'G')
             {
@@ -2290,7 +2297,7 @@ export function initAPI() {
                         time = new Date(start_date);
                         time.setUTCMonth(time.getUTCMonth() + i);
                     }
-                    else if(req.params.type == 'month')
+                    else if(req.params.type == 'month' || req.params.type == "range")
                     {
                         time = new Date(start_date);
                         time.setUTCDate(time.getUTCDate() + i);
@@ -2441,7 +2448,7 @@ export function initAPI() {
                     let arr = dk.split('-')
                     let tt = new Date(Date.UTC(arr[0], arr[1], arr[2], arr[3], arr[4]))
 
-                    tt.setUTCMinutes(tt.getUTCMinutes() - 1)
+                    // tt.setUTCMinutes(tt.getUTCMinutes() - 1)
 
                     let seq;
 
@@ -2450,9 +2457,9 @@ export function initAPI() {
                         seq = tt.getUTCMonth();
                                                 
                     }
-                    else if(req.params.type == 'month')
+                    else if(req.params.type == 'month' || req.params.type == "range")
                     {
-                        seq = tt.getUTCDate()-1;
+                        seq = Math.trunc((tt.getTime() - start_date.getTime())/(24*60*60*1000))
                                                 
                     }
                     else
@@ -2490,22 +2497,442 @@ export function initAPI() {
                     }
                 }
 
-                ret[k].length = ret[k].length - 1;
+                if(req.params.type != 'day')
+                {
+                    ret[k].length = ret[k].length - 1;
+                }
             }
         }
 
         res.json(ret)
     })
 
-    api.get('/rp_export/:type/:year/:month/:day', async (req, res) => {
+    api.post('/rp_export/:type/:ttype/:year/:month/:day/:syear/:smonth/:sday', async (req, res) => {
         const workbook = new ExcelJS.Workbook()
 
-        await workbook.xlsx.readFile(path.join(process.cwd(), 'test-template.xlsx'))
-        let worksheet = workbook.getWorksheet('Sheet1')
-        let cell = worksheet.getCell('A2')
-        cell.value = 10
+        if(req.params.ttype == 'electrical')
+        {
+            await workbook.xlsx.readFile(path.join(process.cwd(), 'Report-01_template.xlsx'))
+        }
+        else
+        {
+            await workbook.xlsx.readFile(path.join(process.cwd(), 'Report-02_energy_template.xlsx'))
+        }
+        
+        let worksheet = workbook.getWorksheet('RawData')
 
-        res.attachment('report.xlsx')
+        let start_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
+        let end_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
+
+        if(req.params.type == "year")
+        {
+            start_date.setUTCMonth(0);
+            start_date.setUTCDate(1);
+
+            end_date.setUTCFullYear(end_date.getUTCFullYear() + 1);
+            end_date.setUTCMonth(0);
+            end_date.setUTCDate(1);
+        }
+        else if(req.params.type == "month")
+        {
+            start_date.setUTCDate(1);
+
+            end_date.setUTCMonth(end_date.getUTCMonth() + 1);
+            end_date.setUTCDate(1);
+        }
+        else if(req.params.type == "range")
+        {
+            start_date.setUTCFullYear(parseInt(req.params.syear))
+            start_date.setUTCMonth(parseInt(req.params.smonth) - 1)
+            start_date.setUTCDate(req.params.sday)
+        }
+        else
+        {
+            end_date.setUTCDate(end_date.getUTCDate() + 1);
+        }
+
+        let now = new Date()
+        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
+
+        if(now < end_date)
+        {
+            end_date = new Date(now)
+        }
+
+        let start_seq = Math.trunc(start_date.getTime()/1000/60/15);
+        let end_seq = Math.trunc(end_date.getTime()/1000/60/15);
+
+        let arr_size = end_seq - start_seq + 1;
+
+        let ret = {}
+
+        let p = req.body
+
+        for (let k of p) {
+            // Get data and fill
+            let arr = k.split("@");
+
+            if(arr[0] == 'M')
+            {
+                let sn = arr[1];
+                let siteid = arr[2];
+                let nodeid = arr[3];
+
+                arr = arr[4].split("%");
+
+                let modbusid = String(parseInt(arr[0]) + 1);
+                let param = arr[1];
+                let eData;
+
+                let cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + param
+
+                if(param == 'kWdemand')
+                {
+                    eData = await db.energy.findAll({
+                        attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh', param],
+                        where: {
+                            DateTimeUpdate: {
+                                [Op.and]: {
+                                    [Op.gte]: start_date,
+                                    [Op.lte]: end_date
+                                }
+                            },
+                            snmKey: siteid + "%" + nodeid + "%" + modbusid
+                        },
+                        order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                    })
+                }
+                else
+                {
+                    eData = await db.energy.findAll({
+                        attributes: ['DateTimeUpdate', 'SerialNo', param],
+                        where: {
+                            DateTimeUpdate: {
+                                [Op.and]: {
+                                    [Op.gte]: start_date,
+                                    [Op.lte]: end_date
+                                }
+                            },
+                            snmKey: siteid + "%" + nodeid + "%" + modbusid
+                        },
+                        order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                    })
+                }
+
+                ret[cellName] = []
+                let count = []
+
+                for(let i=0; i<arr_size; i++)
+                {
+                    ret[cellName].push(0);
+                    count.push(0)
+                }
+
+                let prev_dval  = -1;
+                let prev_time = null;
+
+                for(let e of eData)
+                {
+                    let seq;
+                    let dval;
+
+                    let adjustedTime = new Date(e.DateTimeUpdate.getTime())
+                    // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes()-1)
+
+                    seq = Math.trunc(adjustedTime.getTime()/1000/60/15) - start_seq;
+
+                    if(seq < 0) 
+                    {
+                        seq = 0
+                    }
+
+                    if(cmap[param].storage == "accumulative")
+                    {
+                        let sn = e.SerialNo
+                        let period = blacknode[sn].period * 60 * 1000
+
+                        if(prev_time == null || e.DateTimeUpdate.getTime() - prev_time.getTime() != period)
+                        {
+                            prev_time = e.DateTimeUpdate
+
+                            if(param == 'kWdemand')
+                            {
+                                prev_dval = e['TotalkWh']
+                            }
+                            else
+                            {
+                                prev_dval = e[param]
+                            }
+
+                            continue
+                        }
+                        else
+                        {
+                            if(param == 'kWdemand')
+                            {
+                                if(e['TotalkWh'])
+                                {
+                                    dval = (e['TotalkWh'] - prev_dval) * DEMAND
+                                }
+                                else
+                                {
+                                    console.log('Error: cannot calculate demand')
+                                    dval = 0
+                                }
+                            }
+                            else
+                            {
+                                dval = e[param] - prev_dval
+                            }
+                            
+                        }
+                    }
+                    else
+                    {
+                        dval = e[param]
+                    }
+
+                    //Get the average
+
+                    ret[cellName][seq] += dval;
+                    count[seq]++;
+
+                    if(param == 'kWdemand')
+                    {
+                        prev_dval = e['TotalkWh']
+                    }
+                    else
+                    {
+                        prev_dval = e[param]
+                    }
+                    
+                    prev_time = e.DateTimeUpdate
+                }
+
+
+                if(cmap[param].storage != "accumulative")
+                {
+                    for(let i=0; i<arr_size; i++)
+                    {
+                        if(count[i] > 0)
+                        {
+                            ret[cellName][i] /= count[i];
+                        }
+                    }
+                }
+
+                if(req.params.type != 'day')
+                {
+                    ret[cellName].length = ret[cellName].length - 1
+                }
+            }
+            else if(arr[0] == 'G')
+            {
+                arr = arr[1].split("%");
+
+                let gid = parseInt(arr[0]);
+
+                let param = arr[1];
+
+                
+                let dxt = {};
+                let count = []
+
+                let cellName = group[gid].name + '.' + param
+                ret[cellName] = [];
+
+                for(let i=0; i<arr_size; i++)
+                {
+                    ret[cellName].push(0);
+                    count.push(0)
+                }
+
+                for(let m of group[gid].member)
+                {
+                    let sn = m.serial;
+                    let siteid = blacknode[sn].siteid;
+                    let nodeid = blacknode[sn].nodeid;
+                    let modbusid = parseInt(m.modbusid);
+
+                    let eData;
+
+                    if(param == 'kWdemand')
+                    {
+                        eData = await db.energy.findAll({
+                            attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh',  param],
+                            where: {
+                                DateTimeUpdate: {
+                                    [Op.and]: {
+                                        [Op.gte]: start_date,
+                                        [Op.lte]: end_date
+                                    }
+                                },
+                                snmKey: siteid + "%" + nodeid + "%" + modbusid
+                            },
+                            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                        })
+                    }
+                    else
+                    {
+                        eData = await db.energy.findAll({
+                            attributes: ['DateTimeUpdate', 'SerialNo', param],
+                            where: {
+                                DateTimeUpdate: {
+                                    [Op.and]: {
+                                        [Op.gte]: start_date,
+                                        [Op.lte]: end_date
+                                    }
+                                },
+                                snmKey: siteid + "%" + nodeid + "%" + modbusid
+                            },
+                            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                        })
+                    }
+
+                    let prev_time = null
+                    let prev_dval = -1
+
+                    for(let e of eData)
+                    {
+                        let dval
+                        let tkey = e.DateTimeUpdate.getUTCFullYear() + '-' + e.DateTimeUpdate.getUTCMonth() + '-' + e.DateTimeUpdate.getUTCDate() + '-' + e.DateTimeUpdate.getUTCHours() + '-' + e.DateTimeUpdate.getUTCMinutes()
+
+                        if(!dxt.hasOwnProperty(tkey))
+                        {
+                            dxt[tkey] = 0
+                        }
+    
+                        if(cmap[param].storage == "accumulative")
+                        {
+                            let sn = e.SerialNo
+                            let period = blacknode[sn].period * 60 * 1000
+
+                            if(prev_time == null || e.DateTimeUpdate.getTime() - prev_time.getTime() != period)
+                            {
+                                prev_time = e.DateTimeUpdate
+
+                                if(param == 'kWdemand')
+                                {
+                                    prev_dval = e['TotalkWh']
+                                }
+                                else
+                                {
+                                    prev_dval = e[param]
+                                }
+                                
+                                continue
+                            }
+                            else
+                            {
+                                if(param == 'kWdemand')
+                                {
+                                    if(e['TotalkWh'])
+                                    {
+                                        dval = (e['TotalkWh'] - prev_dval) * DEMAND
+                                    }
+                                    else
+                                    {
+                                        console.log('Error: cannot calculate demand')
+                                        dval = 0
+                                    }
+                                }
+                                else
+                                {
+                                    dval = e[param] - prev_dval
+                                }
+                                
+                            }
+                        }
+                        else
+                        {
+                            dval = e[param]
+                        }
+
+                        dxt[tkey] += dval
+
+                        if(param == 'kWdemand')
+                        {
+                            prev_dval = e['TotalkWh']
+                        }
+                        else
+                        {
+                            prev_dval = e[param]
+                        }
+
+                        prev_time = e.DateTimeUpdate
+                    }
+                }
+
+                let dKey = Object.keys(dxt)
+                
+                for(let dk of dKey)
+                {
+                    if(cmap[param].group == 'avg')
+                    {
+                        if(group[gid].member.length > 0)
+                        {
+                            dxt[dk] /= group[gid].member.length
+                        }  
+                    }
+
+                    let arr = dk.split('-')
+                    let tt = new Date(Date.UTC(arr[0], arr[1], arr[2], arr[3], arr[4]))
+
+                    // tt.setUTCMinutes(tt.getUTCMinutes() - 1)
+
+                    let seq;
+
+                    seq = Math.trunc(tt.getTime()/1000/60/15) - start_seq;
+
+                    if(seq < 0)
+                    {
+                        seq = 0
+                    }
+                    
+                    ret[cellName][seq] += dxt[dk];
+                    count[seq]++;
+                    
+                }
+
+                if(cmap[param].storage != 'accumulative')
+                {
+                    for(let i=0; i<arr_size; i++)
+                    {
+                        if(count[i] > 0)
+                        {
+                            ret[cellName][i] /= count[i];
+                        }
+                    }
+                }
+
+                if(req.params.type != 'day')
+                {
+                    ret[cellName].length = ret[cellName].length - 1;
+                }
+                
+            }
+        }
+
+        let keys = Object.keys(ret)
+        let currCol = 2
+
+        for(let k of keys)
+        {
+            let col = worksheet.getColumn(currCol)
+
+            col.values = [k].concat(ret[k])
+            col.width = k.length+5
+            currCol++
+        }
+
+
+
+        for(let i=1; i<=arr_size; i++)
+        {
+            worksheet.getCell('A' + String(i+1)).value = new Date(start_date.getTime() + ((i-1)*15*60*1000));
+        }
+
+        res.attachment(req.params.ttype + '_export.xlsx')
         workbook.xlsx.write(res).then(() => {
             res.end()
         })

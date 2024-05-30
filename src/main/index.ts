@@ -163,7 +163,6 @@ app.whenReady().then(async () => {
     })
 
     ipcMain.handle('cmd:updateBN', async (_event, cfg, sn) => {
-        // console.log('Update: ', cfg);
 
         let prev_max = parseInt(blacknode[sn].maxmeter)
         let curr_max = parseInt(cfg.maxmeter)
@@ -200,7 +199,6 @@ app.whenReady().then(async () => {
             {
                 if(db && db.gmember)
                 {
-                    // console.log('Delete: ', sn, cfg.siteid, cfg.nodeid, i)
                     await db.gmember.destroy({
                         where: {
                             SerialNo: sn,
@@ -280,7 +278,6 @@ app.whenReady().then(async () => {
 
     ipcMain.handle('cmd:resetBN', (_event, key) => {
         // Reset based on command or topic
-        // console.log('Reset: ', key);
         let pkt = 'reset'
 
         aedesInst.publish(
@@ -417,8 +414,6 @@ app.on('before-quit', async function () {
 ipcMain.on('authenticate', async (_event, args) => {
     let data = JSON.parse(args)
 
-    //console.log(event);
-
     if (loginWith(data['username'], data['password'])) {
         // last['message'] = 'Logged in successfully.';
         // last['time'] = new Date();
@@ -459,8 +454,6 @@ ipcMain.on('logout', (_event, _args) => {
     // aedesInst = false
 
     httpServer.close(function () {})
-
-    //console.log(event, args);
 
     api_server.close(function () {})
     web_server.close(function () {})
