@@ -352,7 +352,7 @@ const cmap = {
         name: 'kWdemand',
         unit: '',
         group: 'sum',
-        storage: 'instance',
+        storage: 'accumulative',
         weight: false,
         alarm: false,
     },
@@ -2248,7 +2248,7 @@ export function initAPI() {
                 if(param == 'kWdemand')
                 {
                     eData = await db.energy.findAll({
-                        attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh', param],
+                        attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh'],
                         where: {
                             DateTimeUpdate: {
                                 [Op.and]: {
@@ -2363,13 +2363,12 @@ export function initAPI() {
                         {
                             if(param == 'kWdemand')
                             {
-                                if(e['TotalkWh'])
+                                if(e['TotalkWh'] != undefined || e['TotalkWh'] != -1)
                                 {
                                     dval = (e['TotalkWh'] - prev_dval) * DEMAND
                                 }
                                 else
                                 {
-                                    console.log('Error: cannot calculate demand')
                                     dval = 0
                                 }
                             }
@@ -2382,7 +2381,15 @@ export function initAPI() {
                     }
                     else
                     {
-                        dval = e[param]
+                        if(param == 'kwDemand')
+                        {
+                            dval = e['TotalkWh']
+                        }
+                        else
+                        {
+                            dval = e[param]
+                        }
+                        
                     }
 
                     //Get the average
@@ -2482,7 +2489,7 @@ export function initAPI() {
                     if(param == 'kWdemand')
                     {
                         eData = await db.energy.findAll({
-                            attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh',  param],
+                            attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh'],
                             where: {
                                 DateTimeUpdate: {
                                     [Op.and]: {
@@ -2549,13 +2556,12 @@ export function initAPI() {
                             {
                                 if(param == 'kWdemand')
                                 {
-                                    if(e['TotalkWh'])
+                                    if(e['TotalkWh'] != undefined || e['TotalkWh'] != -1)
                                     {
                                         dval = (e['TotalkWh'] - prev_dval) * DEMAND
                                     }
                                     else
                                     {
-                                        console.log('Error: cannot calculate demand')
                                         dval = 0
                                     }
                                 }
@@ -2568,7 +2574,15 @@ export function initAPI() {
                         }
                         else
                         {
-                            dval = e[param]
+                            if(param == 'kWdemand')
+                            {
+                                dval = e['TotalkWh']
+                            }
+                            else
+                            {
+                                dval = e[param]
+                            }
+                            
                         }
 
                         dxt[tkey] += dval
@@ -2742,7 +2756,7 @@ export function initAPI() {
                 if(param == 'kWdemand')
                 {
                     eData = await db.energy.findAll({
-                        attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh', param],
+                        attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh'],
                         where: {
                             DateTimeUpdate: {
                                 [Op.and]: {
@@ -2823,13 +2837,12 @@ export function initAPI() {
                         {
                             if(param == 'kWdemand')
                             {
-                                if(e['TotalkWh'])
+                                if(e['TotalkWh'] != undefined || e['TotalkWh'] != -1)
                                 {
                                     dval = (e['TotalkWh'] - prev_dval) * DEMAND
                                 }
                                 else
                                 {
-                                    console.log('Error: cannot calculate demand')
                                     dval = 0
                                 }
                             }
@@ -2842,7 +2855,14 @@ export function initAPI() {
                     }
                     else
                     {
-                        dval = e[param]
+                        if(param == 'kWdemand')
+                        {
+                            dval = e['TotalkWh']
+                        }
+                        else
+                        {
+                            dval = e[param]
+                        }
                     }
 
                     //Get the average
@@ -2912,7 +2932,7 @@ export function initAPI() {
                     if(param == 'kWdemand')
                     {
                         eData = await db.energy.findAll({
-                            attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh',  param],
+                            attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh'],
                             where: {
                                 DateTimeUpdate: {
                                     [Op.and]: {
@@ -2979,13 +2999,12 @@ export function initAPI() {
                             {
                                 if(param == 'kWdemand')
                                 {
-                                    if(e['TotalkWh'])
+                                    if(e['TotalkWh'] != undefined || e['TotalkWh'] != -1)
                                     {
                                         dval = (e['TotalkWh'] - prev_dval) * DEMAND
                                     }
                                     else
                                     {
-                                        console.log('Error: cannot calculate demand')
                                         dval = 0
                                     }
                                 }
@@ -2998,7 +3017,14 @@ export function initAPI() {
                         }
                         else
                         {
-                            dval = e[param]
+                            if(param == 'kWdemand')
+                            {
+                                dval = e['TotalkWh']
+                            }
+                            else
+                            {
+                                dval = e[param]
+                            }
                         }
 
                         dxt[tkey] += dval
