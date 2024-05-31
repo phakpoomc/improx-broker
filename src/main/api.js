@@ -24,6 +24,9 @@ import { createReadStream } from 'fs'
 import { syncDB } from './db.js'
 import ExcelJS from 'exceljs'
 import * as path from 'path'
+import bodyParser from 'body-parser'
+
+import session from 'express-session'
 
 export var api_server
 
@@ -366,7 +369,7 @@ function isOnPeak(dt) {
     }
 
     // In case of holidays...
-    let k = String(dt.getUTCFullYear()) + String(parseInt(dt.getUTCMonth()) + 1) + String(dt.getUTCDate())
+    let k = String(dt.getUTCFullYear()) + '-' + String(parseInt(dt.getUTCMonth()) + 1) + '-' + String(dt.getUTCDate())
 
     if (holidays[k]) {
         return false
@@ -387,12 +390,132 @@ function isOnPeak(dt) {
     return true
 }
 
+
 export function initAPI() {
+    if(api_server)
+    {
+        api_server.close()
+    }
+
+    let cors_protocol = (meta_cfg.web.protocol) ? meta_cfg.web.protocol : 'http'
+    let cors_hostname = (meta_cfg.web.hostname) ? meta_cfg.web.hostname : 'localhost'
+    let cors_port = (meta_cfg.web.port) ? meta_cfg.web.port : '5173'
+    
     const api = express()
-    api.use(cors())
+    api.use(cors({
+        credentials: true,
+        methods: ["POST", "PUT", "GET", "OPTIONS", "HEAD"],
+        origin:  cors_protocol + '://' + cors_hostname + ':' + cors_port
+    }))
     api.use(express.json())
-    api.use(express.urlencoded({ extended: true }))
+    api.use(bodyParser.urlencoded({ extended: false }))
+    api.use(bodyParser.json())
     api.use(fileUpload())
+    api.use(session({
+        secret: 'improx',
+        resave: false,
+        saveUninitialized: true,
+        cookie: {
+            httpOnly: true,
+            maxAge: 86400*7,
+            secure: false
+        },
+        rolling: true
+    }))
+
+    api.post('/login', async (req, res) => {
+        let uname = req.body.username
+        let passwd = req.body.password
+
+        if(db && db.user && db.userrole)
+        {
+            let found = await db.user.findOne({
+                where: {
+                    username: uname,
+                }
+            })
+
+            if(found)
+            {
+                let match = await bcrypt.compare(passwd, found.password)
+
+                if(match)
+                {
+                    let rs = await db.userrole.findAll({
+                        attributes: ['role'],
+                        where: {
+                            userid: found.id
+                        }
+                    })
+    
+                    let roles = []
+    
+                    for(let r of rs)
+                    {
+                        roles.push(r.role)
+                    }
+    
+                    req.session.regenerate((err) => {
+                        if(!err)
+                        {
+                            req.session.user = uname
+                            req.session.role = roles
+    
+                            req.session.save((err) => {
+                                if(!err)
+                                {
+                                    res.send('OK')
+                                }
+                                else
+                                {
+                                    res.send('ERR')
+                                }
+                            })
+                        }
+                        else
+                        {
+                            res.send('ERR')
+                        }
+                    })
+                }
+                else
+                {
+                    res.send('ERR')
+                }
+            }
+            else
+            {
+                res.send('ERR')
+            }
+        }
+        else
+        {
+            res.send('ERR')
+        }
+    })
+
+    api.get('/logout', (req, res) => {
+        req.session.destroy((err) => {
+            res.send('OK')
+        })
+
+        res.send('OK')
+    })
+
+    api.get('/isAuth', (req, res) => {
+        if(req.session.user)
+        {
+            res.json({user: req.session.user, role: req.session.role})
+        }
+        else
+        {
+            res.json({user: undefined, role: []})
+        }
+    })
+
+    api.get('/test_session', (req, res) => {
+        console.log(req.session.user, req.session.role)
+    })
 
     api.get('/dashboard_card', async (req, res) => {
         let ret = {}
@@ -1901,9 +2024,39 @@ export function initAPI() {
 
     api.get('/user', async (req, res) => {
         try {
-            let users = await db.user.findAll();
+            let users = await db.user.findAll({
+                attributes: ['id', 'name', 'username', 'email', 'status']
+            });
 
-            res.json(users);
+            let ret = []
+
+            let allRoles = await db.userrole.findAll()
+
+            let roleMap = {}
+
+            for(let r of allRoles)
+            {
+                if(!roleMap.hasOwnProperty(r.userid))
+                {
+                    roleMap[r.userid] = []
+                }
+
+                roleMap[r.userid].push(r.role)
+            }
+
+            for(let user of users)
+            {
+                ret.push({
+                    id: user.id,
+                    name: user.name,
+                    username: user.username,
+                    email: user.email,
+                    status: user.status,
+                    roles: (roleMap[user.id]) ? roleMap[user.id] : ['inactive']
+                })
+            }
+
+            res.json(ret);
         } catch (err) {
             console.log("Cannot get user.");
             res.json({});
@@ -1936,7 +2089,7 @@ export function initAPI() {
             {
                 await db.userrole.create({
                     userid: u.id,
-                    role: "user"
+                    role: "inactive"
                 })
             }
 
@@ -1951,10 +2104,10 @@ export function initAPI() {
         if(req.params.action == "edit")
         {
             try {
-                await db.user.update(
+                let u = await db.user.update(
                     {
                         name: req.body.name,
-                        // username: req.body.username,
+                        username: req.body.username,
                         email: req.body.email,
                         password: await bcrypt.hash(req.body.password, 3),
                         DateTime: new Date(),
@@ -1976,7 +2129,7 @@ export function initAPI() {
                     for(let i=0; i<req.body.roles.length; i++)
                     {
                         await db.userrole.create({
-                            userid: u.id,
+                            userid: parseInt(req.params.id),
                             role: req.body.roles[i]
                         })
                     }
@@ -1984,8 +2137,8 @@ export function initAPI() {
                 else
                 {
                     await db.userrole.create({
-                        userid: u.id,
-                        role: "user"
+                        userid: parseInt(req.params.id),
+                        role: "inactive"
                     })
                 }
 

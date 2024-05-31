@@ -21,12 +21,16 @@ import { api_server, initAPI } from './api.js'
 import { web_server, initWeb } from './web.js'
 import { syncDB } from './db.js'
 
+import crypto from 'crypto'
+
 const QOS = 2
 
 function loginWith(uname, pwd)
 {
-    if((uname == '' && pwd == '') ||
-    (uname == 'admin' && pwd == 'password'))
+    let correctHash = crypto.createHash('sha512')
+    correctHash.update('password')
+
+    if(uname == 'admin' && pwd == correctHash.digest('hex'))
     {
         return true
     }
@@ -104,7 +108,7 @@ function createWindow(): void {
     mainWindow.on('ready-to-show', async () => {
         mainWindow.show()
 
-        await loadMetaCFG()
+        loadMetaCFG()
 
         if(meta_cfg.auth_cred.remember)
         {
@@ -338,6 +342,22 @@ app.whenReady().then(async () => {
         meta_cfg.api.key = apiCFG.key
 
         writeFile(META_CFG_PATH, JSON.stringify(meta_cfg), { flag: 'w' })
+
+        initAPI()
+    })
+
+    ipcMain.handle('data:getWebCFG', (_event) => {
+        return meta_cfg.web
+    })
+
+    ipcMain.handle('data:setWebCFG', async (_event, webCFG) => {
+        meta_cfg.web.protocol = webCFG.protocol
+        meta_cfg.web.port = webCFG.port
+        meta_cfg.web.hostname = webCFG.hostname
+
+        writeFile(META_CFG_PATH, JSON.stringify(meta_cfg), { flag: 'w' })
+
+        initAPI()
     })
 
     ipcMain.handle('data:clearMessage', (_event) => {
@@ -413,8 +433,9 @@ app.on('before-quit', async function () {
 
 ipcMain.on('authenticate', async (_event, args) => {
     let data = JSON.parse(args)
+    let hashPwd = crypto.createHash('sha512').update(data['password']).digest('hex')
 
-    if (loginWith(data['username'], data['password'])) {
+    if (loginWith(data['username'], hashPwd)) {
         // last['message'] = 'Logged in successfully.';
         // last['time'] = new Date();
         // last['status'] = 'success';
@@ -423,16 +444,17 @@ ipcMain.on('authenticate', async (_event, args) => {
         username = data['username']
 
         meta_cfg.auth_cred.username = username;
-        meta_cfg.auth_cred.password = data['password'];
+        meta_cfg.auth_cred.password = hashPwd
         meta_cfg.auth_cred.remember = data['remember'];
 
         writeFile(META_CFG_PATH, JSON.stringify(meta_cfg), { flag: 'w' })
 
         if (!aedesInst || aedesInst.closed) {
+            loadMetaCFG()
             startMQTT(BN_CFG_PATH)
             initWeb()
             initAPI()
-            loadMetaCFG()
+            
             
             await syncDB()
             await loadMetaDB()

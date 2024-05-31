@@ -13,6 +13,7 @@ var dt = new Date()
 
 const bnCFG = ref()
 const apiCFG = ref()
+const webCFG = ref()
 
 bnCFG.value = await window.mainprocess.getDBCFG()
 
@@ -44,6 +45,8 @@ let db_choices = [
     { value: 'mssql', text: 'MSSQL' },
     { value: 'mariadb', text: 'MariaDB' }
 ]
+
+webCFG.value = await window.mainprocess.getWebCFG()
 
 function save() {
     let host = document.getElementById('host').value
@@ -81,6 +84,21 @@ function saveAPI() {
     }
 
     window.mainprocess.setAPICFG(obj)
+    router.push('/')
+}
+
+function saveWeb() {
+    let protocol = document.getElementById('web-protocol').value
+    let port = document.getElementById('web-port').value
+    let hostname = document.getElementById('web-hostname').value
+
+    let obj = {
+        protocol: protocol,
+        port: port,
+        hostname: hostname
+    }
+
+    window.mainprocess.setWebCFG(obj)
     router.push('/')
 }
 </script>
@@ -243,6 +261,59 @@ function saveAPI() {
             <div class="row mt-3">
                 <div class="col-12 d-flex justify-content-end">
                     <button class="btn btn-secondary ms-2" @click="saveAPI()">Save</button>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="h2 mb-4">Web Config</div>
+                </div>
+            </div>
+            <div class="card card-body bg-light border-light mb-4">
+                <div class="row mb-4">
+                    <div class="col-3">
+                        <div class="setting-input mb-2">
+                            <label class="mb-2 text-muted" for="web-protocol">Protocol</label>
+                            <input
+                                id="web-protocol"
+                                type="text"
+                                class="form-control"
+                                :value="webCFG.protocol"
+                                required
+                                autofocus
+                            />
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="setting-input mb-2">
+                            <label class="mb-2 text-muted" for="web-hostname"> Hostname </label>
+                            <input
+                                id="web-hostname"
+                                type="text"
+                                class="form-control"
+                                :value="webCFG.hostname"
+                                required
+                            />
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="setting-input mb-2">
+                            <label class="mb-2 text-muted" for="web-port">Port</label>
+                            <input
+                                id="web-port"
+                                type="text"
+                                class="form-control"
+                                :value="webCFG.port"
+                                required
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-12 d-flex justify-content-end">
+                    <button class="btn btn-secondary ms-2" @click="saveWeb()">Save</button>
                 </div>
             </div>
         </template>

@@ -8,10 +8,15 @@ import { meta_cfg } from './global.js'
 export var web_server
 
 export function initWeb() {
+    if(web_server)
+    {
+        web_server.close()
+    }
+
     var web = express()
     let webpath = path.join(process.cwd(), 'webserver')
 
-    web.get('/api_info', (req, res) => {
+    web.post('/api_info', (req, res) => {
         res.json(meta_cfg.api)
     })
 

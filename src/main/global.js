@@ -95,7 +95,7 @@ var qLock = false;
 //     }
 // }
 
-export async function loadMetaCFG()
+export function loadMetaCFG()
 {
     // Load DB
     if (paths && paths.META_CFG_PATH) {
@@ -110,6 +110,10 @@ export async function loadMetaCFG()
         {
             meta_cfg.api = {};
         }
+        if(!meta_cfg.web)
+            {
+                meta_cfg.web = {};
+            }
         if(!meta_cfg.param)
         {
             meta_cfg.param = {};
@@ -187,7 +191,7 @@ export async function loadMetaDB()
         let h = await db.holiday.findAll()
 
         for (let d of h) {
-            let k = String(d.DateTime.getUTCFullYear()) + '-' + String(d.DateTime.getUTCMonth()) + '-' + String(d.DateTime.getUTCDate())
+            let k = String(d.DateTime.getUTCFullYear()) + '-' + String(d.DateTime.getUTCMonth()+1) + '-' + String(d.DateTime.getUTCDate())
 
             holidays[k] = {
                 name: d.name,
@@ -247,7 +251,7 @@ export async function loadHoliday() {
         let h = await db.holiday.findAll()
 
         for (let d of h) {
-            let k = String(d.DateTime.getUTCFullYear()) + '-' + String(d.DateTime.getUTCMonth()) + '-' + String(d.DateTime.getUTCDate())
+            let k = String(d.DateTime.getUTCFullYear()) + '-' + String(d.DateTime.getUTCMonth()+1) + '-' + String(d.DateTime.getUTCDate())
 
             holidays[k] = {
                 name: d.name,
