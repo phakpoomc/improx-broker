@@ -360,6 +360,89 @@ const cmap = {
 
 const pmap = Object.keys(cmap)
 
+function checkRoles(givenRoles, allowedRoles)
+{
+    for(let r of givenRoles)
+    {
+        if(allowedRoles.includes(r))
+        {
+            return true
+        }
+    }
+
+    return false
+}
+
+const routes = {
+    'index': ['owner', 'user', 'admin', 'test'],
+    'alarm': ['owner', 'user', 'admin', 'test'],
+    'backupbn': ['owner', 'admin', 'test'],
+    'backupimpro': ['owner', 'admin', 'test'],
+    'groupmanage': ['owner', 'admin', 'test'],
+    'holidaymanage': ['owner', 'admin', 'test'],
+    'management': ['owner', 'admin', 'test'],
+    'meterdata': ['owner', 'user', 'admin', 'test'],
+    'metermonitor': ['owner', 'user', 'admin', 'test'],
+    'nodemonitor': ['owner', 'user', 'admin', 'test'],
+    'parametermanage': ['owner', 'admin', 'test'],
+    'phasor': ['owner', 'user', 'admin', 'test'],
+    'report': ['owner', 'user', 'admin', 'test'],
+    'usermanage': ['owner', 'admin', 'test'],
+}
+
+const apis = {
+    'dashboard': ['owner', 'user', 'admin', 'test'],
+    'group_meter_info': ['owner', 'user', 'admin', 'test'],
+    'rt_chart': ['owner', 'user', 'admin', 'test'],
+    'meter_data_table': ['owner', 'user', 'admin', 'test'],
+    'node_monitor': ['owner', 'user', 'admin', 'test'],
+    'meter_list': ['owner', 'user', 'admin', 'test'],
+    'phasor': ['owner', 'user', 'admin', 'test'],
+    'backup': ['owner', 'admin', 'test'],
+    'getmeter': ['owner', 'user', 'admin', 'test'],
+    'getgroup': ['owner', 'user', 'admin', 'test'],
+    'management': ['owner', 'admin', 'test'],
+    'alarm': ['owner', 'user', 'admin', 'test'],
+    'getparameter': ['owner', 'user', 'admin', 'test'],
+    'getholiday': ['owner', 'user', 'admin', 'test'],
+    'getuser': ['owner', 'user', 'admin', 'test'],
+    'rp_chart': ['owner', 'user', 'admin', 'test'],
+}
+
+async function routeguard(req, route)
+{
+    if(routes.hasOwnProperty(route))
+    {
+        if(req.session && (req.session.user != null || req.session.user != undefined))
+        {
+            if(checkRoles(req.session.role, routes[route]))
+            {
+                return true
+            }
+        }
+    }
+
+    return false
+}
+
+async function apiguard(req, route, token)
+{
+    if(apis.hasOwnProperty(route))
+    {
+        if(req.session && (req.session.user != null || req.session.user != undefined))
+        {
+            if(checkRoles(req.session.role, apis[route]))
+            {
+                return true
+            }
+        }
+        // else if(token is valid)
+        // {}
+    }
+
+    return false
+}
+
 function isOnPeak(dt) {
     let dayinweek = dt.getUTCDay()
 
@@ -423,6 +506,19 @@ export function initAPI() {
         rolling: true
     }))
 
+    api.get('/routeguard/:route', async (req, res) => {
+        let allowed = await routeguard(req, req.params.route)
+
+        if(allowed)
+        {
+            res.send('OK')
+        }
+        else
+        {
+            res.send('ERR')
+        }
+    })
+
     api.post('/login', async (req, res) => {
         let uname = req.body.username
         let passwd = req.body.password
@@ -464,61 +560,61 @@ export function initAPI() {
                             req.session.save((err) => {
                                 if(!err)
                                 {
-                                    res.send('OK')
+                                    res.send(uname)
                                 }
                                 else
                                 {
-                                    res.send('ERR')
+                                    res.send('')
                                 }
                             })
                         }
                         else
                         {
-                            res.send('ERR')
+                            res.send('')
                         }
                     })
                 }
                 else
                 {
-                    res.send('ERR')
+                    res.send('')
                 }
             }
             else
             {
-                res.send('ERR')
+                res.send('')
             }
         }
         else
         {
-            res.send('ERR')
+            res.send('')
         }
     })
 
     api.get('/logout', (req, res) => {
+        req.session.user = null
         req.session.destroy((err) => {
             res.send('OK')
         })
-
-        res.send('OK')
-    })
-
-    api.get('/isAuth', (req, res) => {
-        if(req.session.user)
-        {
-            res.json({user: req.session.user, role: req.session.role})
-        }
-        else
-        {
-            res.json({user: undefined, role: []})
-        }
-    })
-
-    api.get('/test_session', (req, res) => {
-        console.log(req.session.user, req.session.role)
     })
 
     api.get('/dashboard_card', async (req, res) => {
         let ret = {}
+
+        if(await apiguard(req, 'dashboard', '') == false)
+        {
+            ret = {
+                t_last_month: 0,
+                t_this_month: 0,
+                t_yesterday: 0,
+                t_today: 0,
+                b_last_month: 0,
+                b_this_month: 0,
+                b_yesterday: 0,
+                b_today: 0
+            }
+            res.json(ret)
+            return
+        }
 
         // calculate value and return
         let now = new Date()
@@ -772,6 +868,11 @@ export function initAPI() {
     api.get('/dashboard/:year/:month/:day', async (req, res) => {
         let ret = []
 
+        if(await apiguard(req, 'dashboard', '') == false)
+        {
+            res.json(ret)
+            return
+        }
 
         // calculate value and return
         for (let i = 0; i < 24; i++) {
@@ -885,6 +986,12 @@ export function initAPI() {
 
     api.get('/dashboard/:year/:month', async (req, res) => {
         let ret = []
+
+        if(await apiguard(req, 'dashboard', '') == false)
+        {
+            res.json(ret)
+            return
+        }
 
         let year = req.params.year
         let month = parseInt(req.params.month) - 1
@@ -1003,6 +1110,12 @@ export function initAPI() {
     api.get('/dashboard/:year', async (req, res) => {
         let ret = []
 
+        if(await apiguard(req, 'dashboard', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+
         let year = parseInt(req.params.year)
 
         // calculate value and return
@@ -1112,6 +1225,12 @@ export function initAPI() {
     api.get('/dashboard', async (req, res) => {
         let ret = []
 
+        if(await apiguard(req, 'dashboard', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+
         // calculate value and return
         let now = new Date()
 
@@ -1217,6 +1336,12 @@ export function initAPI() {
             meter: []
         }
 
+        if(await apiguard(req, 'group_meter_info', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+
         let initGroup = []
         let groups = {}
 
@@ -1306,8 +1431,14 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.post('/rt_chart', (req, res) => {
+    api.post('/rt_chart', async (req, res) => {
         let ret = {}
+
+        if(await apiguard(req, 'rt_chart', '') == false)
+        {
+            res.json(ret)
+            return
+        }
 
         let p = req.body
 
@@ -1397,8 +1528,14 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.get('/meter_data_table', (req, res) => {
+    api.get('/meter_data_table', async (req, res) => {
         let ret = []
+
+        if(await apiguard(req, 'meter_data_table', '') == false)
+        {
+            res.json(ret)
+            return
+        }
 
         let now = new Date()
 
@@ -1429,9 +1566,15 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.get('/node_monitor', (req, res) => {
+    api.get('/node_monitor', async (req, res) => {
         let ret = {}
 
+        if(await apiguard(req, 'node_monitor', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+    
         let status_list = ['on', 'off', 'error', 'setup']
         let keys = Object.keys(blacknode)
 
@@ -1460,8 +1603,15 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.get('/meter_list', (req, res) => {
+    api.get('/meter_list', async (req, res) => {
         let ret = {}
+
+        if(await apiguard(req, 'meter_list', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+
         let keys = Object.keys(blacknode)
 
         for (let k of keys) {
@@ -1475,7 +1625,7 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.get('/phasor_graph/:m', (req, res) => {
+    api.get('/phasor_graph/:m', async (req, res) => {
         let arr = req.params.m.split(':')
         let sn = arr[0]
         let modbusid = parseInt(arr[1]) - 1
@@ -1483,6 +1633,12 @@ export function initAPI() {
         let now = new Date()
 
         let ret;
+
+        if(await apiguard(req, 'phasor', '') == false)
+        {
+            res.json({})
+            return
+        }
 
         if(blacknode[sn].meter_list.length > modbusid)
         {
@@ -1599,7 +1755,11 @@ export function initAPI() {
     })
 
     // Management Section
-    api.get('/backup_impro', (req, res) => {
+    api.get('/backup_impro', async (req, res) => {
+        if(await apiguard(req, 'backup', '') == false)
+        {
+            return
+        }
 
         if (paths && paths['META_CFG_PATH']) {
             res.setHeader('Content-disposition', 'attachment; filename=meta.info')
@@ -1611,6 +1771,11 @@ export function initAPI() {
     })
 
     api.post('/backup_impro', async (req, res) => {
+        if(await apiguard(req, 'backup', '') == false)
+        {
+            return
+        }
+
         if (paths && paths['META_CFG_PATH']) {
             try {
                 writeFile(paths['META_CFG_PATH'], req.files.file.data, { flag: 'w' })
@@ -1629,7 +1794,12 @@ export function initAPI() {
         }
     })
 
-    api.get('/backup_bn', (req, res) => {
+    api.get('/backup_bn', async (req, res) => {
+        if(await apiguard(req, 'backup', '') == false)
+        {
+            return
+        }
+
         if (paths && paths['BN_CFG_PATH']) {
             res.setHeader('Content-disposition', 'attachment; filename=blacknode.info')
             res.setHeader('Content-type', 'application/json')
@@ -1639,7 +1809,12 @@ export function initAPI() {
         }
     })
 
-    api.post('/backup_bn', (req, res) => {
+    api.post('/backup_bn', async (req, res) => {
+        if(await apiguard(req, 'backup', '') == false)
+        {
+            return
+        }
+
         if (paths && paths['BN_CFG_PATH']) {
             try {
                 writeFile(paths['BN_CFG_PATH'], req.files.file.data, { flag: 'w' })
@@ -1656,11 +1831,23 @@ export function initAPI() {
     })
 
     api.get('/group', async (_req, res) => {
+        if(await apiguard(_req, 'getgroup', '') == false)
+        {
+            res.json({})
+            return
+        }
+
         res.json(group)
     })
 
     api.get('/meter', async (_req, res) => {
         let ret = []
+
+        if(await apiguard(_req, 'getmeter', '') == false)
+        {
+            res.json([])
+            return
+        }
 
         let sn = Object.keys(blacknode)
 
@@ -1680,6 +1867,12 @@ export function initAPI() {
     })
 
     api.post('/update_group', async (req, res) => {
+        if(await apiguard(req, 'management', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
         let id = req.body.id
         let name = req.body.name
 
@@ -1702,6 +1895,12 @@ export function initAPI() {
     })
 
     api.get('/create_group/:name', async (req, res) => {
+        if(await apiguard(req, 'management', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
         try {
             await db.group.create({ name: req.params.name, showDashboard: false })
 
@@ -1715,6 +1914,12 @@ export function initAPI() {
     })
 
     api.get('/delete_group/:id', async (req, res) => {
+        if(await apiguard(req, 'management', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
         try {
             await db.gmember.destroy({
                 where: { GroupID: parseInt(req.params.id) }
@@ -1733,6 +1938,12 @@ export function initAPI() {
     })
 
     api.post('/update_member', async (req, res) => {
+        if(await apiguard(req, 'management', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
         let groupid = req.body.id
         let member = req.body.member
 
@@ -1751,6 +1962,12 @@ export function initAPI() {
     })
 
     api.get('/set_dashboard/:group', async (req, res) => {
+        if(await apiguard(req, 'management', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
         let id = parseInt(req.params.group)
 
         try {
@@ -1783,6 +2000,12 @@ export function initAPI() {
     })
 
     api.get('/unset_dashboard/:group', async (req, res) => {
+        if(await apiguard(req, 'management', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
         let id = parseInt(req.params.group)
 
         try {
@@ -1804,6 +2027,12 @@ export function initAPI() {
     })
 
     api.get('/alarm/count', async (req, res) => {
+        if(await apiguard(req, 'alarm', '') == false)
+        {
+            res.send('0')
+            return
+        }
+
         try {
             let cnt = await db.alarm.findAll({ where: { status: 'unread' } })
 
@@ -1817,6 +2046,12 @@ export function initAPI() {
     api.get('/alarm/view/:page', async (req, res) => {
         let limit = 20
         let ret = []
+
+        if(await apiguard(req, 'alarm', '') == false)
+        {
+            res.json(ret)
+            return
+        }
 
         let typemap = {
             BN_DC: 'Blacknode Disconnected',
@@ -1864,6 +2099,12 @@ export function initAPI() {
     })
 
     api.post('/alarm/update/:status', async (req, res) => {
+        if(await apiguard(req, 'alarm', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
         if (req.params.status == 'delete') {
             try {
                 await db.alarm.destroy({
@@ -1902,6 +2143,12 @@ export function initAPI() {
     })
 
     api.post('/set_parameter', async (req, res) => {
+        if(await apiguard(req, 'management', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
         if (paths && paths['META_CFG_PATH']) {
             try {
                 let keys = Object.keys(req.body.params);
@@ -1948,6 +2195,12 @@ export function initAPI() {
     });
 
     api.get('/parameter/:meterkey', async (req, res) => {
+        if(await apiguard(req, 'getparameter', '') == false)
+        {
+            res.json({"meter": "", "enable": false, "mm": {"V1":{"min":"-99999999999","max":"999999999999"},"V2":{"min":"-99999999999","max":"999999999999"},"V3":{"min":"-99999999999","max":"999999999999"},"V12":{"min":"-99999999999","max":"999999999999"},"V23":{"min":"-99999999999","max":"999999999999"},"V31":{"min":"-99999999999","max":"999999999999"},"I1":{"min":"-99999999999","max":"999999999999"},"I2":{"min":"-99999999999","max":"999999999999"},"I3":{"min":"-99999999999","max":"999999999999"},"P1":{"min":"-99999999999","max":"999999999999"},"P2":{"min":"-99999999999","max":"999999999999"},"P3":{"min":"-99999999999","max":"999999999999"},"P_Sum":{"min":"-99999999999","max":"999999999999"},"Q1":{"min":"-99999999999","max":"999999999999"},"Q2":{"min":"-99999999999","max":"999999999999"},"Q3":{"min":"-99999999999","max":"999999999999"},"Q_Sum":{"min":"-99999999999","max":"999999999999"},"S1":{"min":"-99999999999","max":"999999999999"},"S2":{"min":"-99999999999","max":"999999999999"},"S3":{"min":"-99999999999","max":"999999999999"},"S_Sum":{"min":"-99999999999","max":"999999999999"},"PF1":{"min":"-99999999999","max":"999999999999"},"PF2":{"min":"-99999999999","max":"999999999999"},"PF3":{"min":"-99999999999","max":"999999999999"},"PF_Sum":{"min":"-99999999999","max":"999999999999"},"Frequency":{"min":"-99999999999","max":"999999999999"}}})
+            return
+        }
+
         if(meta_cfg.param.hasOwnProperty(req.params.meterkey))
         {
             res.json(meta_cfg.param[req.params.meterkey]);
@@ -1959,10 +2212,22 @@ export function initAPI() {
     });
 
     api.get('/holiday', async (req, res) => {
+        if(await apiguard(req, 'getholiday', '') == false)
+        {
+            res.json({})
+            return
+        }
+
         res.json(holidays);
     });
 
     api.post('/holiday', async (req, res) => {
+        if(await apiguard(req, 'management', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
         try {
             await db.holiday.create({
                 DateTime: req.body.date,
@@ -1979,6 +2244,12 @@ export function initAPI() {
     });
 
     api.post('/holiday/:action/:id', async (req, res) => {
+        if(await apiguard(req, 'management', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
         if(req.params.action == "edit")
         {
             try {
@@ -2023,6 +2294,12 @@ export function initAPI() {
     });
 
     api.get('/user', async (req, res) => {
+        if(await apiguard(req, 'getuser', '') == false)
+        {
+            res.json({});
+            return
+        }
+
         try {
             let users = await db.user.findAll({
                 attributes: ['id', 'name', 'username', 'email', 'status']
@@ -2064,6 +2341,12 @@ export function initAPI() {
     });
 
     api.post('/user', async (req, res) => {
+        if(await apiguard(req, 'management', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
         try {
             let u = await db.user.create({
                 name: req.body.name,
@@ -2089,7 +2372,7 @@ export function initAPI() {
             {
                 await db.userrole.create({
                     userid: u.id,
-                    role: "inactive"
+                    role: "user"
                 })
             }
 
@@ -2101,6 +2384,12 @@ export function initAPI() {
     });
 
     api.post('/user/:action/:id', async (req, res) => {
+        if(await apiguard(req, 'management', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
         if(req.params.action == "edit")
         {
             try {
@@ -2138,7 +2427,7 @@ export function initAPI() {
                 {
                     await db.userrole.create({
                         userid: parseInt(req.params.id),
-                        role: "inactive"
+                        role: "user"
                     })
                 }
 
@@ -2171,6 +2460,12 @@ export function initAPI() {
     });
 
     api.post('/rp_chart/:type/:year/:month/:day/:syear/:smonth/:sday', async (req, res) => {
+        if(await apiguard(req, 'rp_chart', '') == false)
+        {
+            res.json({})
+            return
+        }
+
         let start_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
         let end_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
 
@@ -2675,6 +2970,12 @@ export function initAPI() {
     })
 
     api.post('/rp_export/:type/:ttype/:year/:month/:day/:syear/:smonth/:sday', async (req, res) => {
+        if(await apiguard(req, 'rp_chart', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
         const workbook = new ExcelJS.Workbook()
 
         if(req.params.ttype == 'electrical')

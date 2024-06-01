@@ -1,5 +1,6 @@
 import { Sequelize, DataTypes } from 'sequelize'
 import { last, db, meta_cfg } from './global.js'
+import bcrypt from 'bcrypt'
 
 export async function syncDB() {
     if (
@@ -196,6 +197,34 @@ export async function syncDB() {
             last['time'] = new Date()
             last['status'] = 'success'
             console.log('Table synced')
+
+            let root = await db.user.findOne({
+                where: {
+                    username: 'improxroot'
+                }
+            })
+
+            if(!root)
+            {
+                let u = await db.user.create({
+                    name: 'ImproX Root',
+                    username: 'improxroot',
+                    password: await bcrypt.hash('improxpassword!', 3),
+                    email: 'root@improx.com',
+                    status: 'Confirmed',
+                })
+
+                await db.userrole.create({
+                    userid: u.id,
+                    role: 'owner'
+                })
+
+                await db.userrole.create({
+                    userid: u.id,
+                    role: 'admin'
+                })
+            }
+
 
             return
         } catch (err) {
