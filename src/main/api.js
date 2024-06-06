@@ -500,7 +500,7 @@ export function initAPI() {
         saveUninitialized: true,
         cookie: {
             httpOnly: true,
-            maxAge: 86400*7,
+            maxAge: 86400*1000*7,
             secure: false
         },
         rolling: true
@@ -3409,7 +3409,7 @@ export function initAPI() {
 
         for(let i=1; i<=arr_size; i++)
         {
-            worksheet.getCell('A' + String(i+1)).value = new Date(start_date.getTime() + ((i-1)*15*60*1000) + (7*60*60*1000));
+            worksheet.getCell('A' + String(i+1)).value = new Date(start_date.getTime() + ((i-1)*15*60*1000));
         }
 
         res.attachment(req.params.ttype + '_export.xlsx')
