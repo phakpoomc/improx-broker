@@ -630,6 +630,8 @@ export function initAPI() {
         let energyYesterday = 0
         let energyToday = 0
 
+        // console.log(tTomorrow)
+
         let group = await db.group.findOne({
             where: { showDashboard: true }
         })
@@ -1503,8 +1505,7 @@ export function initAPI() {
 
                     if(lastUpdateData[snid] && lastUpdateTime[snid])
                     {
-                        
-                        total += lastUpdateData[snid][param];
+                        total += lastUpdateData[snid][param] * m.multiplier;
                     }
                 }
 
@@ -2505,12 +2506,16 @@ export function initAPI() {
         }
 
         let now = new Date()
-        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
+        now = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0))
+
+        // console.log(now, end_date)
 
         if(now < end_date)
         {
             end_date = new Date(now)
         }
+
+        // console.log(now, end_date)
 
         let start_seq = Math.trunc(start_date.getTime()/1000/60/15);
         let end_seq = Math.trunc(end_date.getTime()/1000/60/15);
@@ -2750,6 +2755,7 @@ export function initAPI() {
                 ret[k] = [];
                 let dxt = {};
                 let count = []
+                let multmap = {}
 
                 for(let i=0; i<arr_size; i++)
                 {
@@ -2787,12 +2793,15 @@ export function initAPI() {
                     let nodeid = blacknode[sn].nodeid;
                     let modbusid = parseInt(m.modbusid);
 
+                    let snmKey = siteid + "%" + nodeid + "%" + modbusid
+                    multmap[snmKey] = parseFloat(m.multiplier)
+
                     let eData;
 
                     if(param == 'kWdemand')
                     {
                         eData = await db.energy.findAll({
-                            attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh'],
+                            attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh', 'snmKey'],
                             where: {
                                 DateTimeUpdate: {
                                     [Op.and]: {
@@ -2808,7 +2817,7 @@ export function initAPI() {
                     else
                     {
                         eData = await db.energy.findAll({
-                            attributes: ['DateTimeUpdate', 'SerialNo', param],
+                            attributes: ['DateTimeUpdate', 'SerialNo', param, 'snmKey'],
                             where: {
                                 DateTimeUpdate: {
                                     [Op.and]: {
@@ -2888,7 +2897,7 @@ export function initAPI() {
                             
                         }
 
-                        dxt[tkey] += dval
+                        dxt[tkey] += dval * multmap[e.snmKey]
 
                         if(param == 'kWdemand')
                         {
@@ -3218,6 +3227,7 @@ export function initAPI() {
 
                 
                 let dxt = {};
+                let multmap = {};
                 let count = []
 
                 let cellName = group[gid].name + '.' + param
@@ -3235,13 +3245,16 @@ export function initAPI() {
                     let siteid = blacknode[sn].siteid;
                     let nodeid = blacknode[sn].nodeid;
                     let modbusid = parseInt(m.modbusid);
+                    let snmKey = siteid + "%" + nodeid + "%" + modbusid
+
+                    multmap[snmKey] = parseFloat(m.multiplier)
 
                     let eData;
 
                     if(param == 'kWdemand')
                     {
                         eData = await db.energy.findAll({
-                            attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh'],
+                            attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh', 'snmKey'],
                             where: {
                                 DateTimeUpdate: {
                                     [Op.and]: {
@@ -3257,7 +3270,7 @@ export function initAPI() {
                     else
                     {
                         eData = await db.energy.findAll({
-                            attributes: ['DateTimeUpdate', 'SerialNo', param],
+                            attributes: ['DateTimeUpdate', 'SerialNo', param, 'snmKey'],
                             where: {
                                 DateTimeUpdate: {
                                     [Op.and]: {
@@ -3336,7 +3349,7 @@ export function initAPI() {
                             }
                         }
 
-                        dxt[tkey] += dval
+                        dxt[tkey] += dval * multmap[e.snmKey]
 
                         if(param == 'kWdemand')
                         {
