@@ -1,11 +1,25 @@
 <script setup>
 import { useRouter } from 'vue-router'
+import { onUnmounted } from 'vue'
 
 const router = useRouter()
 
 function back() {
     router.back()
 }
+
+var dt = new Date()
+
+let timer = setInterval(function () {
+    dt = new Date()
+
+    document.getElementById('timer').innerHTML = 'Datetime ' + dt.toLocaleString()
+
+}, 1000);
+
+onUnmounted(() => {
+    clearInterval(timer);
+})
 
 // var username = 'Username-001';
 </script>
@@ -201,6 +215,9 @@ function back() {
                             Back
                         </div>
                         <div class="date-update">
+                            <div id='timer'>
+                                Datetime {{ dt.toLocaleString() }}
+                            </div>
                             <slot name="datetime"></slot>
                         </div>
                     </div>

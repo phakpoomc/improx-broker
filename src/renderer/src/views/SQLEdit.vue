@@ -9,7 +9,6 @@ const user = ref()
 
 user.value = await window.mainprocess.getUsername()
 
-var dt = new Date()
 
 const bnCFG = ref()
 const apiCFG = ref()
@@ -73,12 +72,14 @@ function save() {
 }
 
 function saveAPI() {
-    let protocol = document.getElementById('protocol').value
+    let protocol = document.getElementById('api-protocol').value
+    let host = document.getElementById('api-host').value
     let port = document.getElementById('api-port').value
     let key = document.getElementById('api-key').value
 
     let obj = {
         protocol: protocol,
+        host: host,
         port: port,
         key: key
     }
@@ -215,15 +216,29 @@ function saveWeb() {
             </div>
             <div class="card card-body bg-light border-light mb-4">
                 <div class="row mb-4">
-                    <div class="col-4">
+                    <div class="col-2">
                         <div class="setting-input mb-2">
-                            <label class="mb-2 text-muted" for="host">Protocol</label>
+                            <label class="mb-2 text-muted" for="protocol">Protocol</label>
                             <input
-                                id="protocol"
+                                id="api-protocol"
                                 type="text"
                                 class="form-control"
                                 name="protocol"
                                 :value="apiCFG.protocol"
+                                required
+                                autofocus
+                            />
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="setting-input mb-2">
+                            <label class="mb-2 text-muted" for="host">Host</label>
+                            <input
+                                id="api-host"
+                                type="text"
+                                class="form-control"
+                                name="host"
+                                :value="apiCFG.host"
                                 required
                                 autofocus
                             />
@@ -242,7 +257,7 @@ function saveWeb() {
                             />
                         </div>
                     </div>
-                    <div class="col-6">
+                    <div class="col-4">
                         <div class="setting-input mb-2">
                             <label class="mb-2 text-muted" for="key">Key</label>
                             <input
@@ -322,7 +337,6 @@ function saveWeb() {
             {{ user }}
         </template>
 
-        <template #datetime> Datetime {{ dt.toLocaleString() }} </template>
     </Navbar>
 </template>
 

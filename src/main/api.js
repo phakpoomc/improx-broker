@@ -639,6 +639,7 @@ export function initAPI() {
         var snmKey = []
         let prevEnergy = {}
         let prevTime = {}
+        let multmap = {}
         let maxDemandLastMonth = {}
         let maxDemandThisMonth = {}
         let maxDemandYesterday = {}
@@ -656,6 +657,7 @@ export function initAPI() {
                     snmKey.push(key)
                     prevEnergy[key] = 0
                     prevTime[key] = null
+                    multmap[key] = parseFloat(m.multiplier)
                 }
 
                 all = false
@@ -704,7 +706,7 @@ export function initAPI() {
             let tKey = adjustedTime.getUTCFullYear() + '-' + adjustedTime.getUTCMonth() + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
 
 
-            let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
+            let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
             if (absEnergy == -1) {
                 absEnergy = 0
@@ -906,6 +908,7 @@ export function initAPI() {
         var snmKey = []
         let prevEnergy = {}
         let prevTime = {}
+        let multmap = {}
 
         if (group !== null) {
             let members = await db.gmember.findAll({
@@ -919,6 +922,7 @@ export function initAPI() {
                     snmKey.push(key)
                     prevEnergy[key] = 0
                     prevTime[key] = null
+                    multmap[key] = parseFloat(m.multiplier)
                 }
 
                 all = false
@@ -962,7 +966,7 @@ export function initAPI() {
                 continue
             }
 
-            let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
+            let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
             if (absEnergy == -1) {
                 absEnergy = 0
@@ -1027,6 +1031,7 @@ export function initAPI() {
         var snmKey = []
         let prevEnergy = {}
         let prevTime = {}
+        let multmap = {}
 
         if (group !== null) {
             let members = await db.gmember.findAll({
@@ -1040,6 +1045,7 @@ export function initAPI() {
                     snmKey.push(key)
                     prevEnergy[key] = 0
                     prevTime[key] = null
+                    multmap[key] = parseFloat(m.multiplier)
                 }
 
                 all = false
@@ -1083,13 +1089,11 @@ export function initAPI() {
                 continue
             }
 
-            let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
+            let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
             if (absEnergy == -1) {
                 absEnergy = 0
             }
-
-            
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
@@ -1146,6 +1150,7 @@ export function initAPI() {
         var snmKey = []
         let prevEnergy = {}
         let prevTime = {}
+        let multmap = {}
 
         if (group !== null) {
             let members = await db.gmember.findAll({
@@ -1159,6 +1164,7 @@ export function initAPI() {
                     snmKey.push(key)
                     prevEnergy[key] = 0
                     prevTime[key] = null
+                    multmap[key] = parseFloat(m.multiplier)
                 }
 
                 all = false
@@ -1202,7 +1208,7 @@ export function initAPI() {
                 continue
             }
 
-            let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
+            let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
             if (absEnergy == -1) {
                 absEnergy = 0
@@ -1253,6 +1259,7 @@ export function initAPI() {
         var snmKey = []
         let prevEnergy = {}
         let prevTime = {}
+        let multmap = {}
 
         if (group !== null) {
             let members = await db.gmember.findAll({
@@ -1266,6 +1273,7 @@ export function initAPI() {
                     snmKey.push(key)
                     prevEnergy[key] = 0
                     prevTime[key] = null
+                    multmap[key] = parseFloat(m.multiplier)
                 }
 
                 all = false
@@ -1309,7 +1317,7 @@ export function initAPI() {
                 continue
             }
 
-            let absEnergy = e.TotalkWh - prevEnergy[e.snmKey]
+            let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
             if (absEnergy == -1) {
                 absEnergy = 0

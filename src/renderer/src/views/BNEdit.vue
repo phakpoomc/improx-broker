@@ -10,8 +10,6 @@ const user = ref()
 
 user.value = await window.mainprocess.getUsername()
 
-var dt = new Date()
-
 const bnCFG = ref()
 
 bnCFG.value = await window.mainprocess.getCFG(route.params.id)
@@ -38,6 +36,10 @@ function save(sendack) {
     let siteid = document.getElementById('siteid').value
     let nodeid = document.getElementById('nodeid').value
     let maxmeter = document.getElementById('maxmeter').value
+    let subnet = document.getElementById('subnet').value
+    let gateway = document.getElementById('gateway').value
+    let dns = document.getElementById('dns').value
+
     let meters_info = []
 
     for (let i = 1; i <= Math.min(maxmeter, bnCFG.value.maxmeter); i++) {
@@ -60,6 +62,9 @@ function save(sendack) {
         siteid: siteid.replaceAll(/[^\w\d\(\)-]/g, ''),
         nodeid: nodeid.replaceAll(/[^\w\d\(\)-]/g, ''),
         maxmeter: maxmeter,
+        subnet: subnet,
+        gateway: gateway,
+        dns: dns,
         meter_list: meters_info,
         sendack: sendack
     }
@@ -202,13 +207,58 @@ var nodes = [
 
                     <div class="col-3">
                         <div class="setting-input mb-2">
-                            <label class="mb-2 text-muted" for="nodeid">Read Meter</label>
+                            <label class="mb-2 text-muted" for="maxmeter">Read Meter</label>
                             <input
                                 id="maxmeter"
                                 type="text"
                                 class="form-control"
                                 name="maxmeter"
                                 :value="bnCFG.maxmeter"
+                                required
+                                autofocus
+                            />
+                        </div>
+                    </div>
+
+                    <div class="col-3">
+                        <div class="setting-input mb-2">
+                            <label class="mb-2 text-muted" for="subnet">Subnet</label>
+                            <input
+                                id="subnet"
+                                type="text"
+                                class="form-control"
+                                name="subnet"
+                                :value="bnCFG.subnet"
+                                required
+                                autofocus
+                            />
+                        </div>
+                    </div>
+
+                    <div class="col-3">
+                        <div class="setting-input mb-2">
+                            <label class="mb-2 text-muted" for="gateway"> Gateway </label>
+                            <input
+                                id="gateway"
+                                type="text"
+                                class="form-control"
+                                name="gateway"
+                                :value="bnCFG.gateway"
+                                required
+                                autofocus
+                            />
+                        </div>
+                    </div>
+
+                    <div class="col-3">
+                        <div class="setting-input mb-2">
+                            <label class="mb-2 text-muted" for="dns">DNS</label>
+                            <input
+                                id="dns"
+                                type="text"
+                                class="form-control"
+                                name="dns"
+                                :value="bnCFG.dns"
                                 required
                                 autofocus
                             />
@@ -324,7 +374,6 @@ var nodes = [
             {{ user }}
         </template>
 
-        <template #datetime> Datetime {{ dt.toLocaleString() }} </template>
     </Navbar>
 </template>
 

@@ -181,6 +181,12 @@ app.whenReady().then(async () => {
             cfg.mqtt +
             '|ipc=' +
             cfg.clientip +
+            '|sub=' +
+            cfg.subnet +
+            '|gate=' +
+            cfg.gateway +
+            '|dns=' +
+            cfg.dns +
             '|key=' +
             cfg.siteid +
             '/' +
@@ -196,6 +202,9 @@ app.whenReady().then(async () => {
         blacknode[sn].clientip = cfg.clientip
         blacknode[sn].mqtt = cfg.mqtt
         blacknode[sn].maxmeter = curr_max
+        blacknode[sn].subnet = cfg.subnet
+        blacknode[sn].gateway = cfg.gateway
+        blacknode[sn].dns = cfg.dns
 
         if(curr_max < prev_max)
         {
@@ -338,6 +347,7 @@ app.whenReady().then(async () => {
 
     ipcMain.handle('data:setAPICFG', (_event, apiCFG) => {
         meta_cfg.api.protocol = apiCFG.protocol
+        meta_cfg.api.host = apiCFG.host
         meta_cfg.api.port = apiCFG.port
         meta_cfg.api.key = apiCFG.key
 

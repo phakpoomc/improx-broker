@@ -2,7 +2,6 @@
 import Navbar from '../layout/Navbar.vue'
 import { ref } from 'vue'
 
-var dt = new Date()
 const user = ref()
 
 user.value = await window.mainprocess.getUsername()
@@ -178,7 +177,7 @@ function getIconClasses(status) {
                                 
                                 <p class="card-text">
                                     <b>Last:</b>
-                                    {{ b.last_update.toLocaleString().replace('T', ' || ') }}
+                                    {{ new Date(b.last_update).toLocaleString() }}
                                 </p>
                                 <div
                                     v-if="b.status === 'on' || b.status === 'setup'"
@@ -211,7 +210,6 @@ function getIconClasses(status) {
         </template>
 
         <template #datetime>
-            Datetime {{ dt.toLocaleString() }}
             <br />
             <router-link
                 :to="'/sql_edit'"
@@ -226,7 +224,7 @@ function getIconClasses(status) {
                 v-if="last && last.message != '' && last.status == 'success'"
                 class="alert alert-success alert-dismissible fade show"
                 role="alert"
-                style="position: fixed; bottom: 5px; left: 2%; width: 96%"
+                style="z-index: 999; position: fixed; bottom: 5px; left: 2%; width: 96%"
             >
                 <strong> {{ last.status }}!</strong> {{ last.message }}
                 <button
@@ -241,7 +239,7 @@ function getIconClasses(status) {
                 v-if="last && last.message != '' && last.status == 'error'"
                 class="alert alert-danger alert-dismissible fade show"
                 role="alert"
-                style="position: fixed; bottom: 5px; left: 2%; width: 96%"
+                style="z-index: 999; position: fixed; bottom: 5px; left: 2%; width: 96%"
             >
                 <strong> {{ last.status }}!</strong> {{ last.message }}
                 <button
