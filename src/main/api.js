@@ -3131,7 +3131,7 @@ export function initAPI() {
                         seq = 0
                     }
 
-                    if(cmap[param].storage == "accumulative")
+                    if(cmap[param].storage == "accumulative" && param != 'TotalkWh')
                     {
                         let sn = e.SerialNo
                         let period = blacknode[sn].period * 60 * 1000
@@ -3201,7 +3201,7 @@ export function initAPI() {
                 }
 
 
-                if(cmap[param].storage != "accumulative")
+                if(cmap[param].storage != "accumulative" && param != 'TotalkWh')
                 {
                     for(let i=0; i<arr_size; i++)
                     {
@@ -3297,7 +3297,7 @@ export function initAPI() {
                             dxt[tkey] = 0
                         }
     
-                        if(cmap[param].storage == "accumulative")
+                        if(cmap[param].storage == "accumulative" && param != 'TotalkWh')
                         {
                             let sn = e.SerialNo
                             let period = blacknode[sn].period * 60 * 1000
@@ -3395,7 +3395,7 @@ export function initAPI() {
                     
                 }
 
-                if(cmap[param].storage != 'accumulative')
+                if(cmap[param].storage != 'accumulative' && param != 'TotalkWh')
                 {
                     for(let i=0; i<arr_size; i++)
                     {
