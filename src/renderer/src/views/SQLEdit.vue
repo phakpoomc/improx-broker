@@ -17,10 +17,12 @@ const webCFG = ref()
 bnCFG.value = await window.mainprocess.getDBCFG()
 
 var dialect;
+var autorun;
 
 if(bnCFG.value)
 {
     dialect = bnCFG.value.dialect;
+    autorun = (bnCFG.value.autorun == true) ? 'Enable' : 'Disable';
 }
 else
 {
@@ -31,6 +33,7 @@ else
         dialect: "",
         host: "",
         port: "",
+        autorun: 'Disable'
     }
 }
 
@@ -54,6 +57,7 @@ function save() {
     let dbname = document.getElementById('dbname').value
     let username = document.getElementById('username').value
     let password = document.getElementById('password').value
+    let autorunEnabled = document.getElementById('autorun').value
 
     let obj = {
         host: host,
@@ -61,14 +65,15 @@ function save() {
         dialect: dialect,
         dbname: dbname,
         username: username,
-        password: password
+        password: password,
+        autorun: (autorunEnabled == 'Enable') ? true : false
     }
 
     console.log(obj)
 
     window.mainprocess.setDBCFG(obj)
 
-    router.push('/')
+    router.push('/sql_edit')
 }
 
 function saveAPI() {
@@ -85,7 +90,7 @@ function saveAPI() {
     }
 
     window.mainprocess.setAPICFG(obj)
-    router.push('/')
+    router.push('/sql_edit')
 }
 
 function saveWeb() {
@@ -100,7 +105,7 @@ function saveWeb() {
     }
 
     window.mainprocess.setWebCFG(obj)
-    router.push('/')
+    router.push('/sql_edit')
 }
 </script>
 
@@ -109,7 +114,7 @@ function saveWeb() {
         <template #body>
             <div class="row">
                 <div class="col-12">
-                    <div class="h2 mb-4">Database Config</div>
+                    <div class="h2 mb-4">Database & Broker Config</div>
                 </div>
             </div>
             <div class="card card-body bg-light border-light mb-4">
@@ -199,6 +204,29 @@ function saveWeb() {
                                 autofocus
                             />
                         </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="setting-input mb-2">
+                            <label class="mb-2 text-muted" for="autorun">Broker Autorun</label>
+                            <select
+                                v-model="autorun"
+                                id="autorun"
+                                name="autorun"
+                                class="form-select"
+                                aria-label="Autorun?"
+                                required
+                            >
+                                <option value='Disable'>
+                                    Disable
+                                </option>
+                                <option value='Enable'>
+                                    Enable
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-9">
+
                     </div>
                 </div>
             </div>

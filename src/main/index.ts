@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, ipcMain, /*autoUpdater, dialog, safeStorage*
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
-// import AutoLaunch from 'auto-launch'
+import AutoLaunch from 'auto-launch'
 
 import {
     last,
@@ -334,11 +334,29 @@ app.whenReady().then(async () => {
         meta_cfg.db.dbname = dbCFG.dbname
         meta_cfg.db.username = dbCFG.username
         meta_cfg.db.password = dbCFG.password
+        meta_cfg.db.autorun = dbCFG.autorun
 
         writeFile(META_CFG_PATH, JSON.stringify(meta_cfg), { flag: 'w' })
 
         await syncDB()
         await loadMetaDB()
+
+        let autoLaunch = new AutoLaunch({
+            name: app.getName(),
+            path: app.getPath('exe')
+            // path: process.cwd()
+        })
+    
+        if(meta_cfg.db.autorun)
+        {
+            autoLaunch.isEnabled().then((isEnabled) => {
+                if(!isEnabled) autoLaunch.enable();
+            })
+        }
+        else
+        {
+            autoLaunch.disable();
+        }
     })
 
     ipcMain.handle('data:getAPICFG', (_event) => {
@@ -397,17 +415,7 @@ app.whenReady().then(async () => {
 // app.on('ready', () => {
 //     // console.log(app.getName(), app.getPath('exe'), process.cwd());
 
-//     let autoLaunch = new AutoLaunch({
-//         name: app.getName(),
-//         path: app.getPath('exe')
-//         // path: process.cwd()
-//     })
-
-//     // autoLaunch.disable();
-
-//     autoLaunch.isEnabled().then((isEnabled) => {
-//         if(!isEnabled) autoLaunch.enable();
-//     })
+    
 // })
 
 // Quit when all windows are closed, except on macOS. There, it's common
