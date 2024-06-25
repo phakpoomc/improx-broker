@@ -114,6 +114,76 @@ function saveBroker() {
     window.mainprocess.setBrokerCFG(obj)
     router.push('/sql_edit')
 }
+
+async function exportCFG()
+{
+    let data = await window.mainprocess.getCFGFile()
+    let binaryData = []
+    binaryData.push(data)
+
+    let file = window.URL.createObjectURL(new Blob(binaryData, {type: 'application/json'}));
+    let filelink = document.createElement('a');
+    filelink.href = file;
+    filelink.download = 'meta.info';
+    filelink.click();
+
+    router.push('/sql_edit')
+}
+
+function importCFG()
+{
+    let cfg = document.getElementById('import-cfg');
+
+    cfg.addEventListener('change', async (evt) => {
+        let reader = new FileReader()
+
+        reader.onload = async function() {
+            
+            await window.mainprocess.setCFGFile(reader.result)
+        }
+
+        reader.readAsText(evt.target.files[0])
+
+        router.push('/')
+    });
+
+    cfg.click();
+}
+
+async function exportBN()
+{
+    let data = await window.mainprocess.getBNFile()
+    let binaryData = []
+    binaryData.push(data)
+
+    let file = window.URL.createObjectURL(new Blob(binaryData, {type: 'application/json'}));
+    let filelink = document.createElement('a');
+    filelink.href = file;
+    filelink.download = 'blacknode.info';
+    filelink.click();
+
+    router.push('/sql_edit')
+}
+
+function importBN()
+{
+    let cfg = document.getElementById('import-bn');
+
+    cfg.addEventListener('change', async (evt) => {
+        let reader = new FileReader()
+
+        reader.onload = async function() {
+            
+            await window.mainprocess.setBNFile(reader.result)
+        }
+
+        reader.readAsText(evt.target.files[0])
+
+        router.push('/')
+    });
+
+    cfg.click();
+}
 </script>
 
 <template>
@@ -121,7 +191,29 @@ function saveBroker() {
         <template #body>
             <div class="row">
                 <div class="col-12">
-                    <div class="h2 mb-4">Database Config</div>
+                    <div class="h2 mb-4">
+                        Database Config
+
+                            <input type="file" class="form-control" name="import-bn" id="import-bn" hidden>
+                            <div class="btn btn-secondary float-end me-1" style="border-radius: 50px;" @click="importBN()">
+                                Import BN 
+                            </div>
+
+                            <div class="btn btn-secondary float-end me-1" style="border-radius: 50px;" @click="exportBN()">
+                                Export BN 
+                            </div>
+
+                            <input type="file" class="form-control" name="import-cfg" id="import-cfg" hidden>
+                            <div class="btn btn-secondary float-end me-1" style="border-radius: 50px;" @click="importCFG()">
+                                Import CFG 
+                            </div>
+
+                            <div class="btn btn-secondary float-end me-1" style="border-radius: 50px;" @click="exportCFG()">
+                                Export CFG 
+                            </div>
+
+                    </div>
+                    
                 </div>
             </div>
             <div class="card card-body bg-light border-light mb-4">
@@ -351,6 +443,7 @@ function saveBroker() {
                             />
                         </div>
                     </div>
+                    
                 </div>
             </div>
 

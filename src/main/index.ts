@@ -12,6 +12,7 @@ import {
     paths,
     loadMetaCFG,
     loadMetaDB,
+    loadBNInfoFromLocal,
     checkHeartbeat,
     db,
     // savetoDB
@@ -321,6 +322,28 @@ app.whenReady().then(async () => {
         } else {
             return null
         }
+    })
+
+    ipcMain.handle('data:getCFGFile', (_event) => {
+        return JSON.stringify(meta_cfg)
+
+    })
+
+    ipcMain.handle('data:getBNFile', (_event) => {
+        return JSON.stringify(blacknode)
+    })
+
+    ipcMain.handle('data:setCFGFile', async (_event, data) => {
+
+        writeFile(META_CFG_PATH, data, { flag: 'w' })
+        loadMetaCFG()
+        await syncDB()
+        await loadMetaDB()
+    })
+
+    ipcMain.handle('data:setBNFile', (_event, data) => {
+        writeFile(BN_CFG_PATH, data, { flag: 'w' })
+        loadBNInfoFromLocal(paths['BN_CFG_PATH'])
     })
 
     ipcMain.handle('data:getDatabaseCFG', (_event) => {

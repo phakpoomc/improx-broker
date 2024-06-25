@@ -482,7 +482,7 @@ export function initAPI() {
 
     let origin = '*'
 
-    if(meta_cfg.broker.cors.length > 0)
+    if(meta_cfg && meta_cfg.broker && meta_cfg.broker.cors && meta_cfg.broker.cors.length > 0)
     {
         origin = meta_cfg.broker.cors
     }
@@ -715,9 +715,9 @@ export function initAPI() {
 
             let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
-            if (absEnergy == -1) {
-                absEnergy = 0
-            }
+            // if (absEnergy == -1) {
+            //     absEnergy = 0
+            // }
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
@@ -975,9 +975,9 @@ export function initAPI() {
 
             let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
-            if (absEnergy == -1) {
-                absEnergy = 0
-            }
+            // if (absEnergy == -1) {
+            //     absEnergy = 0
+            // }
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
@@ -1098,9 +1098,9 @@ export function initAPI() {
 
             let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
-            if (absEnergy == -1) {
-                absEnergy = 0
-            }
+            // if (absEnergy == -1) {
+            //     absEnergy = 0
+            // }
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
@@ -1217,9 +1217,9 @@ export function initAPI() {
 
             let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
-            if (absEnergy == -1) {
-                absEnergy = 0
-            }
+            // if (absEnergy == -1) {
+            //     absEnergy = 0
+            // }
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
@@ -1326,9 +1326,9 @@ export function initAPI() {
 
             let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
-            if (absEnergy == -1) {
-                absEnergy = 0
-            }
+            // if (absEnergy == -1) {
+            //     absEnergy = 0
+            // }
 
             prevEnergy[e.snmKey] = e.TotalkWh
 
