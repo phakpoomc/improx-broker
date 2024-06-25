@@ -480,15 +480,20 @@ export function initAPI() {
         api_server.close()
     }
 
-    let cors_protocol = (meta_cfg.web.protocol) ? meta_cfg.web.protocol : 'http'
-    let cors_hostname = (meta_cfg.web.hostname) ? meta_cfg.web.hostname : 'localhost'
-    let cors_port = (meta_cfg.web.port) ? meta_cfg.web.port : '5173'
+    let origin = '*'
+
+    if(meta_cfg.broker.cors.length > 0)
+    {
+        origin = meta_cfg.broker.cors
+    }
+
+    console.log('CORS: ', origin)
     
     const api = express()
     api.use(cors({
         credentials: true,
         methods: ["POST", "PUT", "GET", "OPTIONS", "HEAD"],
-        origin:  cors_protocol + '://' + cors_hostname + ':' + cors_port
+        origin:  origin
     }))
     api.use(express.json())
     api.use(bodyParser.urlencoded({ extended: false }))
@@ -3439,7 +3444,7 @@ export function initAPI() {
         })
     })
 
-    api_server = api.listen(8888, () => {
-        console.log('API Server is running at 8888.')
+    api_server = api.listen((meta_cfg.broker.apiport) ? meta_cfg.broker.apiport : 8888, () => {
+        console.log('API Server is running at ', (meta_cfg.broker.apiport) ? meta_cfg.broker.apiport : 8888)
     })
 }

@@ -110,9 +110,9 @@ export function loadMetaCFG()
         {
             meta_cfg.api = {};
         }
-        if(!meta_cfg.web)
+        if(!meta_cfg.broker)
             {
-                meta_cfg.web = {};
+                meta_cfg.broker = {};
             }
         if(!meta_cfg.param)
         {

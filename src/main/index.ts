@@ -334,29 +334,11 @@ app.whenReady().then(async () => {
         meta_cfg.db.dbname = dbCFG.dbname
         meta_cfg.db.username = dbCFG.username
         meta_cfg.db.password = dbCFG.password
-        meta_cfg.db.autorun = dbCFG.autorun
-
+ 
         writeFile(META_CFG_PATH, JSON.stringify(meta_cfg), { flag: 'w' })
 
         await syncDB()
         await loadMetaDB()
-
-        let autoLaunch = new AutoLaunch({
-            name: app.getName(),
-            path: app.getPath('exe')
-            // path: process.cwd()
-        })
-    
-        if(meta_cfg.db.autorun)
-        {
-            autoLaunch.isEnabled().then((isEnabled) => {
-                if(!isEnabled) autoLaunch.enable();
-            })
-        }
-        else
-        {
-            autoLaunch.disable();
-        }
     })
 
     ipcMain.handle('data:getAPICFG', (_event) => {
@@ -374,18 +356,37 @@ app.whenReady().then(async () => {
         initAPI()
     })
 
-    ipcMain.handle('data:getWebCFG', (_event) => {
-        return meta_cfg.web
+    ipcMain.handle('data:getBrokerCFG', (_event) => {
+        return meta_cfg.broker
     })
 
-    ipcMain.handle('data:setWebCFG', async (_event, webCFG) => {
-        meta_cfg.web.protocol = webCFG.protocol
-        meta_cfg.web.port = webCFG.port
-        meta_cfg.web.hostname = webCFG.hostname
+    ipcMain.handle('data:setBrokerCFG', async (_event, brokerCFG) => {
+        meta_cfg.broker.webport = brokerCFG.webport
+        meta_cfg.broker.apiport = brokerCFG.apiport
+        meta_cfg.broker.autorun = brokerCFG.autorun
+        meta_cfg.broker.cors = brokerCFG.cors
 
         writeFile(META_CFG_PATH, JSON.stringify(meta_cfg), { flag: 'w' })
 
         initAPI()
+        initWeb()
+
+        let autoLaunch = new AutoLaunch({
+            name: app.getName(),
+            path: app.getPath('exe')
+            // path: process.cwd()
+        })
+    
+        if(meta_cfg.broker.autorun)
+        {
+            autoLaunch.isEnabled().then((isEnabled) => {
+                if(!isEnabled) autoLaunch.enable();
+            })
+        }
+        else
+        {
+            autoLaunch.disable();
+        }
     })
 
     ipcMain.handle('data:clearMessage', (_event) => {

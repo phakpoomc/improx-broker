@@ -26,7 +26,7 @@ export function initWeb() {
         res.sendFile(path.join(webpath, 'index.html'))
     })
 
-    web_server = web.listen(8844, () => {
-        console.log('Web server is running at 8844.')
+    web_server = web.listen((meta_cfg.broker.webport) ? meta_cfg.broker.webport : 8844, () => {
+        console.log('Web server is running at ', (meta_cfg.broker.webport) ? meta_cfg.broker.webport : 8844)
     })
 }

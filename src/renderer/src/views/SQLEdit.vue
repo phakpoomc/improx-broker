@@ -12,7 +12,7 @@ user.value = await window.mainprocess.getUsername()
 
 const bnCFG = ref()
 const apiCFG = ref()
-const webCFG = ref()
+const brokerCFG = ref()
 
 bnCFG.value = await window.mainprocess.getDBCFG()
 
@@ -22,7 +22,6 @@ var autorun;
 if(bnCFG.value)
 {
     dialect = bnCFG.value.dialect;
-    autorun = (bnCFG.value.autorun == true) ? 'Enable' : 'Disable';
 }
 else
 {
@@ -33,7 +32,6 @@ else
         dialect: "",
         host: "",
         port: "",
-        autorun: 'Disable'
     }
 }
 
@@ -48,7 +46,16 @@ let db_choices = [
     { value: 'mariadb', text: 'MariaDB' }
 ]
 
-webCFG.value = await window.mainprocess.getWebCFG()
+brokerCFG.value = await window.mainprocess.getBrokerCFG()
+console.log(brokerCFG.value)
+if(brokerCFG.value)
+{
+    autorun = (brokerCFG.value.autorun) ? 'Enable' : 'Disable'
+}
+else
+{
+    autorun = 'Disable'
+}
 
 function save() {
     let host = document.getElementById('host').value
@@ -57,7 +64,6 @@ function save() {
     let dbname = document.getElementById('dbname').value
     let username = document.getElementById('username').value
     let password = document.getElementById('password').value
-    let autorunEnabled = document.getElementById('autorun').value
 
     let obj = {
         host: host,
@@ -65,8 +71,7 @@ function save() {
         dialect: dialect,
         dbname: dbname,
         username: username,
-        password: password,
-        autorun: (autorunEnabled == 'Enable') ? true : false
+        password: password
     }
 
     console.log(obj)
@@ -93,18 +98,20 @@ function saveAPI() {
     router.push('/sql_edit')
 }
 
-function saveWeb() {
-    let protocol = document.getElementById('web-protocol').value
-    let port = document.getElementById('web-port').value
-    let hostname = document.getElementById('web-hostname').value
+function saveBroker() {
+    let weblocalport = document.getElementById('web-local-port').value
+    let apilocalport = document.getElementById('api-local-port').value
+    let autorunEnabled = document.getElementById('autorun').value
+    let cors = document.getElementById('cors').value
 
     let obj = {
-        protocol: protocol,
-        port: port,
-        hostname: hostname
+        webport: weblocalport,
+        apiport: apilocalport,
+        autorun: (autorunEnabled == 'Enable') ? true : false,
+        cors: cors
     }
 
-    window.mainprocess.setWebCFG(obj)
+    window.mainprocess.setBrokerCFG(obj)
     router.push('/sql_edit')
 }
 </script>
@@ -114,7 +121,7 @@ function saveWeb() {
         <template #body>
             <div class="row">
                 <div class="col-12">
-                    <div class="h2 mb-4">Database & Broker Config</div>
+                    <div class="h2 mb-4">Database Config</div>
                 </div>
             </div>
             <div class="card card-body bg-light border-light mb-4">
@@ -205,29 +212,6 @@ function saveWeb() {
                             />
                         </div>
                     </div>
-                    <div class="col-3">
-                        <div class="setting-input mb-2">
-                            <label class="mb-2 text-muted" for="autorun">Broker Autorun</label>
-                            <select
-                                v-model="autorun"
-                                id="autorun"
-                                name="autorun"
-                                class="form-select"
-                                aria-label="Autorun?"
-                                required
-                            >
-                                <option value='Disable'>
-                                    Disable
-                                </option>
-                                <option value='Enable'>
-                                    Enable
-                                </option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-9">
-
-                    </div>
                 </div>
             </div>
 
@@ -309,45 +293,61 @@ function saveWeb() {
 
             <div class="row">
                 <div class="col-12">
-                    <div class="h2 mb-4">Web Config</div>
+                    <div class="h2 mb-4">Broker Config</div>
                 </div>
             </div>
             <div class="card card-body bg-light border-light mb-4">
                 <div class="row mb-4">
-                    <div class="col-3">
+                    <div class="col-4">
                         <div class="setting-input mb-2">
-                            <label class="mb-2 text-muted" for="web-protocol">Protocol</label>
+                            <label class="mb-2 text-muted" for="web-local-port">Web Local Port</label>
                             <input
-                                id="web-protocol"
+                                id="web-local-port"
                                 type="text"
                                 class="form-control"
-                                :value="webCFG.protocol"
-                                required
+                                :value="brokerCFG.webport"
                                 autofocus
                             />
                         </div>
                     </div>
-                    <div class="col-6">
+                    <div class="col-4">
                         <div class="setting-input mb-2">
-                            <label class="mb-2 text-muted" for="web-hostname"> Hostname </label>
+                            <label class="mb-2 text-muted" for="api-local-port"> API Local Port </label>
                             <input
-                                id="web-hostname"
+                                id="api-local-port"
                                 type="text"
                                 class="form-control"
-                                :value="webCFG.hostname"
-                                required
+                                :value="brokerCFG.apiport"
                             />
                         </div>
                     </div>
-                    <div class="col-3">
+                    <div class="col-4">
                         <div class="setting-input mb-2">
-                            <label class="mb-2 text-muted" for="web-port">Port</label>
+                            <label class="mb-2 text-muted" for="autorun">Autorun</label>
+                            <select
+                                v-model="autorun"
+                                id="autorun"
+                                name="autorun"
+                                class="form-select"
+                                aria-label="Autorun?"
+                            >
+                                <option value='Disable'>
+                                    Disable
+                                </option>
+                                <option value='Enable'>
+                                    Enable
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="setting-input mb-2">
+                            <label class="mb-2 text-muted" for="cors"> CORS Origin </label>
                             <input
-                                id="web-port"
+                                id="cors"
                                 type="text"
                                 class="form-control"
-                                :value="webCFG.port"
-                                required
+                                :value="brokerCFG.cors"
                             />
                         </div>
                     </div>
@@ -356,7 +356,7 @@ function saveWeb() {
 
             <div class="row mt-3">
                 <div class="col-12 d-flex justify-content-end">
-                    <button class="btn btn-secondary ms-2" @click="saveWeb()">Save</button>
+                    <button class="btn btn-secondary ms-2" @click="saveBroker()">Save</button>
                 </div>
             </div>
         </template>
