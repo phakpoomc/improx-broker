@@ -601,7 +601,7 @@ let heartbeatInterval = setInterval(() => {
             checkHeartbeat()
         }
     }
-}, 15 * 60 * 1000)
+}, 10 * 1000)
 
 // let dbSaveInterval = setInterval(() => {
 //     if (authenticated) {

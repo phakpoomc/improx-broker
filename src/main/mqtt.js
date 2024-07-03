@@ -31,6 +31,14 @@ export function startMQTT(BN_CFG_PATH) {
                 blacknode[sn].status = 'off'
                 blacknode[sn].last_update = new Date()
 
+                if(blacknode[sn].maxmeter > 0)
+                {
+                    for(let i=0; i<blacknode[sn].maxmeter; i++)
+                    {
+                        blacknode[sn].meter_list[i].status = 'off'
+                    }
+                }
+
                 if (db && db.alert) {
                     let id = blacknode[sn].SiteID + '%' + blacknode[sn].NodeID + '%0'
                     db.alarm.create({
@@ -57,6 +65,14 @@ export function startMQTT(BN_CFG_PATH) {
             if (blacknode[sn].clientid == client.id) {
                 blacknode[sn].status = 'error'
                 blacknode[sn].last_update = new Date()
+
+                if(blacknode[sn].maxmeter > 0)
+                {
+                    for(let i=0; i<blacknode[sn].maxmeter; i++)
+                    {
+                        blacknode[sn].meter_list[i].status = 'off'
+                    }
+                }
 
                 if (db && db.alert) {
                     let id = blacknode[sn].SiteID + '%' + blacknode[sn].NodeID + '%0'

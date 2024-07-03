@@ -26,7 +26,7 @@ export var group = {}
 export var lastUpdateTime = {}
 export var lastUpdateData = {}
 
-var MAX_HEARTBEAT = 20 * 60 * 1000
+var MAX_HEARTBEAT = 15 * 1000
 const MINIMUM_REALERT = 14 * 60 * 1000
 
 // var dbQueue = [];
@@ -173,6 +173,14 @@ export function loadBNInfoFromLocal(BN_CFG_PATH) {
     for (let sn of Object.keys(blacknode)) {
         if (blacknode[sn].status != 'setup') {
             blacknode[sn].status = 'off'
+
+            if(blacknode[sn].maxmeter > 0)
+            {
+                for(let i=0; i<blacknode[sn].maxmeter; i++)
+                {
+                    blacknode[sn].meter_list[i].status = 'off'
+                }
+            }
         }
     }
 }
@@ -316,13 +324,15 @@ export function checkHeartbeat() {
 
     for (let k of keys) {
         if (now.getTime() - lastUpdateTime[k].getTime() > MAX_HEARTBEAT) {
+            let arr = k.split('%')
+            let sn = arr[0]
+            let modbusid = arr[1]
+
+            let id = blacknode[sn].SiteID + '%' + blacknode[sn].NodeID + '%' + modbusid
+
+            blacknode[sn].meter_list[modbusid].status = 'off'
+
             if (db && db.alert) {
-                let arr = k.split('%')
-                let sn = arr[0]
-                let modbusid = arr[1]
-
-                let id = blacknode[sn].SiteID + '%' + blacknode[sn].NodeID + '%' + modbusid
-
                 db.alarm.create({
                     SerialNo: blacknode[sn].SerialNo,
                     SiteID: blacknode[sn].SiteID,
