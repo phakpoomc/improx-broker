@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { Sequelize } from 'sequelize';
 // import { aedesInst } from './mqtt.js'
 
 export var last = {
@@ -25,6 +26,8 @@ export var group = {}
 // Temp object for realtime use
 export var lastUpdateTime = {}
 export var lastUpdateData = {}
+
+export var lastFeedTime = {}
 
 var MAX_HEARTBEAT = 15 * 1000
 const MINIMUM_REALERT = 14 * 60 * 1000
@@ -209,6 +212,27 @@ export async function loadMetaDB()
         }
     }
 
+    // Init feeder meter
+    if(db.feedmeter)
+    {
+        lastFeedTime = {}
+
+        let feedMeters = await db.feedmeter.findAll({
+            attributes: [
+                [Sequelize.fn('max', Sequelize.col('FeederDateTime')), 'max'],
+                'FeederMeterName'
+            ],
+            group: ['FeederMeterName']
+        })
+
+        for(let m of feedMeters)
+        {
+            lastFeedTime[m.name] = m
+        }
+    
+        console.log(lastFeedTime)
+    }
+
     // Init alarm
     if (db.alarm) {
         lastAlarm = {};
@@ -233,7 +257,7 @@ export async function loadMetaDB()
         let groups = await db.group.findAll()
 
         for (let g of groups) {
-            group[g.id] = { name: g.name, showDashboard: g.showDashboard, member: [] }
+            group[g.id] = { id: g.id, name: g.name, showDashboard: g.showDashboard, member: [] }
         }
 
         let gmembers = await db.gmember.findAll()
@@ -277,7 +301,7 @@ export async function loadGroup() {
         let groups = await db.group.findAll()
 
         for (let g of groups) {
-            group[g.id] = { name: g.name, showDashboard: g.showDashboard, member: [] }
+            group[g.id] = { id: g.id, name: g.name, showDashboard: g.showDashboard, member: [] }
         }
 
         let gmembers = await db.gmember.findAll()

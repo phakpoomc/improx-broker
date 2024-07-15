@@ -101,12 +101,14 @@ function saveAPI() {
 function saveBroker() {
     let weblocalport = document.getElementById('web-local-port').value
     let apilocalport = document.getElementById('api-local-port').value
+    let mqttlocalport = document.getElementById('mqtt-local-port').value
     let autorunEnabled = document.getElementById('autorun').value
     let cors = document.getElementById('cors').value
 
     let obj = {
         webport: weblocalport,
         apiport: apilocalport,
+        mqttport: mqttlocalport,
         autorun: (autorunEnabled == 'Enable') ? true : false,
         cors: cors
     }
@@ -390,7 +392,7 @@ function importBN()
             </div>
             <div class="card card-body bg-light border-light mb-4">
                 <div class="row mb-4">
-                    <div class="col-4">
+                    <div class="col-3">
                         <div class="setting-input mb-2">
                             <label class="mb-2 text-muted" for="web-local-port">Web Local Port</label>
                             <input
@@ -402,7 +404,7 @@ function importBN()
                             />
                         </div>
                     </div>
-                    <div class="col-4">
+                    <div class="col-3">
                         <div class="setting-input mb-2">
                             <label class="mb-2 text-muted" for="api-local-port"> API Local Port </label>
                             <input
@@ -413,7 +415,18 @@ function importBN()
                             />
                         </div>
                     </div>
-                    <div class="col-4">
+                    <div class="col-3">
+                        <div class="setting-input mb-2">
+                            <label class="mb-2 text-muted" for="mqtt-local-port"> MQTT Local Port </label>
+                            <input
+                                id="mqtt-local-port"
+                                type="text"
+                                class="form-control"
+                                :value="brokerCFG.mqttport"
+                            />
+                        </div>
+                    </div>
+                    <div class="col-3">
                         <div class="setting-input mb-2">
                             <label class="mb-2 text-muted" for="autorun">Autorun</label>
                             <select

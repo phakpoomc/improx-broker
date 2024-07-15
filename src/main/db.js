@@ -40,6 +40,7 @@ export async function syncDB() {
                 db.holiday = null;
                 db.user = null;
                 db.userrole = null;
+                db.feedmeter = null;
 
                 last['message'] = 'Cannot connect to database.'
                 last['time'] = new Date()
@@ -172,6 +173,7 @@ export async function syncDB() {
                 password: { type: DataTypes.STRING, field: 'password' },
                 email: { type: DataTypes.STRING, field: 'email' },
                 status: { type: DataTypes.STRING, field: 'status' },
+                group: { type: DataTypes.INTEGER, field: 'group' },
                 DateTime: { type: DataTypes.DATE, field: 'DateTime' }
             },
             {
@@ -188,6 +190,19 @@ export async function syncDB() {
             },
             {
                 tableName: 'userrole'
+            }
+        )
+
+        db.feedmeter = sequelize.define(
+            'feedmeter',
+            {
+                id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
+                DateTime: { type: DataTypes.DATE, field: 'FeederDateTime' },
+                name: { type: DataTypes.STRING, field: 'FeederMeterName' },
+                value: { type: DataTypes.FLOAT, field: 'FeederMeterValue' },
+            },
+            {
+                tableName: 'tblFeederMeter'
             }
         )
 
@@ -235,6 +250,7 @@ export async function syncDB() {
             db.holiday = null;
             db.user = null;
             db.userrole = null;
+            db.feedmeter = null;
 
             last['message'] = 'Cannot sync database table.'
             last['time'] = new Date()
@@ -251,6 +267,7 @@ export async function syncDB() {
         db.holiday = null;
         db.user = null;
         db.userrole = null;
+        db.feedmeter = null;
 
         last['message'] = 'Database is not set up.'
         last['time'] = new Date()

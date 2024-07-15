@@ -386,6 +386,7 @@ app.whenReady().then(async () => {
     ipcMain.handle('data:setBrokerCFG', async (_event, brokerCFG) => {
         meta_cfg.broker.webport = brokerCFG.webport
         meta_cfg.broker.apiport = brokerCFG.apiport
+        meta_cfg.broker.mqttport = brokerCFG.mqttport
         meta_cfg.broker.autorun = brokerCFG.autorun
         meta_cfg.broker.cors = brokerCFG.cors
 
@@ -393,6 +394,7 @@ app.whenReady().then(async () => {
 
         initAPI()
         initWeb()
+        startMQTT(BN_CFG_PATH)
 
         let autoLaunch = new AutoLaunch({
             name: app.getName(),

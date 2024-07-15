@@ -436,6 +436,10 @@ async function apiguard(req, route, token)
                 return true
             }
         }
+        else if(meta_cfg.api.key != "" && meta_cfg.api.key == token)
+        {
+            return true
+        }
         // else if(token is valid)
         // {}
     }
@@ -569,29 +573,29 @@ export function initAPI() {
                                 }
                                 else
                                 {
-                                    res.send('')
+                                    res.send('a')
                                 }
                             })
                         }
                         else
                         {
-                            res.send('')
+                            res.send('b')
                         }
                     })
                 }
                 else
                 {
-                    res.send('')
+                    res.send('c')
                 }
             }
             else
             {
-                res.send('')
+                res.send('d')
             }
         }
         else
         {
-            res.send('')
+            res.send('e')
         }
     })
 
@@ -637,9 +641,26 @@ export function initAPI() {
 
         // console.log(tTomorrow)
 
-        let group = await db.group.findOne({
-            where: { showDashboard: true }
+        let user = await db.user.findOne({
+            where: { username: req.session.user }
         })
+
+        if(user && user.group)
+        {
+            var group = await db.group.findOne({
+                where: { id: user.group }
+            })
+        }
+        else
+        {
+            var group = await db.group.findOne({
+                where: { showDashboard: true }
+            })
+        } 
+        
+        // var group = await db.group.findOne({
+        //     where: { showDashboard: true }
+        // })
 
         var eData
         let all = true
@@ -2316,7 +2337,7 @@ export function initAPI() {
 
         try {
             let users = await db.user.findAll({
-                attributes: ['id', 'name', 'username', 'email', 'status']
+                attributes: ['id', 'name', 'username', 'email', 'status', 'group']
             });
 
             let ret = []
@@ -2343,6 +2364,7 @@ export function initAPI() {
                     username: user.username,
                     email: user.email,
                     status: user.status,
+                    group: user.group,
                     roles: (roleMap[user.id]) ? roleMap[user.id] : ['inactive']
                 })
             }
@@ -2362,13 +2384,19 @@ export function initAPI() {
         }
 
         try {
+            if(password.length < 8)
+            {
+                res.send("Password is too short. Try a new password.")
+                return;
+            }
             let u = await db.user.create({
                 name: req.body.name,
                 username: req.body.username,
                 email: req.body.email,
                 password: await bcrypt.hash(req.body.password, 3),
                 DateTime: new Date(),
-                status: req.body.status
+                status: req.body.status,
+                group: parseInt(req.body.group)
             });
 
             // Create corresponding role and project as needed...
@@ -2414,7 +2442,8 @@ export function initAPI() {
                         email: req.body.email,
                         password: await bcrypt.hash(req.body.password, 3),
                         DateTime: new Date(),
-                        status: req.body.status
+                        status: req.body.status,
+                        group: parseInt(req.body.group)
                     },
                     {
                         where: { id: parseInt(req.params.id) }
@@ -3007,6 +3036,7 @@ export function initAPI() {
         else
         {
             await workbook.xlsx.readFile(path.join(process.cwd(), 'Report-02_energy_template.xlsx'))
+            var feederWS = workbook.getWorksheet('RawFeeder')
         }
         
         let worksheet = workbook.getWorksheet('RawData')
@@ -3419,6 +3449,51 @@ export function initAPI() {
             }
         }
 
+        if(req.params.ttype != 'electrical')
+        {
+            let fData = await db.feedmeter.findAll({
+                where: {
+                    DateTime: {
+                        [Op.and]: {
+                            [Op.gte]: start_date,
+                            [Op.lte]: end_date
+                        }
+                    }
+                },
+                order: [['FeederDateTime', 'ASC'], ['id', 'asc']]
+            })
+
+            let fRet = {}
+
+            for(let f of fData)
+            {
+                if(!fRet[f.name])
+                {
+                    fRet[f.name] = []
+                }
+
+                fRet[f.name].push(f.value)
+            }
+
+            let keys = Object.keys(fRet)
+            let currCol = 2
+
+            for(let k of keys)
+            {
+                let col = feederWS.getColumn(currCol)
+
+                col.values = [k].concat(fRet[k])
+                col.width = k.length + 5
+                currCol++
+            }
+
+            for(let i=1; i<=arr_size; i++)
+            {
+                feederWS.getCell('A' + String(i+1)).value = new Date(start_date.getTime() + ((i-1)*15*60*1000));
+            }
+        }
+        
+
         let keys = Object.keys(ret)
         let currCol = 2
 
@@ -3442,6 +3517,31 @@ export function initAPI() {
         workbook.xlsx.write(res).then(() => {
             res.end()
         })
+    })
+
+    api.post('/feedmeter', async (req, res) => {
+        if(await apiguard(req, 'feedmeter', req.body.token) == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
+        let now = new Date()
+        now.setMinutes(parseInt(Math.trunc(now.getMinutes()/15) * 15))
+        let utc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0, 0))
+
+        if(!lastFeedTime[req.body.name] || lastFeedTime[req.body.name] < now)
+        {
+            await db.feedmeter.create({
+                DateTime: utc,
+                name: req.body.name,
+                value: parseFloat(req.body.value)
+            })
+
+            lastFeedTime[req.body.name] = now
+        }
+
+        res.send("SUCCESS");
     })
 
     api_server = api.listen((meta_cfg.broker.apiport) ? meta_cfg.broker.apiport : 8888, () => {

@@ -10,16 +10,31 @@ import {
     lastUpdateTime,
     lastUpdateData,
     db,
+    meta_cfg
     // addQueue
 } from './global.js'
 
 export var aedesInst
 export var httpServer
 
-const WS_PORT = 8884
 const QOS = 2
 
-export function startMQTT(BN_CFG_PATH) {
+export async function startMQTT(BN_CFG_PATH)
+{
+    if(aedesInst)
+    {
+        aedesInst.close()
+        httpServer.close()
+        aedesInst = null
+        start(BN_CFG_PATH)
+    }
+    else
+    {
+        start(BN_CFG_PATH)
+    }
+}
+
+async function start(BN_CFG_PATH) {
     aedesInst = new Aedes()
     httpServer = wsCreateServer(aedesInst /*, {ws: true}*/)
 
@@ -555,7 +570,7 @@ export function startMQTT(BN_CFG_PATH) {
 
     })
 
-    httpServer.listen(WS_PORT, function () {
-        console.log('MQTT server is running at ', WS_PORT)
+    httpServer.listen((meta_cfg.broker.mqttport) ? meta_cfg.broker.mqttport : 8884, function () {
+        console.log('MQTT server is running at ', (meta_cfg.broker.mqttport) ? meta_cfg.broker.mqttport : 8884)
     })
 }
