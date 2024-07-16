@@ -18,7 +18,8 @@ import {
     loadHoliday,
     loadAlarm,
     loadMetaDB,
-    loadMetaCFG
+    loadMetaCFG,
+    lastFeedTime
 } from './global.js'
 import { createReadStream } from 'fs'
 import { syncDB } from './db.js'
@@ -407,6 +408,7 @@ const apis = {
     'getholiday': ['owner', 'user', 'admin', 'test'],
     'getuser': ['owner', 'user', 'admin', 'test'],
     'rp_chart': ['owner', 'user', 'admin', 'test'],
+    'feedmeter': ['owner', 'admin', 'test']
 }
 
 async function routeguard(req, route)
@@ -645,10 +647,10 @@ export function initAPI() {
             where: { username: req.session.user }
         })
 
-        if(user && user.group)
+        if(user && user.dataValues.group)
         {
             var group = await db.group.findOne({
-                where: { id: user.group }
+                where: { id: user.dataValues.group }
             })
         }
         else
@@ -657,7 +659,9 @@ export function initAPI() {
                 where: { showDashboard: true }
             })
         } 
-        
+
+        group = group.dataValues;
+       
         // var group = await db.group.findOne({
         //     where: { showDashboard: true }
         // })
@@ -927,9 +931,24 @@ export function initAPI() {
             endTime = new Date(now)
         }
 
-        let group = await db.group.findOne({
-            where: { showDashboard: true }
+        let user = await db.user.findOne({
+            where: { username: req.session.user }
         })
+
+        if(user && user.dataValues.group)
+        {
+            var group = await db.group.findOne({
+                where: { id: user.dataValues.group }
+            })
+        }
+        else
+        {
+            var group = await db.group.findOne({
+                where: { showDashboard: true }
+            })
+        } 
+
+        group = group.dataValues;
 
         var eData
         let all = true
@@ -1050,9 +1069,24 @@ export function initAPI() {
             endTime = new Date(now)
         }
 
-        let group = await db.group.findOne({
-            where: { showDashboard: true }
+        let user = await db.user.findOne({
+            where: { username: req.session.user }
         })
+
+        if(user && user.dataValues.group)
+        {
+            var group = await db.group.findOne({
+                where: { id: user.dataValues.group }
+            })
+        }
+        else
+        {
+            var group = await db.group.findOne({
+                where: { showDashboard: true }
+            })
+        } 
+
+        group = group.dataValues;
 
         var eData
         let all = true
@@ -1169,9 +1203,24 @@ export function initAPI() {
             endTime = new Date(now)
         }
 
-        let group = await db.group.findOne({
-            where: { showDashboard: true }
+        let user = await db.user.findOne({
+            where: { username: req.session.user }
         })
+
+        if(user && user.dataValues.group)
+        {
+            var group = await db.group.findOne({
+                where: { id: user.dataValues.group }
+            })
+        }
+        else
+        {
+            var group = await db.group.findOne({
+                where: { showDashboard: true }
+            })
+        } 
+
+        group = group.dataValues;
 
         var eData
         let all = true
@@ -1278,9 +1327,24 @@ export function initAPI() {
         let startTime = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0))
         let endTime = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds()))
         
-        let group = await db.group.findOne({
-            where: { showDashboard: true }
+        let user = await db.user.findOne({
+            where: { username: req.session.user }
         })
+
+        if(user && user.dataValues.group)
+        {
+            var group = await db.group.findOne({
+                where: { id: user.dataValues.group }
+            })
+        }
+        else
+        {
+            var group = await db.group.findOne({
+                where: { showDashboard: true }
+            })
+        } 
+
+        group = group.dataValues;
 
         var eData
         let all = true
@@ -2384,7 +2448,7 @@ export function initAPI() {
         }
 
         try {
-            if(password.length < 8)
+            if(req.body.password.length < 8)
             {
                 res.send("Password is too short. Try a new password.")
                 return;
@@ -3470,9 +3534,18 @@ export function initAPI() {
                 if(!fRet[f.name])
                 {
                     fRet[f.name] = []
+
+                    for(let i=0; i<arr_size; i++)
+                    {
+                        fRet[f.name].push(0);
+                    }
                 }
 
-                fRet[f.name].push(f.value)
+                let adjustedTime = new Date(f.DateTime.getTime())
+
+                let seq = Math.trunc(adjustedTime.getTime()/1000/60/15) - start_seq;
+
+                fRet[f.name][seq] = f.value
             }
 
             let keys = Object.keys(fRet)
@@ -3530,7 +3603,7 @@ export function initAPI() {
         now.setMinutes(parseInt(Math.trunc(now.getMinutes()/15) * 15))
         let utc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0, 0))
 
-        if(!lastFeedTime[req.body.name] || lastFeedTime[req.body.name] < now)
+        if(!lastFeedTime[req.body.name] || lastFeedTime[req.body.name] < utc)
         {
             await db.feedmeter.create({
                 DateTime: utc,
@@ -3538,7 +3611,7 @@ export function initAPI() {
                 value: parseFloat(req.body.value)
             })
 
-            lastFeedTime[req.body.name] = now
+            lastFeedTime[req.body.name] = utc
         }
 
         res.send("SUCCESS");

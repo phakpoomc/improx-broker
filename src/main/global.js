@@ -227,10 +227,9 @@ export async function loadMetaDB()
 
         for(let m of feedMeters)
         {
-            lastFeedTime[m.name] = m
+            lastFeedTime[m.dataValues.FeederMeterName] = m.dataValues.max
         }
     
-        console.log(lastFeedTime)
     }
 
     // Init alarm
