@@ -19,7 +19,8 @@ import {
     loadAlarm,
     loadMetaDB,
     loadMetaCFG,
-    lastFeedTime
+    lastFeedTime,
+    MAX_HEARTBEAT
 } from './global.js'
 import { createReadStream } from 'fs'
 import { syncDB } from './db.js'
@@ -1651,7 +1652,7 @@ export function initAPI() {
                     if (
                         lastUpdateData[k] &&
                         lastUpdateData[k].DateTimeUpdate &&
-                        now.getTime() - lastUpdateData[k].DateTimeUpdate.getTime() < 60 * 1000
+                        now.getTime() - lastUpdateData[k].DateTimeUpdate.getTime() < MAX_HEARTBEAT
                     ) {
                         ret[i][blacknode[s].meter_list[j].name] =
                             lastUpdateData[k][cmap[pmap[i]].name]
@@ -2499,6 +2500,12 @@ export function initAPI() {
         if(req.params.action == "edit")
         {
             try {
+                if(req.body.password.length < 8)
+                {
+                    res.send("Password is too short. Try a new password.")
+                    return;
+                }
+                
                 let u = await db.user.update(
                     {
                         name: req.body.name,

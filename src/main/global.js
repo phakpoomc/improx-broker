@@ -29,8 +29,9 @@ export var lastUpdateData = {}
 
 export var lastFeedTime = {}
 
-var MAX_HEARTBEAT = 15 * 1000
-const MINIMUM_REALERT = 14 * 60 * 1000
+export var MAX_HEARTBEAT = 60 * 60 * 1000
+
+const MINIMUM_REALERT = 61 * 60 * 1000
 
 // var dbQueue = [];
 // var aedesQueue = [];
@@ -120,37 +121,7 @@ export function loadMetaCFG()
         if(!meta_cfg.param)
         {
             meta_cfg.param = {};
-            // {
-            //     minimum_realert: 14 * 60 * 1000,
-            //     mm: {
-            //         V1: { min: 0, max: 230 },
-            //         V2: { min: 0, max: 230 },
-            //         V3: { min: 0, max: 230 },
-            //         V12: { min: 0, max: 230 },
-            //         V23: { min: 0, max: 230 },
-            //         V31: { min: 0, max: 230 },
-            //         I1: { min: 0, max: 100 },
-            //         I2: { min: 0, max: 100 },
-            //         I3: { min: 0, max: 100 },
-            //         P1: { min: 0, max: 230000 },
-            //         P2: { min: 0, max: 230000 },
-            //         P3: { min: 0, max: 230000 },
-            //         P_Sum: { min: 0, max: 230000 },
-            //         Q1: { min: 0, max: 1000000 },
-            //         Q2: { min: 0, max: 1000000 },
-            //         Q3: { min: 0, max: 1000000 },
-            //         Q_Sum: { min: 0, max: 1000000 },
-            //         S1: { min: 0, max: 1000000 },
-            //         S2: { min: 0, max: 1000000 },
-            //         S3: { min: 0, max: 1000000 },
-            //         S_Sum: { min: 0, max: 1000000 },
-            //         PF1: { min: -1, max: 1 },
-            //         PF2: { min: -1, max: 1 },
-            //         PF3: { min: -1, max: 1 },
-            //         PF_Sum: { min: -1, max: 1 },
-            //         Frequency: { min: 0, max: 120 }
-            //     }
-            // };
+
         }
         if(!meta_cfg.auth_cred)
         {
