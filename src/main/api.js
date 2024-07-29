@@ -727,9 +727,19 @@ export function initAPI() {
         for (let e of eData) {
             let sn = e.SerialNo
             let period = blacknode[sn].period * 60 * 1000
+            let energy = 0;
+
+            if(meta_cfg.useImport.value)
+            {
+                energy = e.Import_kWh
+            }
+            else
+            {
+                energy = e.TotalkWh
+            }
 
             if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
-                prevEnergy[e.snmKey] = e.TotalkWh
+                prevEnergy[e.snmKey] = energy
                 prevTime[e.snmKey] = e.DateTimeUpdate
                 continue
             }
@@ -739,13 +749,13 @@ export function initAPI() {
             let tKey = adjustedTime.getUTCFullYear() + '-' + adjustedTime.getUTCMonth() + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
 
 
-            let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+            let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
             // if (absEnergy == -1) {
             //     absEnergy = 0
             // }
 
-            prevEnergy[e.snmKey] = e.TotalkWh
+            prevEnergy[e.snmKey] = energy
 
             if (e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate <= tThisMonth) {
                 // Last month
@@ -1007,20 +1017,30 @@ export function initAPI() {
         for (let e of eData) {
             let sn = e.SerialNo
             let period = blacknode[sn].period * 60 * 1000
+            let energy = 0;
+
+            if(meta_cfg.useImport.value)
+            {
+                energy = e.Import_kWh
+            }
+            else
+            {
+                energy = e.TotalkWh
+            }
 
             if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
                 prevTime[e.snmKey] = e.DateTimeUpdate
-                prevEnergy[e.snmKey] = e.TotalkWh
+                prevEnergy[e.snmKey] = energy
                 continue
             }
 
-            let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+            let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
             // if (absEnergy == -1) {
             //     absEnergy = 0
             // }
 
-            prevEnergy[e.snmKey] = e.TotalkWh
+            prevEnergy[e.snmKey] = energy
 
             let adjustedTime = new Date(e.DateTimeUpdate)
             adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
@@ -1145,20 +1165,30 @@ export function initAPI() {
         for (let e of eData) {
             let sn = e.SerialNo
             let period = blacknode[sn].period * 60 * 1000
+            let energy = 0;
+
+            if(meta_cfg.useImport.value)
+            {
+                energy = e.Import_kWh
+            }
+            else
+            {
+                energy = e.TotalkWh
+            }
 
             if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
                 prevTime[e.snmKey] = e.DateTimeUpdate
-                prevEnergy[e.snmKey] = e.TotalkWh
+                prevEnergy[e.snmKey] = energy
                 continue
             }
 
-            let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+            let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
             // if (absEnergy == -1) {
             //     absEnergy = 0
             // }
 
-            prevEnergy[e.snmKey] = e.TotalkWh
+            prevEnergy[e.snmKey] = energy
 
             let adjustedTime = new Date(e.DateTimeUpdate)
 
@@ -1279,20 +1309,30 @@ export function initAPI() {
         for (let e of eData) {
             let sn = e.SerialNo
             let period = blacknode[sn].period * 60 * 1000
+            let energy = 0;
+
+            if(meta_cfg.useImport.value)
+            {
+                energy = e.Import_kWh
+            }
+            else
+            {
+                energy = e.TotalkWh
+            }
 
             if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
                 prevTime[e.snmKey] = e.DateTimeUpdate
-                prevEnergy[e.snmKey] = e.TotalkWh
+                prevEnergy[e.snmKey] = energy
                 continue
             }
 
-            let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+            let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
             // if (absEnergy == -1) {
             //     absEnergy = 0
             // }
 
-            prevEnergy[e.snmKey] = e.TotalkWh
+            prevEnergy[e.snmKey] = energy
 
             let adjustedTime = new Date(e.DateTimeUpdate)
             adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
@@ -1403,20 +1443,30 @@ export function initAPI() {
         for (let e of eData) {
             let sn = e.SerialNo
             let period = blacknode[sn].period * 60 * 1000
+            let energy = 0;
+
+            if(meta_cfg.useImport.value)
+            {
+                energy = e.Import_kWh
+            }
+            else
+            {
+                energy = e.TotalkWh
+            }
 
             if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
                 prevTime[e.snmKey] = e.DateTimeUpdate
-                prevEnergy[e.snmKey] = e.TotalkWh
+                prevEnergy[e.snmKey] = energy
                 continue
             }
 
-            let absEnergy = (e.TotalkWh - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+            let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
             // if (absEnergy == -1) {
             //     absEnergy = 0
             // }
 
-            prevEnergy[e.snmKey] = e.TotalkWh
+            prevEnergy[e.snmKey] = energy
 
             let adjustedTime = new Date(e.DateTimeUpdate)
             adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
@@ -2034,6 +2084,43 @@ export function initAPI() {
             res.send('SUCCESS')
         } catch (err) {
             res.send('Cannot delete group.')
+        }
+    })
+
+    api.get('/getUseImportSetting', async (_req, res) => {
+        if(await apiguard(_req, 'getgroup', '') == false)
+        {
+            res.json({value: false})
+            return
+        }
+
+        res.json(meta_cfg.useImport)
+    })
+
+    api.post('/setUseImportSetting', async (req, res) => {
+        if(await apiguard(req, 'management', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
+        let value = req.body.value
+
+        if (paths && paths['META_CFG_PATH']) {
+            try {
+                meta_cfg.useImport.value = value
+
+                writeFile(paths['META_CFG_PATH'], JSON.stringify(meta_cfg), { flag: 'w' });
+                res.send("SUCCESS");
+            } catch(err) {
+                console.log("Cannot save parameter.");
+                res.send("Cannot save parameter.");
+            }  
+        }
+        else
+        {
+            console.log("Cannot save parameter.");
+            res.send("Cannot save parameter.");
         }
     })
 

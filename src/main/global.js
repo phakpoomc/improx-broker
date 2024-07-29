@@ -129,6 +129,12 @@ export function loadMetaCFG()
                 remember: false
             };
         }
+        if(!meta_cfg.useImport)
+        {
+            meta_cfg.useImport = {
+                value: false
+            }
+        }
 
 
     } else {
