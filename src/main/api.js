@@ -3246,6 +3246,13 @@ export function initAPI() {
 
         let p = req.body
 
+        let kwhType = "TotalkWh"
+
+        if(meta_cfg.useImport && meta_cfg.useImport.value)
+        {
+            kwhType = "Import_kWh"
+        }
+
         for (let k of p) {
             // Get data and fill
             let arr = k.split("@");
@@ -3262,12 +3269,20 @@ export function initAPI() {
                 let param = arr[1];
                 let eData;
 
-                let cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + param
+                if(param == "TotalkWh" && req.params.ttype != 'electrical' && meta_cfg.useImport && meta_cfg.useImport.value)
+                {
+                    var cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + kwhType
+                }
+                else
+                {
+                    var cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + param
+                }
+                
 
                 if(param == 'kWdemand')
                 {
                     eData = await db.energy.findAll({
-                        attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh'],
+                        attributes: ['DateTimeUpdate', 'SerialNo', kwhType],
                         where: {
                             DateTimeUpdate: {
                                 [Op.and]: {
@@ -3324,7 +3339,7 @@ export function initAPI() {
                         seq = 0
                     }
 
-                    if(cmap[param].storage == "accumulative" && param != 'TotalkWh')
+                    if(cmap[param].storage == "accumulative" && param != kwhType)
                     {
                         let sn = e.SerialNo
                         let period = blacknode[sn].period * 60 * 1000
@@ -3335,7 +3350,7 @@ export function initAPI() {
 
                             if(param == 'kWdemand')
                             {
-                                prev_dval = e['TotalkWh']
+                                prev_dval = e[kwhType]
                             }
                             else
                             {
@@ -3348,9 +3363,9 @@ export function initAPI() {
                         {
                             if(param == 'kWdemand')
                             {
-                                if(e['TotalkWh'] != undefined || e['TotalkWh'] != -1)
+                                if(e[kwhType] != undefined || e[kwhType] != -1)
                                 {
-                                    dval = (e['TotalkWh'] - prev_dval) * DEMAND
+                                    dval = (e[kwhType] - prev_dval) * DEMAND
                                 }
                                 else
                                 {
@@ -3368,7 +3383,7 @@ export function initAPI() {
                     {
                         if(param == 'kWdemand')
                         {
-                            dval = e['TotalkWh']
+                            dval = e[kwhType]
                         }
                         else
                         {
@@ -3383,7 +3398,7 @@ export function initAPI() {
 
                     if(param == 'kWdemand')
                     {
-                        prev_dval = e['TotalkWh']
+                        prev_dval = e[kwhType]
                     }
                     else
                     {
@@ -3394,7 +3409,7 @@ export function initAPI() {
                 }
 
 
-                if(cmap[param].storage != "accumulative" && param != 'TotalkWh')
+                if(cmap[param].storage != "accumulative" && param != kwhType)
                 {
                     for(let i=0; i<arr_size; i++)
                     {
@@ -3423,7 +3438,15 @@ export function initAPI() {
                 let multmap = {};
                 let count = []
 
-                let cellName = group[gid].name + '.' + param
+                if(param == "TotalkWh" && req.params.ttype != 'electrical' && meta_cfg.useImport && meta_cfg.useImport.value)
+                {
+                    var cellName = group[gid].name + '.' + kwhType
+                }
+                else
+                {
+                    var cellName = group[gid].name + '.' + param
+                }
+                
                 ret[cellName] = [];
 
                 for(let i=0; i<arr_size; i++)
@@ -3447,7 +3470,7 @@ export function initAPI() {
                     if(param == 'kWdemand')
                     {
                         eData = await db.energy.findAll({
-                            attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh', 'snmKey'],
+                            attributes: ['DateTimeUpdate', 'SerialNo', kwhType, 'snmKey'],
                             where: {
                                 DateTimeUpdate: {
                                     [Op.and]: {
@@ -3490,7 +3513,7 @@ export function initAPI() {
                             dxt[tkey] = 0
                         }
     
-                        if(cmap[param].storage == "accumulative" && param != 'TotalkWh')
+                        if(cmap[param].storage == "accumulative" && param != kwhType)
                         {
                             let sn = e.SerialNo
                             let period = blacknode[sn].period * 60 * 1000
@@ -3501,7 +3524,7 @@ export function initAPI() {
 
                                 if(param == 'kWdemand')
                                 {
-                                    prev_dval = e['TotalkWh']
+                                    prev_dval = e[kwhType]
                                 }
                                 else
                                 {
@@ -3514,9 +3537,9 @@ export function initAPI() {
                             {
                                 if(param == 'kWdemand')
                                 {
-                                    if(e['TotalkWh'] != undefined || e['TotalkWh'] != -1)
+                                    if(e[kwhType] != undefined || e[kwhType] != -1)
                                     {
-                                        dval = (e['TotalkWh'] - prev_dval) * DEMAND
+                                        dval = (e[kwhType] - prev_dval) * DEMAND
                                     }
                                     else
                                     {
@@ -3534,7 +3557,7 @@ export function initAPI() {
                         {
                             if(param == 'kWdemand')
                             {
-                                dval = e['TotalkWh']
+                                dval = e[kwhType]
                             }
                             else
                             {
@@ -3546,7 +3569,7 @@ export function initAPI() {
 
                         if(param == 'kWdemand')
                         {
-                            prev_dval = e['TotalkWh']
+                            prev_dval = e[kwhType]
                         }
                         else
                         {
@@ -3588,7 +3611,7 @@ export function initAPI() {
                     
                 }
 
-                if(cmap[param].storage != 'accumulative' && param != 'TotalkWh')
+                if(cmap[param].storage != 'accumulative' && param != kwhType)
                 {
                     for(let i=0; i<arr_size; i++)
                     {
