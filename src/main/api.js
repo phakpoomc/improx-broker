@@ -3272,6 +3272,7 @@ export function initAPI() {
                 if(param == "TotalkWh" && req.params.ttype != 'electrical' && meta_cfg.useImport && meta_cfg.useImport.value)
                 {
                     var cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + kwhType
+                    param = kwhType
                 }
                 else
                 {
@@ -3441,6 +3442,7 @@ export function initAPI() {
                 if(param == "TotalkWh" && req.params.ttype != 'electrical' && meta_cfg.useImport && meta_cfg.useImport.value)
                 {
                     var cellName = group[gid].name + '.' + kwhType
+                    param = kwhType
                 }
                 else
                 {
