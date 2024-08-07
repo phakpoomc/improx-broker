@@ -2,6 +2,25 @@ import { Sequelize, DataTypes } from 'sequelize'
 import { last, db, meta_cfg } from './global.js'
 import bcrypt from 'bcrypt'
 
+
+async function alterTable(sequelize) {
+    const queryInterface = sequelize.getQueryInterface();
+    // Check if the column exists
+    const tableInfo = await queryInterface.describeTable('group');
+    
+    if (!tableInfo.type) {
+        // If the column doesn't exist, add it
+        await queryInterface.addColumn('group', 'type', {
+            type: DataTypes.STRING,
+            allowNull: true
+        });
+        console.log("'type' column added to 'group' table");
+    } else {
+        console.log("'type' column already exists in 'group' table");
+    }
+}
+
+
 export async function syncDB() {
     if (
         meta_cfg.db['dbname'] &&
@@ -111,6 +130,7 @@ export async function syncDB() {
             {
                 id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
                 name: { type: DataTypes.STRING, field: 'name' },
+                type: { type: DataTypes.STRING, field: 'type' ,allowNull:true },
                 showDashboard: { type: DataTypes.BOOLEAN, field: 'showDashboard' }
             },
             {
@@ -205,6 +225,8 @@ export async function syncDB() {
                 tableName: 'tblFeederMeter'
             }
         )
+
+        await alterTable(sequelize);
 
         try {
             await sequelize.sync()

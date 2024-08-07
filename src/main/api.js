@@ -388,11 +388,20 @@ const routes = {
     'nodemonitor': ['owner', 'user', 'admin', 'test'],
     'parametermanage': ['owner', 'admin', 'test'],
     'phasor': ['owner', 'user', 'admin', 'test'],
+    'group_monitor': ['owner', 'user', 'admin', 'test'],
     'report': ['owner', 'user', 'admin', 'test'],
     'usermanage': ['owner', 'admin', 'test'],
+    'product': ['owner', 'user', 'admin', 'test'],
+    'support': ['owner', 'user', 'admin', 'test'],
+    'other': ['owner', 'user', 'admin', 'test'],
+    'air_comp': ['owner', 'user', 'admin', 'test'],
+    'pf': ['owner', 'user', 'admin', 'test'],
+    'total_kWh_22kV': ['owner', 'user', 'admin', 'test'],
+    'dashboard_group': ['owner', 'user', 'admin', 'test'],
 }
 
 const apis = {
+    'group_type': ['owner', 'user', 'admin', 'test'],
     'dashboard': ['owner', 'user', 'admin', 'test'],
     'group_meter_info': ['owner', 'user', 'admin', 'test'],
     'rt_chart': ['owner', 'user', 'admin', 'test'],
@@ -409,7 +418,8 @@ const apis = {
     'getholiday': ['owner', 'user', 'admin', 'test'],
     'getuser': ['owner', 'user', 'admin', 'test'],
     'rp_chart': ['owner', 'user', 'admin', 'test'],
-    'feedmeter': ['owner', 'admin', 'test']
+    'feedmeter': ['owner', 'admin', 'test'],
+    'dashboard_meters': ['owner', 'user', 'admin', 'test'],
 }
 
 async function routeguard(req, route)
@@ -448,6 +458,10 @@ async function apiguard(req, route, token)
     }
 
     return false
+}
+
+function isNumeric(value) {
+    return /^\d+$/.test(value);
 }
 
 function isOnPeak(dt) {
@@ -609,9 +623,9 @@ export function initAPI() {
         })
     })
 
-    api.get('/dashboard_card', async (req, res) => {
+    api.get('/dashboard_card/:groupId', async (req, res) => {
         let ret = {}
-
+        const groupId =  req.params.groupId;
         if(await apiguard(req, 'dashboard', '') == false)
         {
             ret = {
@@ -647,8 +661,12 @@ export function initAPI() {
         let user = await db.user.findOne({
             where: { username: req.session.user }
         })
-
-        if(user && user.dataValues.group)
+        if(isNumeric(groupId)){
+            var group = await db.group.findOne({
+                where: { id: groupId }
+            })
+        }
+        else if(user && user.dataValues.group)
         {
             var group = await db.group.findOne({
                 where: { id: user.dataValues.group }
@@ -897,6 +915,7 @@ export function initAPI() {
             }
 
         ret = {
+            g_name:group.name,
             t_last_month: energyLastMonth,
             t_this_month: energyThisMonth,
             t_yesterday: energyYesterday,
@@ -910,7 +929,7 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.get('/dashboard/:year/:month/:day', async (req, res) => {
+    api.get('/dashboard/:year/:month/:day/:groupId', async (req, res) => {
         let ret = []
 
         if(await apiguard(req, 'dashboard', '') == false)
@@ -926,7 +945,7 @@ export function initAPI() {
                 value1: 0
             }
         }
-
+        const groupId = req.params.groupId;
         let year = req.params.year
         let month = parseInt(req.params.month) - 1
         let day = parseInt(req.params.day)
@@ -946,7 +965,14 @@ export function initAPI() {
             where: { username: req.session.user }
         })
 
-        if(user && user.dataValues.group)
+        if(isNumeric(groupId)){
+            {
+                var group = await db.group.findOne({
+                    where: { id: groupId }
+            })
+        }
+        }
+        else if(user && user.dataValues.group)
         {
             var group = await db.group.findOne({
                 where: { id: user.dataValues.group }
@@ -1056,7 +1082,7 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.get('/dashboard/:year/:month', async (req, res) => {
+    api.get('/dashboard/:year/:month/:groupId', async (req, res) => {
         let ret = []
 
         if(await apiguard(req, 'dashboard', '') == false)
@@ -1064,7 +1090,7 @@ export function initAPI() {
             res.json(ret)
             return
         }
-
+        const groupId = req.params.groupId;
         let year = req.params.year
         let month = parseInt(req.params.month) - 1
 
@@ -1093,8 +1119,13 @@ export function initAPI() {
         let user = await db.user.findOne({
             where: { username: req.session.user }
         })
+        if(isNumeric(groupId)){
+            var group = await db.group.findOne({
+                where: { id:groupId }
+            })
+        }
 
-        if(user && user.dataValues.group)
+       else if(user && user.dataValues.group)
         {
             var group = await db.group.findOne({
                 where: { id: user.dataValues.group }
@@ -1204,7 +1235,7 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.get('/dashboard/:year', async (req, res) => {
+    api.get('/dashboard/:year/:groupId', async (req, res) => {
         let ret = []
 
         if(await apiguard(req, 'dashboard', '') == false)
@@ -1212,6 +1243,8 @@ export function initAPI() {
             res.json(ret)
             return
         }
+
+        const groupId = req.params.groupId;
 
         let year = parseInt(req.params.year)
 
@@ -1238,7 +1271,13 @@ export function initAPI() {
             where: { username: req.session.user }
         })
 
-        if(user && user.dataValues.group)
+        if(isNumeric(groupId)){
+            var group = await db.group.findOne({
+                where: { id: groupId }
+            })
+        }
+
+        else if(user && user.dataValues.group)
         {
             var group = await db.group.findOne({
                 where: { id: user.dataValues.group }
@@ -1346,9 +1385,9 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.get('/dashboard', async (req, res) => {
+    api.get('/dashboard/:groupId', async (req, res) => {
         let ret = []
-
+        const groupId = req.params.groupId;
         if(await apiguard(req, 'dashboard', '') == false)
         {
             res.json(ret)
@@ -1371,7 +1410,11 @@ export function initAPI() {
         let user = await db.user.findOne({
             where: { username: req.session.user }
         })
-
+        if(isNumeric(groupId)){
+            var group = await db.group.findOne({
+                where: { id: groupId }
+            })
+        }
         if(user && user.dataValues.group)
         {
             var group = await db.group.findOne({
@@ -1477,6 +1520,159 @@ export function initAPI() {
             prevTime[e.snmKey] = e.DateTimeUpdate
         }
 
+        res.json(ret)
+    })
+
+    api.get('/dashboard_meters/:year/:month/:day/:groupId/:eyear/:emonth/:eday', async (req, res) => {
+        let ret = []
+
+        if(await apiguard(req, 'dashboard_meters', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+
+        // calculate value and return
+        // for (let i = 0; i < 24; i++) {
+        //     ret[i] = {
+        //         category: String(i),
+        //         value1: 0
+        //     }
+        // }
+        const groupId = req.params.groupId;
+        let year = req.params.year
+        let month = parseInt(req.params.month) - 1
+        let day = parseInt(req.params.day)
+
+        let eyear = req.params.eyear
+        let emonth = parseInt(req.params.emonth) - 1
+        let eday = parseInt(req.params.eday)
+
+        if(eyear == year && emonth == month && eday == day){
+            eday = eday+1;
+        }
+
+        let startTime = new Date(Date.UTC(year, month, day, 7, 30, 0))
+        let endTime = new Date(Date.UTC(eyear, emonth, eday, 7, 30, 0))
+
+        if(startTime > endTime){
+            res.json(ret)
+            return
+        }
+
+
+        let now = new Date()
+        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
+
+        if(now < endTime)
+        {
+            endTime = new Date(now)
+        }
+
+        let user = await db.user.findOne({
+            where: { username: req.session.user }
+        })
+
+        if(isNumeric(groupId)){
+            
+            var group = await db.group.findOne({
+                where: { id: groupId }
+            })
+            
+        }
+        else if(user && user.dataValues.group)
+        {
+            var group = await db.group.findOne({
+                where: { id: user.dataValues.group }
+            })
+        }
+        else
+        {
+            var group = await db.group.findOne({
+                where: { showDashboard: true }
+            })
+        } 
+
+        group = group.dataValues;
+        
+        var eData
+        let all = true
+        var snmKey = []
+        let prevEnergy = {}
+        let prevTime = {}
+        let multmap = {}
+        let prevSnmKey = {};
+
+        if (group !== null) {
+            let members = await db.gmember.findAll({
+                where: { GroupID: group.id }
+            })
+
+            if (members !== null) {
+                for (let m of members) {
+                    let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
+                    ret.push( {
+                        snmKey:m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID),
+                        category: blacknode[m.SerialNo].meter_list[m.ModbusID-1].name,
+                        value1: 0
+                    });
+                    snmKey.push(key)
+                    prevSnmKey[key] = key;
+                    prevEnergy[key] = 0
+                    prevTime[key] = null
+                    multmap[key] = parseFloat(m.multiplier)
+                }
+
+                all = false
+            }
+        }
+
+        if (all) {
+            eData = await db.energy.findAll({
+                where: {
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startTime,
+                            [Op.lte]: endTime
+                        }
+                    }
+                },
+                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+            })
+        } else {
+            eData = await db.energy.findAll({
+                where: {
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startTime,
+                            [Op.lte]: endTime
+                        }
+                    },
+                    snmKey: snmKey
+                },
+                order: [['DateTimeUpdate', 'ASC'],['snmKey','ASC'], ['id', 'asc']]
+            })
+        }
+        //blacknode[g.SerialNo].meter_list[g.ModbusID-1].name
+
+        for (let e of eData) {
+            let energy = 0;
+            if(meta_cfg.useImport.value)
+            {
+                energy = e.Import_kWh
+            }
+            else
+            {
+                energy = e.TotalkWh
+            }
+            
+            const findMeter = ret.findIndex(r=>r.snmKey == e.snmKey);
+            if(findMeter > - 1 && prevEnergy[e.snmKey] > 0 && energy > 0){    
+                ret[findMeter].value1 += (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+            }
+            prevEnergy[e.snmKey] = energy;
+        }
+    
         res.json(ret)
     })
 
@@ -1990,6 +2186,32 @@ export function initAPI() {
         res.json(group)
     })
 
+    //get group by type and member
+    api.get('/group_type/:type', async (_req, res) => {
+        if(await apiguard(_req, 'group_type', '') == false)
+        {
+            res.json({})
+            return
+        }
+
+        const type = _req.params.type
+        
+        const group = await db.group.findAll({
+            where: {
+                type: type,
+            },
+        });
+
+        if(group != null){
+            res.json(group)
+        }else{
+            res.json({})
+            return
+        }
+    })
+
+  
+
     api.get('/meter', async (_req, res) => {
         let ret = []
 
@@ -2025,11 +2247,13 @@ export function initAPI() {
 
         let id = req.body.id
         let name = req.body.name
+        let type = req.body.type
 
         try {
             await db.group.update(
                 {
-                    name: name
+                    name: name,
+                    type:type
                 },
                 {
                     where: { id: id }
@@ -2144,6 +2368,8 @@ export function initAPI() {
             await loadGroup()
             res.send('SUCCESS')
         } catch (err) {
+            console.log(err);
+            
             res.send('Cannot update group members')
         }
     })

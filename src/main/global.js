@@ -233,7 +233,7 @@ export async function loadMetaDB()
         let groups = await db.group.findAll()
 
         for (let g of groups) {
-            group[g.id] = { id: g.id, name: g.name, showDashboard: g.showDashboard, member: [] }
+            group[g.id] = { id: g.id, name: g.name, showDashboard: g.showDashboard,type:g.type, member: [] }
         }
 
         let gmembers = await db.gmember.findAll()
@@ -277,7 +277,7 @@ export async function loadGroup() {
         let groups = await db.group.findAll()
 
         for (let g of groups) {
-            group[g.id] = { id: g.id, name: g.name, showDashboard: g.showDashboard, member: [] }
+            group[g.id] = { id: g.id, name: g.name, showDashboard: g.showDashboard,type:g.type, member: [] }
         }
 
         let gmembers = await db.gmember.findAll()
