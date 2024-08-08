@@ -2186,7 +2186,7 @@ export function initAPI() {
         res.json(group)
     })
 
-    //get group by type and member
+    //get group by type
     api.get('/group_type/:type', async (_req, res) => {
         if(await apiguard(_req, 'group_type', '') == false)
         {
@@ -2209,6 +2209,49 @@ export function initAPI() {
             return
         }
     })
+
+    api.get('/group_total', async (_req, res) => {
+        if(await apiguard(_req, 'group_type', '') == false)
+        {
+            res.json({})
+            return
+        }
+
+        const group = await db.group.findAll({
+            where: {
+                type: {
+                    [Op.in]: ['j_01_main', 'j_02_main', 'j_02_sub', 'j_03_main', 'j_03_sub']
+                }
+            },
+            order: [
+                ['type', 'ASC']
+            ]
+        });
+
+        if(group != null){
+            const groupMap = {
+                j_01_main:null,
+                j_02_main:null,
+                j_03_main:null,
+                j_02_sub:[],
+                j_03_sub:[]
+            }
+            for (const g of group) {
+                const type = g.dataValues.type;
+                if(type == 'j_02_sub' || type == 'j_03_sub'){
+                    groupMap[type].push(g.dataValues);
+                }else{
+                    groupMap[type] = g.dataValues;
+                }
+            }
+
+            res.json(groupMap)
+        }else{
+            res.json({})
+            return
+        }
+    })
+
 
   
 
