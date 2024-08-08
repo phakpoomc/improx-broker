@@ -375,6 +375,19 @@ function checkRoles(givenRoles, allowedRoles)
     return false
 }
 
+function getRandomHexColor() {
+    let r, g, b;
+    do {
+        r = Math.floor(Math.random() * 256);
+        g = Math.floor(Math.random() * 256);
+        b = Math.floor(Math.random() * 256);
+    } while (r === 255 && g === 255 && b === 255); // Exclude white
+
+    // Convert the RGB values to a hexadecimal string
+    let hexColor = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+    return hexColor;
+}
+
 const routes = {
     'index': ['owner', 'user', 'admin', 'test'],
     'alarm': ['owner', 'user', 'admin', 'test'],
@@ -420,6 +433,7 @@ const apis = {
     'rp_chart': ['owner', 'user', 'admin', 'test'],
     'feedmeter': ['owner', 'admin', 'test'],
     'dashboard_meters': ['owner', 'user', 'admin', 'test'],
+    'group_pf_monitor': ['owner', 'user', 'admin', 'test'],
 }
 
 async function routeguard(req, route)
@@ -1775,6 +1789,73 @@ export function initAPI() {
             }
         }
 
+        res.json(ret)
+    })
+
+    api.get('/group_pf_monitor/:id', async (req, res) => {
+        let ret = null
+
+        if(await apiguard(req, 'group_pf_monitor', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+        const id = req.params.id;
+
+        let initGroup = []
+        let groups = {}
+        
+        if (db.gmember) {
+            let groupInfo = await db.gmember.findAll({
+                where:{
+                    GroupID:id
+                }
+            })
+
+            if (groupInfo !== null) {
+                for (let g of groupInfo) {
+                    if (!(initGroup.includes(g.GroupID))) {
+                        groups[g.GroupID] = {
+                            id: g.GroupID,
+                            name: group[g.GroupID].name,
+                            parameter: [],
+                            member: []
+                        }
+
+                        initGroup.push(g.GroupID)
+
+                        for (let i = 0; i < pmap.length; i++) {
+                            groups[g.GroupID].parameter.push({
+                                name: cmap[pmap[i]].name + ' ' + cmap[pmap[i]].unit,
+                                display:
+                                    group[g.GroupID].name +
+                                    ' - ' +
+                                    cmap[pmap[i]].name +
+                                    ' ' +
+                                    cmap[pmap[i]].unit,
+                                selectedSeries: 'G@' + String(g.GroupID) + '%' + cmap[pmap[i]].name,
+                            })
+                        }
+                    }
+                    console.log(g);
+                    
+                    groups[g.GroupID].member.push({
+                        name: blacknode[g.SerialNo].meter_list[g.ModbusID-1].name,
+                        SerialNo: g.SerialNo,
+                        SiteID:g.SiteID,
+                        NodeID:g.NodeID,
+                        ModbusID:parseInt(g.ModbusID) - 1,
+                        color:getRandomHexColor()
+                    })
+                }
+            }
+        }
+
+
+        let gKey = Object.keys(groups)
+        for (let k of gKey) {
+            ret = groups[k]
+        }
         res.json(ret)
     })
 
