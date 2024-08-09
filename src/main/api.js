@@ -27,7 +27,7 @@ import { syncDB } from './db.js'
 import ExcelJS from 'exceljs'
 import * as path from 'path'
 import bodyParser from 'body-parser'
-
+const { QueryTypes } = require('sequelize');
 import session from 'express-session'
 
 export var api_server
@@ -434,6 +434,7 @@ const apis = {
     'feedmeter': ['owner', 'admin', 'test'],
     'dashboard_meters': ['owner', 'user', 'admin', 'test'],
     'group_pf_monitor': ['owner', 'user', 'admin', 'test'],
+    'group_monitor': ['owner', 'user', 'admin', 'test'],
 }
 
 async function routeguard(req, route)
@@ -1707,7 +1708,19 @@ export function initAPI() {
         let groups = {}
 
         if (db.gmember) {
-            let groupInfo = await db.gmember.findAll()
+            let groupInfo = null;
+            //get only type monitor group
+            try {
+                groupInfo = await db.sequelize.query(`SELECT * FROM gmember as gm LEFT JOIN "group" as g on gm."GroupID" = g.id where g.type = 'monitor'`, {
+                    model: db.gmember,
+                    mapToModel: true, 
+                });
+    
+            }catch (error) {
+                console.error('Error executing query:', error);
+            }
+            
+
 
             if (groupInfo !== null) {
                 for (let g of groupInfo) {
@@ -2028,6 +2041,57 @@ export function initAPI() {
         }
 
         res.json(ret)
+    })
+
+    api.get('/group_monitor/:type', async (_req, res) => {
+        if(await apiguard(_req, 'group_monitor', '') == false)
+        {
+            res.json({})
+            return
+        }
+        
+        const group = await db.sequelize.query(`SELECT gm."GroupID" as gid,gm.id as mid,g.name ,gm."ModbusID" ,gm."SerialNo" 
+            FROM gmember as gm LEFT JOIN "group" as g on gm."GroupID" = g.id where g.type = '${_req.params.type}'`,{
+            type: QueryTypes.SELECT,
+        });
+
+        const resp_data = {};
+        if(group != null){
+            for (let i = 0; i < group.length; i++) {
+                const g = group[i];
+                const bn = blacknode[g.SerialNo];
+                const meter = bn.meter_list.find((m)=>m.id == g.ModbusID)
+                
+                if(meter){
+                    if(!resp_data[g.gid]){
+                        resp_data[g.gid] = {
+                            name:g.name,
+                            status:meter.status,
+                            meter:[{meter_name:meter.name,status:meter.status}]
+                        }
+                       
+                    }else{
+                        const isOffline = resp_data[g.gid].meter.filter((m)=>m.status == 'off' );
+                        if(isOffline.length == 0 && meter.status == 'on'){
+                            resp_data[g.gid].status = 'on';
+                        }else if(isOffline.length == resp_data[g.gid].meter.length && meter.status == 'off'){
+                            resp_data[g.gid].status = 'off';
+                        }else{
+                            resp_data[g.gid].status = 'partial';
+                        }
+
+                        resp_data[g.gid].meter.push({meter_name:meter.name,status:meter.status})
+                    }
+                }
+                
+            
+            }
+            
+            res.json(resp_data)
+        }else{
+            res.json({})
+            return
+        }
     })
 
     api.get('/meter_list', async (req, res) => {
@@ -2400,7 +2464,7 @@ export function initAPI() {
         }
 
         try {
-            await db.group.create({ name: req.params.name, showDashboard: false })
+            await db.group.create({ name: req.params.name,type:'monitor', showDashboard: false })
 
             await loadGroup()
 

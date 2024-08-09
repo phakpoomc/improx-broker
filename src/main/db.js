@@ -261,6 +261,7 @@ export async function syncDB() {
                     role: 'admin'
                 })
             }
+            db.sequelize = sequelize;
 
 
             return
