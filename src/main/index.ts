@@ -26,6 +26,7 @@ import crypto from 'crypto'
 
 const QOS = 2
 
+//add more memory
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096')
 
 function loginWith(uname, pwd) {

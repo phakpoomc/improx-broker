@@ -6,9 +6,10 @@ import bcrypt from 'bcrypt'
 async function alterTable(sequelize) {
     const queryInterface = sequelize.getQueryInterface();
     // Check if the column exists
-    const tableInfo = await queryInterface.describeTable('group');
-    
-    if (!tableInfo.type) {
+    const groupInfo = await queryInterface.describeTable('group');
+    const gmemberInfo = await queryInterface.describeTable('gmember');
+
+    if (!groupInfo.type) {
         // If the column doesn't exist, add it
         await queryInterface.addColumn('group', 'type', {
             type: DataTypes.STRING,
@@ -17,6 +18,17 @@ async function alterTable(sequelize) {
         console.log("'type' column added to 'group' table");
     } else {
         console.log("'type' column already exists in 'group' table");
+    }
+
+    if (!gmemberInfo.line) {
+        // If the column doesn't exist, add it
+        await queryInterface.addColumn('gmember', 'line', {
+            type: DataTypes.STRING,
+            allowNull: true
+        });
+        console.log("'line' column added to 'gmember' table");
+    } else {
+        console.log("'line' column already exists in 'gmember' table");
     }
 }
 
@@ -147,7 +159,8 @@ export async function syncDB() {
                 SiteID: { type: DataTypes.STRING, field: 'SiteID' },
                 NodeID: { type: DataTypes.STRING, field: 'NodeID' },
                 ModbusID: { type: DataTypes.STRING, field: 'ModbusID' },
-                multiplier: { type: DataTypes.DOUBLE, field: 'multiplier' }
+                multiplier: { type: DataTypes.DOUBLE, field: 'multiplier' },
+                line: { type: DataTypes.STRING, field: 'line' ,allowNull:true },
             },
             {
                 tableName: 'gmember'

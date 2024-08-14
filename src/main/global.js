@@ -244,7 +244,8 @@ export async function loadMetaDB()
                 siteid: g.SiteID,
                 nodeid: g.NodeID,
                 modbusid: g.ModbusID,
-                multiplier: g.multiplier
+                multiplier: g.multiplier,
+                line:g.line
             }
 
             group[g.GroupID].member.push(m)

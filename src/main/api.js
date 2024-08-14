@@ -1628,7 +1628,7 @@ export function initAPI() {
                     let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
                     ret.push( {
                         snmKey:m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID),
-                        category: blacknode[m.SerialNo].meter_list[m.ModbusID-1].name,
+                        category: blacknode[m.SerialNo].meter_list[m.ModbusID-1].name+`${m.line ? ' '+m.line : ''}`,
                         value1: 0
                     });
                     snmKey.push(key)
@@ -1728,6 +1728,7 @@ export function initAPI() {
                         groups[g.GroupID] = {
                             id: g.GroupID,
                             name: group[g.GroupID].name,
+                            type: group[g.GroupID].type,
                             parameter: [],
                             member: []
                         }
@@ -1750,7 +1751,10 @@ export function initAPI() {
 
                     groups[g.GroupID].member.push({
                         name: blacknode[g.SerialNo].meter_list[g.ModbusID-1].name,
-                        SerialNo: g.SerialNo
+                        SerialNo: g.SerialNo,
+                        SiteID:g.SiteID,
+                        NodeID:g.NodeID,
+                        ModbusID:parseInt(g.ModbusID) - 1,
                     })
                 }
             }
@@ -1850,7 +1854,6 @@ export function initAPI() {
                             })
                         }
                     }
-                    console.log(g);
                     
                     groups[g.GroupID].member.push({
                         name: blacknode[g.SerialNo].meter_list[g.ModbusID-1].name,
@@ -1869,6 +1872,82 @@ export function initAPI() {
         for (let k of gKey) {
             ret = groups[k]
         }
+        res.json(ret)
+    })
+
+    api.get('/group_meter_report', async (req, res) => {
+        let ret = {
+            group: [],
+        }
+
+        if(await apiguard(req, 'group_meter_info', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+
+        let initGroup = []
+        let groups = {}
+
+        if (db.gmember) {
+            let groupInfo = null;
+            //get only type monitor group
+            try {
+                groupInfo = await db.sequelize.query(`SELECT * FROM gmember as gm LEFT JOIN "group" as g on gm."GroupID" = g.id where g.type LIKE 'report_%'`, {
+                    model: db.gmember,
+                    mapToModel: true, 
+                });
+    
+            }catch (error) {
+                console.error('Error executing query:', error);
+            }
+            
+
+
+            if (groupInfo !== null) {
+                for (let g of groupInfo) {
+                    if (!(initGroup.includes(g.GroupID))) {
+                        groups[g.GroupID] = {
+                            id: g.GroupID,
+                            name: group[g.GroupID].name,
+                            type: group[g.GroupID].type,
+                            parameter: [],
+                            member: []
+                        }
+
+                        initGroup.push(g.GroupID)
+
+                        for (let i = 0; i < pmap.length; i++) {
+                            groups[g.GroupID].parameter.push({
+                                name: cmap[pmap[i]].name + ' ' + cmap[pmap[i]].unit,
+                                display:
+                                    group[g.GroupID].name +
+                                    ' - ' +
+                                    cmap[pmap[i]].name +
+                                    ' ' +
+                                    cmap[pmap[i]].unit,
+                                selectedSeries: 'G@' + String(g.GroupID) + '%' + cmap[pmap[i]].name
+                            })
+                        }
+                    }
+
+                    groups[g.GroupID].member.push({
+                        name: blacknode[g.SerialNo].meter_list[g.ModbusID-1].name,
+                        SerialNo: g.SerialNo,
+                        SiteID:g.SiteID,
+                        NodeID:g.NodeID,
+                        ModbusID:parseInt(g.ModbusID) - 1,
+                    })
+                }
+            }
+        }
+
+        let gKey = Object.keys(groups)
+
+        for (let k of gKey) {
+            ret.group.push(groups[k])
+        }
+
         res.json(ret)
     })
 
@@ -2061,10 +2140,10 @@ export function initAPI() {
                 const g = group[i];
                 const bn = blacknode[g.SerialNo];
                 const meter = bn.meter_list.find((m)=>m.id == g.ModbusID)
-                
                 if(meter){
                     if(!resp_data[g.gid]){
                         resp_data[g.gid] = {
+                            id:g.gid,
                             name:g.name,
                             status:meter.status,
                             meter:[{meter_name:meter.name,status:meter.status}]
@@ -3143,6 +3222,12 @@ export function initAPI() {
 
         let p = req.body
 
+        let kwhType = "TotalkWh"
+        if(meta_cfg.useImport && meta_cfg.useImport.value)
+        {
+            kwhType = "Import_kWh"
+        }
+
         for (let k of p) {
             // Get data and fill
             let arr = k.split("@");
@@ -3162,7 +3247,7 @@ export function initAPI() {
                 if(param == 'kWdemand')
                 {
                     eData = await db.energy.findAll({
-                        attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh'],
+                        attributes: ['DateTimeUpdate', 'SerialNo', kwhType],
                         where: {
                             DateTimeUpdate: {
                                 [Op.and]: {
@@ -3264,7 +3349,7 @@ export function initAPI() {
 
                             if(param == 'kWdemand')
                             {
-                                prev_dval = e['TotalkWh']
+                                prev_dval = e[kwhType]
                             }
                             else
                             {
@@ -3277,9 +3362,9 @@ export function initAPI() {
                         {
                             if(param == 'kWdemand')
                             {
-                                if(e['TotalkWh'] != undefined || e['TotalkWh'] != -1)
+                                if(e[kwhType] != undefined || e[kwhType] != -1)
                                 {
-                                    dval = (e['TotalkWh'] - prev_dval) * DEMAND
+                                    dval = (e[kwhType] - prev_dval) * DEMAND
                                 }
                                 else
                                 {
@@ -3297,7 +3382,7 @@ export function initAPI() {
                     {
                         if(param == 'kwDemand')
                         {
-                            dval = e['TotalkWh']
+                            dval = e[kwhType]
                         }
                         else
                         {
@@ -3323,7 +3408,7 @@ export function initAPI() {
 
                     if(param == 'kWdemand')
                     {
-                        prev_dval = e['TotalkWh']
+                        prev_dval = e[kwhType]
                     }
                     else
                     {
@@ -3407,7 +3492,7 @@ export function initAPI() {
                     if(param == 'kWdemand')
                     {
                         eData = await db.energy.findAll({
-                            attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh', 'snmKey'],
+                            attributes: ['DateTimeUpdate', 'SerialNo', kwhType, 'snmKey'],
                             where: {
                                 DateTimeUpdate: {
                                     [Op.and]: {
@@ -3461,7 +3546,7 @@ export function initAPI() {
 
                                 if(param == 'kWdemand')
                                 {
-                                    prev_dval = e['TotalkWh']
+                                    prev_dval = e[kwhType]
                                 }
                                 else
                                 {
@@ -3474,9 +3559,9 @@ export function initAPI() {
                             {
                                 if(param == 'kWdemand')
                                 {
-                                    if(e['TotalkWh'] != undefined || e['TotalkWh'] != -1)
+                                    if(e[kwhType] != undefined || e[kwhType] != -1)
                                     {
-                                        dval = (e['TotalkWh'] - prev_dval) * DEMAND
+                                        dval = (e[kwhType] - prev_dval) * DEMAND
                                     }
                                     else
                                     {
@@ -3494,7 +3579,7 @@ export function initAPI() {
                         {
                             if(param == 'kWdemand')
                             {
-                                dval = e['TotalkWh']
+                                dval = e[kwhType]
                             }
                             else
                             {
@@ -3507,7 +3592,7 @@ export function initAPI() {
 
                         if(param == 'kWdemand')
                         {
-                            prev_dval = e['TotalkWh']
+                            prev_dval = e[kwhType]
                         }
                         else
                         {
@@ -3591,6 +3676,8 @@ export function initAPI() {
 
         res.json(ret)
     })
+
+
 
     api.post('/rp_export/:type/:ttype/:year/:month/:day/:syear/:smonth/:sday', async (req, res) => {
         if(await apiguard(req, 'rp_chart', '') == false)
@@ -4120,6 +4207,167 @@ export function initAPI() {
         }
 
         res.attachment(req.params.ttype + '_export.xlsx')
+        workbook.xlsx.write(res).then(() => {
+            res.end()
+        })
+    })
+
+    api.post('/report_export/:frequency/:s_year/:s_month/:s_day/:s_hour/:s_min/:report_type', async (req, res) => {
+        if(await apiguard(req, 'rp_chart', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+        let workbook = new ExcelJS.Workbook()
+        try{
+            switch (req.params.report_type) {
+                case 'report_MC1_2':
+                    await workbook.xlsx.readFile(path.join(process.cwd(), 'Template Energy Report - TEP - MC12.xlsx'))
+                    break;
+                case 'report_DC1':
+                    await workbook.xlsx.readFile(path.join(process.cwd(), 'Template Energy Report - TEP - DC1.xlsx'))
+                    break;
+                case 'report_DC2':
+                    await workbook.xlsx.readFile(path.join(process.cwd(), 'Template Energy Report - TEP - DC2.xlsx'))
+                    break;
+                case 'report_DC3':
+                    await workbook.xlsx.readFile(path.join(process.cwd(), 'Template Energy Report - TEP - DC3.xlsx'))
+                    break;
+                case 'report_GC2':
+                    await workbook.xlsx.readFile(path.join(process.cwd(), 'Template Energy Report - TEP - GC2.xlsx'))
+                    break;
+                case 'report_MDB_TEP':
+                    await workbook.xlsx.readFile(path.join(process.cwd(), 'Template Energy Report - TEP - MDB.xlsx'))
+                    break;        
+                default:
+                    workbook = null;
+                    break;
+            }
+        }catch(err){
+            console.log(err);
+            
+            res.send(err)
+            return;
+        }
+    
+
+        if(!workbook){
+            res.send('file not found.')
+            return;
+        }
+
+        const worksheet = workbook.getWorksheet('RawData')
+        const start_date = new Date(Date.UTC(req.params.s_year, parseInt(req.params.s_month)-1, req.params.s_day,req.params.s_hour,req.params.s_min));
+        const end_date = new Date(Date.UTC(req.params.s_year, parseInt(req.params.s_month)-1, req.params.s_day,req.params.s_hour,req.params.s_min));
+
+
+        start_date.setUTCDate(1);
+        end_date.setUTCDate(end_date.getUTCDate() + 1);
+
+        const arr_size = ((end_date - start_date) / (1000 * 60 * 60 * 24)) + 1;
+        console.log(arr_size);
+        
+
+        const ret = {}
+
+        const p = req.body
+
+        for (const k of p) {
+            // Get data and fill
+            let arr = k.split("@");
+
+            if(arr[0] == 'M')
+            {
+                const sn = arr[1];
+                const siteid = arr[2];
+                const nodeid = arr[3];
+
+                arr = arr[4].split("%");
+
+                const modbusid = String(parseInt(arr[0]) + 1);
+                const param = arr[1];
+                let eData = null;
+                const cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + param
+          
+                
+
+                eData = await db.energy.findAll({
+                    attributes: ['DateTimeUpdate', 'SerialNo', param],
+                    where: {
+                        DateTimeUpdate: {
+                            [Op.between]: [start_date, end_date]
+                        },
+                        [Op.and]: [
+                            db.sequelize.where(
+                                db.sequelize.fn('DATE_PART', 'hour', db.sequelize.col('DateTimeUpdate')),
+                                req.params.s_hour
+                            ),
+                            db.sequelize.where(
+                                db.sequelize.fn('DATE_PART', 'minute', db.sequelize.col('DateTimeUpdate')),
+                                req.params.s_min
+                            )
+                        ],
+                        snmKey: siteid + "%" + nodeid + "%" + modbusid
+                    },
+                    order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                })
+
+                ret[cellName] = []
+                for (let index = 0; index < arr_size; index++) {
+                    ret[cellName].push(0) 
+                }
+                if(eData.length > 0){
+                    const tmpMonth = new Date(eData[0].DateTimeUpdate).getMonth();
+                    const tmpYear = new Date(eData[0].DateTimeUpdate).getFullYear();
+                    for(const e of eData)
+                    { 
+                        const index = new Date(e.DateTimeUpdate).getDate() - 1;
+                        const currMonth = new Date(e.DateTimeUpdate).getMonth();
+                        const currYear = new Date(e.DateTimeUpdate).getFullYear();
+                        if(currMonth > tmpMonth || tmpYear > currYear){
+                            ret[cellName][ret[cellName].length - 1] = e[param];
+                        }
+                        else if(index >= 0 && index <=30 ){
+                            ret[cellName][index] = e[param];
+                        } 
+                    }
+                }
+            }
+        }
+
+        function getColumnLetter(colIndex) {
+            let letter = '';
+            while (colIndex > 0) {
+                const mod = (colIndex - 1) % 26;
+                letter = String.fromCharCode(65 + mod) + letter;
+                colIndex = Math.floor((colIndex - mod) / 26);
+            }
+            return letter;
+        }
+    
+        const keys = Object.keys(ret)
+        let currRow = 2     
+        for(const k of keys)
+        {
+            const col = worksheet.getRow(currRow)
+            col.values = [k].concat(ret[k])
+            col.width = k.length+5
+            currRow++
+        }
+
+        
+
+        for(let i=1; i<=arr_size; i++)
+        {
+            const columnLetter = getColumnLetter(i+1); 
+            const newDate = new Date(start_date);
+            newDate.setDate(newDate.getDate() + (i-1))
+            worksheet.getCell(`${columnLetter}1`).value = newDate;
+            //worksheet.getCell(`${columnLetter}1`).value = new Date(start_date.getTime() + ((i-1)*15*60*1000));
+            
+        }
+
+        res.attachment(req.params.report_type + '_export.xlsx')
         workbook.xlsx.write(res).then(() => {
             res.end()
         })
