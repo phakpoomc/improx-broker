@@ -42,8 +42,18 @@ if (!cbRegistered) {
     window.mainprocess.send('registerCB', '')
 }
 
+var removeKey = null
+
+function confirmRemove() {
+    if(removeKey)
+    {
+        window.mainprocess.removeBN(removeKey)
+    }
+    
+}
+
 function remove(key) {
-    window.mainprocess.removeBN(key)
+    removeKey = key
 }
 
 function clearMessage() {
@@ -76,6 +86,24 @@ function getIconClasses(status) {
 <template>
     <Navbar>
         <template #body>
+            <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModal" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="removeLabel">Blacknode Removal Confirmation</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        Do you want to remove the selected Blacknode?
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-danger" data-bs-dismiss="modal" @click="confirmRemove()">Remove</button>
+                    </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="row">
                 <template v-for="b in bn">
                     <div class="col-4 mt-2">
@@ -96,6 +124,8 @@ function getIconClasses(status) {
                                 <b class="align-middle ms-1"> {{ b.name }} </b>
                                 <a
                                     class="link-opacity-100 text-secondary float-end"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#confirmDeleteModal"
                                     @click="remove(b.serial)"
                                 >
                                     <svg
