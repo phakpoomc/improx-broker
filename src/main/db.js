@@ -30,6 +30,28 @@ async function alterTable(sequelize) {
     } else {
         console.log("'line' column already exists in 'gmember' table");
     }
+
+    if (!gmemberInfo.order_meter) {
+        // If the column doesn't exist, add it
+        await queryInterface.addColumn('gmember', 'order_meter', {
+            type: DataTypes.STRING,
+            allowNull: true
+        });
+        console.log("'order_meter' column added to 'gmember' table");
+    } else {
+        console.log("'order_meter' column already exists in 'gmember' table");
+    }
+
+    if (!gmemberInfo.is_consumption) {
+        // If the column doesn't exist, add it
+        await queryInterface.addColumn('gmember', 'is_consumption', {
+            type: DataTypes.STRING,
+            allowNull: true
+        });
+        console.log("'is_consumption' column added to 'gmember' table");
+    } else {
+        console.log("'is_consumption' column already exists in 'gmember' table");
+    }
 }
 
 
@@ -161,6 +183,8 @@ export async function syncDB() {
                 ModbusID: { type: DataTypes.STRING, field: 'ModbusID' },
                 multiplier: { type: DataTypes.DOUBLE, field: 'multiplier' },
                 line: { type: DataTypes.STRING, field: 'line' ,allowNull:true },
+                order_meter: { type: DataTypes.STRING, field: 'order_meter' ,allowNull:true },
+                is_consumption: { type: DataTypes.STRING, field: 'is_consumption' ,allowNull:true }
             },
             {
                 tableName: 'gmember'

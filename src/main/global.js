@@ -245,7 +245,9 @@ export async function loadMetaDB()
                 nodeid: g.NodeID,
                 modbusid: g.ModbusID,
                 multiplier: g.multiplier,
-                line:g.line
+                line:g.line,
+                order_meter:g.order_meter,
+                is_consumption:g.is_consumption
             }
 
             group[g.GroupID].member.push(m)
@@ -289,7 +291,10 @@ export async function loadGroup() {
                 siteid: g.SiteID,
                 nodeid: g.NodeID,
                 modbusid: g.ModbusID,
-                multiplier: g.multiplier
+                multiplier: g.multiplier,
+                line:g.line,
+                order_meter:g.order_meter,
+                is_consumption:g.is_consumption
             }
 
             group[g.GroupID].member.push(m)

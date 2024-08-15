@@ -713,7 +713,8 @@ export function initAPI() {
 
         if (group !== null) {
             let members = await db.gmember.findAll({
-                where: { GroupID: group.id }
+                where: { GroupID: group.id },
+                order: [['order_meter', 'ASC']] 
             })
 
             if (members !== null) {
@@ -1011,7 +1012,8 @@ export function initAPI() {
 
         if (group !== null) {
             let members = await db.gmember.findAll({
-                where: { GroupID: group.id }
+                where: { GroupID: group.id },
+                order: [['order_meter', 'ASC']] 
             })
 
             if (members !== null) {
@@ -1164,7 +1166,8 @@ export function initAPI() {
 
         if (group !== null) {
             let members = await db.gmember.findAll({
-                where: { GroupID: group.id }
+                where: { GroupID: group.id },
+                order: [['order_meter', 'ASC']] 
             })
 
             if (members !== null) {
@@ -1316,7 +1319,8 @@ export function initAPI() {
 
         if (group !== null) {
             let members = await db.gmember.findAll({
-                where: { GroupID: group.id }
+                where: { GroupID: group.id },
+                order: [['order_meter', 'ASC']] 
             })
 
             if (members !== null) {
@@ -1454,7 +1458,8 @@ export function initAPI() {
 
         if (group !== null) {
             let members = await db.gmember.findAll({
-                where: { GroupID: group.id }
+                where: { GroupID: group.id },
+                order: [['order_meter', 'ASC']] 
             })
 
             if (members !== null) {
@@ -1620,7 +1625,8 @@ export function initAPI() {
 
         if (group !== null) {
             let members = await db.gmember.findAll({
-                where: { GroupID: group.id }
+                where: { GroupID: group.id },
+                order: [['order_meter', 'ASC']] 
             })
 
             if (members !== null) {
@@ -1688,6 +1694,131 @@ export function initAPI() {
             prevEnergy[e.snmKey] = energy;
         }
     
+        res.json(ret)
+    })
+
+    api.get('/dashboard-consumption/:year/:month/:day/:groupId', async (req, res) => {
+        let ret = [];
+
+        if(await apiguard(req, 'dashboard', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+
+        const formatDateTime = (date_string) => {
+            const date = new Date(date_string)
+            return `${date.getDate().toString().padStart('2','0')}/${(date.getMonth() + 1).toString().padStart('2','0')}/${date.getFullYear()} ${date.getHours().toString().padStart('2','0')}:${date.getMinutes().toString().padStart('2','0')}`
+        }
+
+
+        const groupId = req.params.groupId;
+        const year = req.params.year
+        const month = parseInt(req.params.month) - 1
+        const day = parseInt(req.params.day)
+
+        // calculate value and return
+        const date_category = new Date(year, month, day, 7, 15, 0)
+        for (let i = 0; i < 97; i++) {
+            date_category.setMinutes(date_category.getMinutes() + 15);
+            ret[i] = {
+                category: formatDateTime(date_category),
+                value1: 0
+            }
+        }
+
+        const startTime = new Date(Date.UTC(year, month, day, 7, 30, 0))
+        let endTime = new Date(Date.UTC(year, month, day + 1, 7, 30, 0))
+
+        let now = new Date()
+        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
+
+        if(now < endTime)
+        {
+            endTime = new Date(now)
+        }
+
+        if(!isNumeric(groupId)){
+            res.json(ret)
+            return
+        }
+
+        let group = await db.group.findOne({
+            where: { id: groupId }
+        })
+
+        group = group.dataValues;
+        var snmKey = []
+        let prevEnergy = {}
+        let prevTime = {}
+        let multmap = {}
+
+
+        if(!group){
+            res.json(ret)
+            return
+        }
+
+        if (group !== null) {
+            const members = await db.gmember.findAll({
+                where: { GroupID: group.id,is_consumption: 'TRUE' },
+                order: [['order_meter', 'ASC']] 
+            })
+            if(!members){
+                res.json(ret)
+                return
+            }
+
+ 
+            for (let m of members) {
+                let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
+                snmKey.push(key)
+                prevEnergy[key] = 0
+                prevTime[key] = null
+                multmap[key] = parseFloat(m.multiplier)
+            }
+
+        }
+
+        const eData = await db.energy.findAll({
+            where: {
+                DateTimeUpdate: {
+                    [Op.between]: [startTime, endTime]
+                },
+                snmKey: snmKey
+            },
+            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+        })
+
+        for (const e of eData) {
+            let energy = 0;
+            if(meta_cfg.useImport.value)
+            {
+                energy = e.Import_kWh
+            }
+            else
+            {
+                energy = e.TotalkWh
+            }
+            let absEnergy = 0;
+            if(prevEnergy[e.snmKey] > 0 && energy > 0){
+                absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+            }
+         
+            prevEnergy[e.snmKey] = energy;
+
+            const dt = new Date(e.DateTimeUpdate)
+            dt.setHours(dt.getHours()-7)
+
+            const findArray = ret.findIndex(r=>r.category == formatDateTime(dt))
+            if(dt.getMinutes() %15 != 0){
+                console.log('not 15 min : '+dt);
+            }
+            if(findArray > -1){
+                ret[findArray].value1 += absEnergy;
+            }
+        }
+
         res.json(ret)
     })
 
@@ -1826,7 +1957,8 @@ export function initAPI() {
             let groupInfo = await db.gmember.findAll({
                 where:{
                     GroupID:id
-                }
+                },
+                order: [['order_meter', 'ASC']] 
             })
 
             if (groupInfo !== null) {
@@ -2141,31 +2273,26 @@ export function initAPI() {
                 const bn = blacknode[g.SerialNo];
                 const meter = bn.meter_list.find((m)=>m.id == g.ModbusID)
                 if(meter){
+                    // add deley 1
+                    let isOnline = false;
+                    const lastUpdate = new Date(meter.last_update)
+                    if (lastUpdate instanceof Date && !isNaN(lastUpdate)){
+                        if((new Date() - lastUpdate)  / (1000 * 60) <= 1){
+                            isOnline = true;
+                        }
+                    }
                     if(!resp_data[g.gid]){
                         resp_data[g.gid] = {
                             id:g.gid,
                             name:g.name,
-                            status:meter.status,
-                            meter:[{meter_name:meter.name,status:meter.status}]
+                            status:isOnline ? 'on' : meter.status ,
+                            meter:[{meter_name:meter.name,status:isOnline ? 'on' : meter.status}]
                         }
-                       
                     }else{
-                        const isOffline = resp_data[g.gid].meter.filter((m)=>m.status == 'off' );
-                        if(isOffline.length == 0 && meter.status == 'on'){
-                            resp_data[g.gid].status = 'on';
-                        }else if(isOffline.length == resp_data[g.gid].meter.length && meter.status == 'off'){
-                            resp_data[g.gid].status = 'off';
-                        }else{
-                            resp_data[g.gid].status = 'partial';
-                        }
-
-                        resp_data[g.gid].meter.push({meter_name:meter.name,status:meter.status})
+                        resp_data[g.gid].meter.push({meter_name:meter.name,status:isOnline ? 'on' : meter.status})
                     }
-                }
-                
-            
-            }
-            
+                }          
+            }          
             res.json(resp_data)
         }else{
             res.json({})
