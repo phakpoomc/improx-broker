@@ -2136,7 +2136,8 @@ export function initAPI() {
 
                 let total = 0;
                 let count = 0;
-
+                console.log(group[gid]);
+                
                 for(let m of group[gid].member)
                 {
                     let sn = m.serial;
@@ -2601,6 +2602,103 @@ export function initAPI() {
             res.json({})
             return
         }
+    })
+
+    api.get('/group_total_pf', async (_req, res) => {
+        if(await apiguard(_req, 'group_pf_monitor', '') == false)
+        {
+            res.json({})
+            return
+        }
+
+        const groupDB = await db.group.findAll({
+            where: {
+                type: {
+                    [Op.in]: ['j_01_main', 'j_02_main', 'j_02_sub', 'j_03_main', 'j_03_sub']
+                }
+            },
+            order: [
+                ['type', 'ASC']
+            ]
+        });
+
+        if(!groupDB){
+            res.json({})
+            return
+        }
+
+        const groupMap = {
+            j_01_main:{
+                data:null,
+                value:0
+            },
+            j_02_main:{
+                data:null,
+                value:0
+            },
+            j_03_main:{
+                data:null,
+                value:0
+            },
+            j_02_sub:[],
+            j_03_sub:[]
+        }
+
+        const getValueByParam = (group_id,param_meter) =>{
+            const gid = parseInt(group_id);
+            const param = param_meter;
+            let total = 0;
+            let count = 0;
+            for(const m of group[gid].member)
+            {
+                const sn = m.serial;
+                const modbusid = parseInt(m.modbusid) - 1;
+                const snid = sn + "%" + String(modbusid);
+    
+                count += 1;
+    
+                if(lastUpdateData[snid] && lastUpdateTime[snid])
+                {
+                    total += lastUpdateData[snid][param] * m.multiplier;
+                }
+            }
+            if(cmap[param].group == 'avg')
+            {
+                return total/count;
+            }
+            else if(cmap[param].group == 'sum')
+            {
+                return total;
+            }
+            else
+            {
+                console.log("Invalid parameter");
+                return 0;
+            }
+        }
+
+
+
+        try {
+            for (const g of groupDB) {
+                const type = g.dataValues.type;
+                const value = getValueByParam(g.dataValues.id,'P_Sum');
+                if(type == 'j_02_sub' || type == 'j_03_sub'){
+            
+                    groupMap[type].push({data:g.dataValues,value});
+                }else{
+                    groupMap[type].data = g.dataValues;
+                    groupMap[type].value = value;
+                }
+            }
+            
+        } catch (error) {
+            console.log(error);
+            res.json(groupMap)
+            return;
+        }
+
+        res.json(groupMap)
     })
 
 
