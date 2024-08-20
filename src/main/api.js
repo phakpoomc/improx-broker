@@ -19,7 +19,6 @@ import {
     loadAlarm,
     loadMetaDB,
     loadMetaCFG,
-    lastFeedTime,
     MAX_HEARTBEAT
 } from './global.js'
 import { createReadStream } from 'fs'
@@ -375,6 +374,45 @@ function checkRoles(givenRoles, allowedRoles)
     return false
 }
 
+
+const formatDateTime = (date_string) => {
+    const date = new Date(date_string)
+    return `${date.getDate().toString().padStart('2','0')}/${(date.getMonth() + 1).toString().padStart('2','0')}/${date.getFullYear()} ${date.getHours().toString().padStart('2','0')}:${date.getMinutes().toString().padStart('2','0')}`
+}
+
+const getGroupValueByParam = (group_id,param_meter) =>{
+    const gid = parseInt(group_id);
+    const param = param_meter;
+    let total = 0;
+    let count = 0;
+    for(const m of group[gid].member)
+    {
+        const sn = m.serial;
+        const modbusid = parseInt(m.modbusid) - 1;
+        const snid = sn + "%" + String(modbusid);
+
+        count += 1;
+
+        if(lastUpdateData[snid] && lastUpdateTime[snid])
+        {
+            total += lastUpdateData[snid][param] * m.multiplier;
+        }
+    }
+    if(cmap[param].group == 'avg')
+    {
+        return total/count;
+    }
+    else if(cmap[param].group == 'sum')
+    {
+        return total;
+    }
+    else
+    {
+        console.log("Invalid parameter");
+        return 0;
+    }
+}
+
 function getRandomHexColor() {
     let r, g, b;
     do {
@@ -401,14 +439,15 @@ const routes = {
     'nodemonitor': ['owner', 'user', 'admin', 'test'],
     'parametermanage': ['owner', 'admin', 'test'],
     'phasor': ['owner', 'user', 'admin', 'test'],
+    'air_comp_monitor': ['owner', 'user', 'admin', 'test'],
     'group_monitor': ['owner', 'user', 'admin', 'test'],
     'report': ['owner', 'user', 'admin', 'test'],
     'usermanage': ['owner', 'admin', 'test'],
     'product': ['owner', 'user', 'admin', 'test'],
     'support': ['owner', 'user', 'admin', 'test'],
     'other': ['owner', 'user', 'admin', 'test'],
-    'air_comp': ['owner', 'user', 'admin', 'test'],
     'pf': ['owner', 'user', 'admin', 'test'],
+    'target': ['owner', 'admin', 'test'],
     'total_kWh_22kV': ['owner', 'user', 'admin', 'test'],
     'dashboard_group': ['owner', 'user', 'admin', 'test'],
 }
@@ -431,9 +470,10 @@ const apis = {
     'getholiday': ['owner', 'user', 'admin', 'test'],
     'getuser': ['owner', 'user', 'admin', 'test'],
     'rp_chart': ['owner', 'user', 'admin', 'test'],
-    'feedmeter': ['owner', 'admin', 'test'],
     'dashboard_meters': ['owner', 'user', 'admin', 'test'],
     'group_pf_monitor': ['owner', 'user', 'admin', 'test'],
+    'air_comp_monitor': ['owner', 'user', 'admin', 'test'],
+    'target': ['owner', 'admin', 'test'],
     'group_monitor': ['owner', 'user', 'admin', 'test'],
 }
 
@@ -660,10 +700,10 @@ export function initAPI() {
         // calculate value and return
         let now = new Date()
 
-        let tLastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0))
-        let tThisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0))
-        let tYesterday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0))
-        let tToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0))
+        let tLastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 7, 30, 0))
+        let tThisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 7, 30, 0))
+        let tYesterday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1, 7, 30, 0))
+        let tToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 7, 30, 0))
         let tTomorrow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0))
 
         let energyLastMonth = 0
@@ -945,6 +985,31 @@ export function initAPI() {
         res.json(ret)
     })
 
+    api.get('/group_name/:groupId', async (req, res) => {
+        let ret = { g_name:'undefine'}
+        const groupId =  req.params.groupId;
+        if(await apiguard(req, 'dashboard', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+
+        const group_name = await db.group.findOne({
+            where: { id: groupId }
+        })
+
+        if(!group_name){
+            res.json(ret)
+            return
+        }
+
+        ret = {
+            g_name:group_name.name,
+        }
+
+        res.json(ret)
+    })
+
     api.get('/dashboard/:year/:month/:day/:groupId', async (req, res) => {
         let ret = []
 
@@ -955,19 +1020,26 @@ export function initAPI() {
         }
 
         // calculate value and return
-        for (let i = 0; i < 24; i++) {
-            ret[i] = {
-                category: String(i),
-                value1: 0
-            }
-        }
+
         const groupId = req.params.groupId;
         let year = req.params.year
         let month = parseInt(req.params.month) - 1
         let day = parseInt(req.params.day)
 
-        let startTime = new Date(Date.UTC(year, month, day, 0, 0, 0))
-        let endTime = new Date(Date.UTC(year, month, day + 1, 0, 0, 0))
+        let startTime = new Date(Date.UTC(year, month, day, 7, 30, 0))
+        let endTime = new Date(Date.UTC(year, month, day + 1, 7, 30, 0))
+
+        const newDate = new Date(`${year}-${month}-${day} 06:30`)
+        for (let i = 0; i < 24; i++) {
+            newDate.setHours(newDate.getHours() + 1);
+            ret[i] = {
+                category: `${newDate.getHours().toString().padStart(2,'0')}:${newDate.getMinutes().toString().padStart(2,'0')}`,
+                value1: 0
+            }
+        }
+        ret[0] = {category:`${day.toString().padStart(2,'0')}-${month.toString().padStart(2,'0')}-${year} 07:30`,value1: 0}
+        ret[17] = {category:`${newDate.getDay().toString().padStart(2,'0')}-${(newDate.getMonth()+1).toString().padStart(2,'0')}-${year} 00:00`,value1: 0}
+
 
         let now = new Date()
         now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
@@ -1122,8 +1194,8 @@ export function initAPI() {
             }
         }
 
-        let startTime = new Date(Date.UTC(year, month, 1, 0, 0, 0))
-        let endTime = new Date(Date.UTC(year, month + 1, 1, 0, 0, 0))
+        let startTime = new Date(Date.UTC(year, month, 1, 7, 30, 0))
+        let endTime = new Date(Date.UTC(year, month + 1, 1, 7, 30, 0))
 
         let now = new Date()
         now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
@@ -1274,8 +1346,8 @@ export function initAPI() {
             }
         }
 
-        let startTime = new Date(Date.UTC(year, 0, 1, 0, 0, 0))
-        let endTime = new Date(Date.UTC(year + 1, 0, 1, 0, 0, 0))
+        let startTime = new Date(Date.UTC(year, 0, 1, 7, 30, 0))
+        let endTime = new Date(Date.UTC(year + 1, 0, 1, 7, 30, 0))
 
         let now = new Date()
         now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
@@ -1706,10 +1778,6 @@ export function initAPI() {
             return
         }
 
-        const formatDateTime = (date_string) => {
-            const date = new Date(date_string)
-            return `${date.getDate().toString().padStart('2','0')}/${(date.getMonth() + 1).toString().padStart('2','0')}/${date.getFullYear()} ${date.getHours().toString().padStart('2','0')}:${date.getMinutes().toString().padStart('2','0')}`
-        }
 
 
         const groupId = req.params.groupId;
@@ -1719,13 +1787,14 @@ export function initAPI() {
 
         // calculate value and return
         const date_category = new Date(year, month, day, 7, 15, 0)
-        for (let i = 0; i < 97; i++) {
+        for (let i = 0; i < 96; i++) {
             date_category.setMinutes(date_category.getMinutes() + 15);
             ret[i] = {
                 category: formatDateTime(date_category),
                 value1: 0
             }
         }
+
 
         const startTime = new Date(Date.UTC(year, month, day, 7, 30, 0))
         let endTime = new Date(Date.UTC(year, month, day + 1, 7, 30, 0))
@@ -1779,7 +1848,7 @@ export function initAPI() {
             }
 
         }
-
+        
         const eData = await db.energy.findAll({
             where: {
                 DateTimeUpdate: {
@@ -1789,7 +1858,7 @@ export function initAPI() {
             },
             order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
         })
-
+        
         for (const e of eData) {
             let energy = 0;
             if(meta_cfg.useImport.value)
@@ -1811,6 +1880,7 @@ export function initAPI() {
             dt.setHours(dt.getHours()-7)
 
             const findArray = ret.findIndex(r=>r.category == formatDateTime(dt))
+            
             if(dt.getMinutes() %15 != 0){
                 console.log('not 15 min : '+dt);
             }
@@ -1818,6 +1888,18 @@ export function initAPI() {
                 ret[findArray].value1 += absEnergy;
             }
         }
+
+        const date_category2 = new Date(year, month, day, 7, 15, 0)
+        for (let i = 0; i < 96; i++) {
+            date_category2.setMinutes(date_category2.getMinutes() + 15);
+            ret[i].category = `${date_category2.getHours().toString().padStart(2,'0')}:${date_category2.getMinutes().toString().padStart(2,'0')}`
+            
+        }
+
+        let start_date_time = new Date(year, month, day, 7, 30, 0);
+        ret[0].category = formatDateTime(start_date_time)
+        start_date_time = new Date(year, month, day+1, 0, 0, 0);
+        ret[66].category = formatDateTime(start_date_time)
 
         res.json(ret)
     })
@@ -2234,30 +2316,59 @@ export function initAPI() {
         for (let k of keys) {
             let bn = blacknode[k]
 
+            //delay  2 min
+            const bn_lastUpdate = new Date(bn.last_update);
+            let bn_status = 'off';
+            if (bn_lastUpdate instanceof Date && !isNaN(bn_lastUpdate)){
+                if((new Date() - bn_lastUpdate)  / (1000 * 60) <= 2){
+                    bn_status = 'on';
+                }
+            }
+            
             ret[bn.serial] = {
                 id: 'Node ' + String(bn.nodeid),
                 location: bn.name,
-                status: bn.status,
+                status: bn_status,
                 maxmeter: bn.maxmeter,
                 meter_list: []
             }
-
+            let isPartial = false;
             for (let i = 0; i < bn.maxmeter; i++) {
+                //delay  2 min
+                const m_lastUpdate = new Date(bn.meter_list[i].last_update);
+                let m_status = 'off';
+                if (m_lastUpdate instanceof Date && !isNaN(m_lastUpdate)){
+                    if((new Date() - m_lastUpdate)  / (1000 * 60) <= 2){
+                        m_status = 'on';
+                    }
+                }
+                if(m_status === 'off'){
+                    isPartial = true;
+                }
                 ret[bn.serial].meter_list[i] = {
                     id: i + 1,
                     address: bn.meter_list[i].id,
                     name: bn.meter_list[i].name,
-                    status: bn.meter_list[i].status
+                    status: m_status
                 }
+            }
+            if(isPartial){
+                ret[bn.serial].status == 'partial';
             }
         }
 
         res.json(ret)
     })
 
-    api.get('/group_monitor/:type', async (_req, res) => {
-        if(await apiguard(_req, 'group_monitor', '') == false)
+    api.get('/air_comp_monitor/:type/:i_value', async (_req, res) => {
+        if(await apiguard(_req, 'air_comp_monitor', '') == false)
         {
+            res.json({})
+            return
+        }
+
+        const i_value = _req.params.i_value;
+        if(!i_value){
             res.json({})
             return
         }
@@ -2267,6 +2378,7 @@ export function initAPI() {
             type: QueryTypes.SELECT,
         });
 
+
         const resp_data = {};
         if(group != null){
             for (let i = 0; i < group.length; i++) {
@@ -2275,23 +2387,46 @@ export function initAPI() {
                 const meter = bn.meter_list.find((m)=>m.id == g.ModbusID)
                 if(meter){
                     // add deley 1
-                    let isOnline = false;
-                    const lastUpdate = new Date(meter.last_update)
+                    let load_status = 'off';
+                    const lastUpdate = new Date(meter.last_update);
                     if (lastUpdate instanceof Date && !isNaN(lastUpdate)){
-                        if((new Date() - lastUpdate)  / (1000 * 60) <= 1){
-                            isOnline = true;
+                        if((new Date() - lastUpdate)  / (1000 * 60) <= 2){
+                            load_status = 'load';
                         }
                     }
+
+                    if(load_status === 'off'){
+                        if(!resp_data[g.gid]){
+                            resp_data[g.gid] = {
+                                id:g.gid,
+                                name:g.name,
+                                status:load_status,
+                                meter:[{meter_name:meter.name,status:meter.status}]
+                            }
+                        }else{
+                            resp_data[g.gid].meter.push({meter_name:meter.name,status:meter.status})
+                        }
+                        continue;
+                    }
+
+                    const I1 =  getGroupValueByParam(g.gid,'I1');
+                    const I2 =  getGroupValueByParam(g.gid,'I2');
+                    const I3 =  getGroupValueByParam(g.gid,'I3');
+
+                    if(I1 < i_value || I2 < i_value  || I3 < i_value){
+                        load_status = 'unload';
+                    }
+
                     if(!resp_data[g.gid]){
                         resp_data[g.gid] = {
                             id:g.gid,
                             name:g.name,
-                            status:isOnline ? 'on' : meter.status ,
-                            meter:[{meter_name:meter.name,status:isOnline ? 'on' : meter.status}]
+                            status:load_status 
                         }
                     }else{
-                        resp_data[g.gid].meter.push({meter_name:meter.name,status:isOnline ? 'on' : meter.status})
+                        resp_data[g.gid].meter.push({meter_name:meter.name,status:load_status})
                     }
+             
                 }          
             }          
             res.json(resp_data)
@@ -2614,7 +2749,7 @@ export function initAPI() {
         const groupDB = await db.group.findAll({
             where: {
                 type: {
-                    [Op.in]: ['j_01_main', 'j_02_main', 'j_02_sub', 'j_03_main', 'j_03_sub']
+                    [Op.in]: ['j_01_main_pf', 'j_02_main_pf', 'j_02_sub_pf', 'j_03_main_pf', 'j_03_sub_pf']
                 }
             },
             order: [
@@ -2628,62 +2763,28 @@ export function initAPI() {
         }
 
         const groupMap = {
-            j_01_main:{
+            j_01_main_pf:{
                 data:null,
                 value:0
             },
-            j_02_main:{
+            j_02_main_pf:{
                 data:null,
                 value:0
             },
-            j_03_main:{
+            j_03_main_pf:{
                 data:null,
                 value:0
             },
-            j_02_sub:[],
-            j_03_sub:[]
+            j_02_sub_pf:[],
+            j_03_sub_pf:[]
         }
-
-        const getValueByParam = (group_id,param_meter) =>{
-            const gid = parseInt(group_id);
-            const param = param_meter;
-            let total = 0;
-            let count = 0;
-            for(const m of group[gid].member)
-            {
-                const sn = m.serial;
-                const modbusid = parseInt(m.modbusid) - 1;
-                const snid = sn + "%" + String(modbusid);
-    
-                count += 1;
-    
-                if(lastUpdateData[snid] && lastUpdateTime[snid])
-                {
-                    total += lastUpdateData[snid][param] * m.multiplier;
-                }
-            }
-            if(cmap[param].group == 'avg')
-            {
-                return total/count;
-            }
-            else if(cmap[param].group == 'sum')
-            {
-                return total;
-            }
-            else
-            {
-                console.log("Invalid parameter");
-                return 0;
-            }
-        }
-
 
 
         try {
             for (const g of groupDB) {
                 const type = g.dataValues.type;
-                const value = getValueByParam(g.dataValues.id,'P_Sum');
-                if(type == 'j_02_sub' || type == 'j_03_sub'){
+                const value = getGroupValueByParam(g.dataValues.id,'PF_Sum');
+                if(type == 'j_02_sub_pf' || type == 'j_03_sub_pf'){
             
                     groupMap[type].push({data:g.dataValues,value});
                 }else{
@@ -3916,16 +4017,13 @@ export function initAPI() {
         if(req.params.ttype == 'electrical')
         {
             await workbook.xlsx.readFile(path.join(process.cwd(), 'Report-01_template.xlsx'))
-        }
-        else
-        {
+        }else{
             await workbook.xlsx.readFile(path.join(process.cwd(), 'Report-02_energy_template.xlsx'))
-            var feederWS = workbook.getWorksheet('RawFeeder')
         }
         
-        let worksheet = workbook.getWorksheet('RawData')
+        const worksheet = workbook.getWorksheet('RawData')
 
-        let start_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
+        const start_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
         let end_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
 
         if(req.params.type == "year")
@@ -4358,60 +4456,6 @@ export function initAPI() {
             }
         }
 
-        if(req.params.ttype != 'electrical')
-        {
-            let fData = await db.feedmeter.findAll({
-                where: {
-                    DateTime: {
-                        [Op.and]: {
-                            [Op.gte]: start_date,
-                            [Op.lte]: end_date
-                        }
-                    }
-                },
-                order: [['FeederDateTime', 'ASC'], ['id', 'asc']]
-            })
-
-            let fRet = {}
-
-            for(let f of fData)
-            {
-                if(!fRet[f.name])
-                {
-                    fRet[f.name] = []
-
-                    for(let i=0; i<arr_size; i++)
-                    {
-                        fRet[f.name].push(0);
-                    }
-                }
-
-                let adjustedTime = new Date(f.DateTime.getTime())
-
-                let seq = Math.trunc(adjustedTime.getTime()/1000/60/15) - start_seq;
-
-                fRet[f.name][seq] = f.value
-            }
-
-            let keys = Object.keys(fRet)
-            let currCol = 2
-
-            for(let k of keys)
-            {
-                let col = feederWS.getColumn(currCol)
-
-                col.values = [k].concat(fRet[k])
-                col.width = k.length + 5
-                currCol++
-            }
-
-            for(let i=1; i<=arr_size; i++)
-            {
-                feederWS.getCell('A' + String(i+1)).value = new Date(start_date.getTime() + ((i-1)*15*60*1000));
-            }
-        }
-        
-
         let keys = Object.keys(ret)
         let currCol = 2
 
@@ -4598,29 +4642,194 @@ export function initAPI() {
         })
     })
 
-    api.post('/feedmeter', async (req, res) => {
-        if(await apiguard(req, 'feedmeter', req.body.token) == false)
+    api.get('/monthly_target/:year/:month', async (req, res) => {
+
+        if(await apiguard(req, 'group_monitor', '') == false)
+        {
+            res.json({})
+            return
+        }
+
+        const group = await db.group.findAll({
+            where: {
+              type: 'monthly_target'
+            }
+        });  
+
+        if(!group){
+            res.json({})
+            return
+        }
+
+        const year = req.params.year
+        const month = parseInt(req.params.month) - 1
+        let startTime = new Date(Date.UTC(year, month, 1, 0, 0, 0))
+        let endTime = new Date(Date.UTC(year, month + 1, 1, 0, 0, 0))
+        endTime.setDate(endTime.getDate() - 1)
+        
+        let target = await db.target.findAll({
+            where: {
+                target_datetime: {
+                    [Op.and]: {
+                        [Op.gte]: startTime,
+                        [Op.lte]: endTime
+                    }
+                }
+            }
+        });   
+
+          // get group that not create in current month and create it
+        if(target.length != group.length){
+            const filterGroup = group.filter(g => {
+                return !target.some(t => t.group_id === g.id);
+            });
+            if(filterGroup){
+                await db.target.bulkCreate(filterGroup.map(fg=>({
+                    target_datetime:startTime,
+                    group_id:fg.id,
+                    value:0
+                })))
+            }
+        }
+
+        target = await db.target.findAll({
+            where: {
+                target_datetime: {
+                    [Op.and]: {
+                        [Op.gte]: startTime,
+                        [Op.lte]: endTime
+                    }
+                }
+            }
+        });   
+
+        startTime = new Date(Date.UTC(year, month, 1, 7, 30, 0))
+        endTime = new Date(Date.UTC(year, month + 1, 1, 7, 30, 0))
+
+
+        const group_value = async (gid) => {
+            let snmKey = []
+            let prevEnergy = {}
+            let prevTime = {}
+            let multmap = {}
+
+            const members = await db.gmember.findAll({
+                where: { GroupID: gid },
+                order: [['order_meter', 'ASC']] 
+            })
+
+            if(!members){
+                return 0;
+            }
+
+            if (members) {
+                for (let m of members) {
+                    let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
+                    snmKey.push(key)
+                    prevEnergy[key] = 0
+                    prevTime[key] = null
+                    multmap[key] = parseFloat(m.multiplier)
+                }
+            }
+        
+
+            const eData = await db.energy.findAll({
+                where: {
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startTime,
+                            [Op.lte]: endTime
+                        }
+                    },
+                    snmKey: snmKey
+                },
+                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+            })
+            
+            let total = 0;
+
+            for (const e of eData) {
+                let sn = e.SerialNo
+                let period = blacknode[sn].period * 60 * 1000
+                let energy = 0;
+
+                if(meta_cfg.useImport.value)
+                {
+                    energy = e.Import_kWh
+                }
+                else
+                {
+                    energy = e.TotalkWh
+                }
+
+                if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
+                    prevTime[e.snmKey] = e.DateTimeUpdate
+                    prevEnergy[e.snmKey] = energy
+                    continue
+                }
+
+                let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+
+                prevEnergy[e.snmKey] = energy
+
+                let adjustedTime = new Date(e.DateTimeUpdate)
+
+                adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
+
+                let day = adjustedTime.getUTCDate() - 1
+
+                total += absEnergy
+
+                prevTime[e.snmKey] = e.DateTimeUpdate
+            }
+
+            return total;
+
+        }
+
+        const filterTarget = [];
+
+        const ret = [];
+        for (let i = 0; i < group.length; i++) {
+            const value = await group_value(group[i].id);
+            const target_value = target.find((t)=>t.group_id == group[i].id)
+            if(target_value){
+                ret[i] =   {
+                    department: group[i].name,
+                    target: target_value.value ? target_value.value : 0,
+                    usage: value,
+                }
+                filterTarget[i] = {
+                    id:target_value.id,
+                    name:group[i].name,
+                    value:target_value.value
+                }
+            }
+        }
+
+        
+        res.json({
+            graph:ret,
+            target:filterTarget
+        })
+    })
+
+    api.post('/monthly_target', async (req, res) => {
+        if(await apiguard(req, 'target', '') == false)
         {
             res.send('Permission not allowed.')
             return
         }
-
-        let now = new Date()
-        now.setMinutes(parseInt(Math.trunc(now.getMinutes()/15) * 15))
-        let utc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0, 0))
-
-        if(!lastFeedTime[req.body.name] || lastFeedTime[req.body.name] < utc)
-        {
-            await db.feedmeter.create({
-                DateTime: utc,
-                name: req.body.name,
-                value: parseFloat(req.body.value)
-            })
-
-            lastFeedTime[req.body.name] = utc
+        
+        try {
+           await db.target.bulkCreate(req.body, {
+                updateOnDuplicate: ['value'], 
+            });
+            res.send('SUCCESS')
+        } catch (err) {
+            console.log(err)
+            res.send('Cannot create group.')
         }
-
-        res.send("SUCCESS");
     })
 
     api_server = api.listen((meta_cfg.broker.apiport) ? meta_cfg.broker.apiport : 8888, () => {

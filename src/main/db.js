@@ -94,6 +94,7 @@ export async function syncDB() {
                 db.user = null;
                 db.userrole = null;
                 db.feedmeter = null;
+                db.target = null;
 
                 last['message'] = 'Cannot connect to database.'
                 last['time'] = new Date()
@@ -263,6 +264,19 @@ export async function syncDB() {
             }
         )
 
+        db.target = sequelize.define(
+            'target',
+            {
+                id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
+                target_datetime: { type: DataTypes.DATE, field: 'target_datetime' },
+                group_id: { type: DataTypes.INTEGER, field: 'group_id' },
+                value: { type: DataTypes.FLOAT, field: 'value' },
+            },
+            {
+                tableName: 'target'
+            }
+        )
+
         await alterTable(sequelize);
 
         try {
@@ -311,6 +325,7 @@ export async function syncDB() {
             db.user = null;
             db.userrole = null;
             db.feedmeter = null;
+            db.target = null;
 
             last['message'] = 'Cannot sync database table.'
             last['time'] = new Date()
@@ -328,6 +343,7 @@ export async function syncDB() {
         db.user = null;
         db.userrole = null;
         db.feedmeter = null;
+        db.target = null;
 
         last['message'] = 'Database is not set up.'
         last['time'] = new Date()
