@@ -1129,9 +1129,18 @@ export function initAPI() {
             })
         }
 
-        for (let e of eData) {
-            let sn = e.SerialNo
-            let period = blacknode[sn].period * 60 * 1000
+        if(eData.length == 0){
+            res.json(ret)
+            return;
+        }
+
+        const date_compare = new Date(eData[0].DateTimeUpdate);
+        date_compare.setHours(date_compare.getHours() - 6);
+        let index_ret = 0; 
+
+        for (const e of eData) {
+            const sn = e.SerialNo
+            const period = blacknode[sn].period * 60 * 1000
             let energy = 0;
 
             if(meta_cfg.useImport.value)
@@ -1149,7 +1158,7 @@ export function initAPI() {
                 continue
             }
 
-            let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+            const absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
             // if (absEnergy == -1) {
             //     absEnergy = 0
@@ -1157,12 +1166,15 @@ export function initAPI() {
 
             prevEnergy[e.snmKey] = energy
 
-            let adjustedTime = new Date(e.DateTimeUpdate)
-            adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
+            const adjustedTime = new Date(e.DateTimeUpdate)
+            adjustedTime.setHours(adjustedTime.getHours() - 7);
 
-            let hour = adjustedTime.getUTCHours()
+            if(adjustedTime.getTime() > date_compare.getTime()){
+                date_compare.setHours(date_compare.getHours() + 1)
+                index_ret++;
+            }
 
-            ret[hour].value1 += absEnergy
+            ret[index_ret].value1 += absEnergy
 
             prevTime[e.snmKey] = e.DateTimeUpdate
 
@@ -2089,7 +2101,7 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.get('/group_meter_report', async (req, res) => {
+    api.get('/group_meter_report/:type', async (req, res) => {
         let ret = {
             group: [],
         }
@@ -2106,8 +2118,9 @@ export function initAPI() {
         if (db.gmember) {
             let groupInfo = null;
             //get only type monitor group
+            const sql = req.params.type == 'month' ? `= 'monthly_report'`   : `LIKE 'report_%'`
             try {
-                groupInfo = await db.sequelize.query(`SELECT * FROM gmember as gm LEFT JOIN "group" as g on gm."GroupID" = g.id where g.type LIKE 'report_%'`, {
+                groupInfo = await db.sequelize.query(`SELECT * FROM gmember as gm LEFT JOIN "group" as g on gm."GroupID" = g.id where g.type ${sql}`, {
                     model: db.gmember,
                     mapToModel: true, 
                 });
@@ -2320,7 +2333,7 @@ export function initAPI() {
             const bn_lastUpdate = new Date(bn.last_update);
             let bn_status = 'off';
             if (bn_lastUpdate instanceof Date && !isNaN(bn_lastUpdate)){
-                if((new Date() - bn_lastUpdate)  / (1000 * 60) <= 2){
+                if((new Date() - bn_lastUpdate)  / (1000 * 60) <= 5){
                     bn_status = 'on';
                 }
             }
@@ -2338,7 +2351,7 @@ export function initAPI() {
                 const m_lastUpdate = new Date(bn.meter_list[i].last_update);
                 let m_status = 'off';
                 if (m_lastUpdate instanceof Date && !isNaN(m_lastUpdate)){
-                    if((new Date() - m_lastUpdate)  / (1000 * 60) <= 2){
+                    if((new Date() - m_lastUpdate)  / (1000 * 60) <= 5){
                         m_status = 'on';
                     }
                 }
@@ -2390,7 +2403,7 @@ export function initAPI() {
                     let load_status = 'off';
                     const lastUpdate = new Date(meter.last_update);
                     if (lastUpdate instanceof Date && !isNaN(lastUpdate)){
-                        if((new Date() - lastUpdate)  / (1000 * 60) <= 2){
+                        if((new Date() - lastUpdate)  / (1000 * 60) <= 5){
                             load_status = 'load';
                         }
                     }
@@ -4481,12 +4494,13 @@ export function initAPI() {
         })
     })
 
-    api.post('/report_export/:frequency/:s_year/:s_month/:s_day/:s_hour/:s_min/:report_type', async (req, res) => {
+    api.post('/report_export/day/:s_year/:s_month/:s_day/:s_hour/:s_min/:report_type', async (req, res) => {
         if(await apiguard(req, 'rp_chart', '') == false)
         {
             res.send('Permission not allowed.')
             return
         }
+
         let workbook = new ExcelJS.Workbook()
         try{
             switch (req.params.report_type) {
@@ -4529,13 +4543,10 @@ export function initAPI() {
         const start_date = new Date(Date.UTC(req.params.s_year, parseInt(req.params.s_month)-1, req.params.s_day,req.params.s_hour,req.params.s_min));
         const end_date = new Date(Date.UTC(req.params.s_year, parseInt(req.params.s_month)-1, req.params.s_day,req.params.s_hour,req.params.s_min));
 
-
         start_date.setUTCDate(1);
         end_date.setUTCDate(end_date.getUTCDate() + 1);
 
         const arr_size = ((end_date - start_date) / (1000 * 60 * 60 * 24)) + 1;
-        console.log(arr_size);
-        
 
         const ret = {}
 
@@ -4635,6 +4646,109 @@ export function initAPI() {
             //worksheet.getCell(`${columnLetter}1`).value = new Date(start_date.getTime() + ((i-1)*15*60*1000));
             
         }
+
+        res.attachment(req.params.report_type + '_export.xlsx')
+        workbook.xlsx.write(res).then(() => {
+            res.end()
+        })
+    })
+
+    api.post('/report_export/month/:s_year/:s_month/:s_day/:s_hour/:s_min', async (req, res) => {
+        if(await apiguard(req, 'rp_chart', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        try {
+            await workbook.xlsx.readFile(path.join(process.cwd(), 'Template Energy Report - TEP - Monthly.xlsx'));
+        } catch (error) {
+            res.send(error)
+            return;    
+        }
+
+        const worksheet = workbook.getWorksheet('RawData')
+        
+        const start_date = new Date(Date.UTC(req.params.s_year, parseInt(req.params.s_month)-1, req.params.s_day,req.params.s_hour,req.params.s_min));
+        const end_date = new Date(Date.UTC(req.params.s_year, parseInt(req.params.s_month)-1, req.params.s_day,req.params.s_hour,req.params.s_min));
+
+        start_date.setUTCDate(1);
+        end_date.setUTCDate(1);
+        end_date.setUTCMonth(end_date.getUTCMonth() + 1)
+
+        const arr_size = 2
+        
+        const ret = {}
+
+        const p = req.body
+
+        for (const k of p) {
+            // Get data and fill
+            let arr = k.split("@");
+
+            if(arr[0] == 'M')
+            {
+                const sn = arr[1];
+                const siteid = arr[2];
+                const nodeid = arr[3];
+
+                arr = arr[4].split("%");
+
+                const modbusid = String(parseInt(arr[0]) + 1);
+                const param = arr[1];
+                let eData = null;
+                const cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + param
+          
+                
+
+                eData = await db.energy.findAll({
+                    attributes: ['DateTimeUpdate', 'SerialNo', param],
+                    where: {
+                        DateTimeUpdate:  {[Op.in]:[start_date,end_date]},
+                        snmKey: siteid + "%" + nodeid + "%" + modbusid
+                    },
+                    order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                })
+
+                ret[cellName] = []
+                for (let index = 0; index < arr_size; index++) {
+                    ret[cellName].push(0) 
+                }
+                if(eData.length > 0){
+                    const tmpMonth = new Date(start_date).getMonth();
+                    const tmpYear = new Date(start_date).getFullYear();
+                    for(const e of eData)
+                    { 
+                        const index = new Date(e.DateTimeUpdate).getDate() - 1;
+                        const currMonth = new Date(e.DateTimeUpdate).getMonth();
+                        const currYear = new Date(e.DateTimeUpdate).getFullYear();
+                        if(currMonth > tmpMonth || tmpYear > currYear){
+                            ret[cellName][ret[cellName].length - 1] = e[param];
+                        }
+                        else if(index >= 0 && index <=30 ){
+                            ret[cellName][index] = e[param];
+                        } 
+                    }
+                }
+            }
+        }
+
+        const keys = Object.keys(ret)
+        let currCol = 2
+
+        for(const k of keys)
+        {
+            const col = worksheet.getColumn(currCol)
+            col.values = [k].concat(ret[k])
+            col.width = k.length+5
+            currCol++
+        }
+
+
+
+        worksheet.getCell('A' + String(2)).value = start_date;
+        worksheet.getCell('A' + String(3)).value = end_date;
 
         res.attachment(req.params.report_type + '_export.xlsx')
         workbook.xlsx.write(res).then(() => {
@@ -4762,6 +4876,11 @@ export function initAPI() {
                     energy = e.TotalkWh
                 }
 
+                //skip if energy = 0
+                if(energy <= 0){
+                    continue;
+                }
+
                 if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
                     prevTime[e.snmKey] = e.DateTimeUpdate
                     prevEnergy[e.snmKey] = energy
@@ -4769,19 +4888,12 @@ export function initAPI() {
                 }
 
                 let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
-
-                prevEnergy[e.snmKey] = energy
-
-                let adjustedTime = new Date(e.DateTimeUpdate)
-
-                adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
-
-                let day = adjustedTime.getUTCDate() - 1
-
                 total += absEnergy
-
+                prevEnergy[e.snmKey] = energy
                 prevTime[e.snmKey] = e.DateTimeUpdate
             }
+
+
 
             return total;
 

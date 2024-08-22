@@ -369,8 +369,8 @@ async function start(BN_CFG_PATH) {
                             {
                                 console.log('Received duplicated packet. Ignored.')
                                 try{
-                                    console.log('last_db:'+formatDateTime(new Date(blacknode[sn].meter_list[modbusid].last_db)));
-                                    console.log('last_db:'+formatDateTime(dt));
+                                    console.log('broker_last_db:'+formatDateTime(new Date(blacknode[sn].meter_list[modbusid].last_db)));
+                                    console.log('bn_last_db:'+formatDateTime(dt));
                                 }
                                     catch(err){console.log(err);
                                 }
