@@ -1732,21 +1732,44 @@ export function initAPI() {
         for (let k of keys) {
             let bn = blacknode[k]
 
+            //delay  2 min
+            const bn_lastUpdate = new Date(bn.last_update);
+            let bn_status = 'off';
+            if (bn_lastUpdate instanceof Date && !isNaN(bn_lastUpdate)){
+                if((new Date() - bn_lastUpdate)  / (1000 * 60) <= 5){
+                    bn_status = 'on';
+                }
+            }
+            
             ret[bn.serial] = {
                 id: 'Node ' + String(bn.nodeid),
                 location: bn.name,
-                status: bn.status,
+                status: bn_status,
                 maxmeter: bn.maxmeter,
                 meter_list: []
             }
-
+            let isPartial = false;
             for (let i = 0; i < bn.maxmeter; i++) {
+                //delay  2 min
+                const m_lastUpdate = new Date(bn.meter_list[i].last_update);
+                let m_status = 'off';
+                if (m_lastUpdate instanceof Date && !isNaN(m_lastUpdate)){
+                    if((new Date() - m_lastUpdate)  / (1000 * 60) <= 5){
+                        m_status = 'on';
+                    }
+                }
+                if(m_status === 'off'){
+                    isPartial = true;
+                }
                 ret[bn.serial].meter_list[i] = {
                     id: i + 1,
                     address: bn.meter_list[i].id,
                     name: bn.meter_list[i].name,
-                    status: bn.meter_list[i].status
+                    status: m_status
                 }
+            }
+            if(isPartial){
+                ret[bn.serial].status == 'partial';
             }
         }
 
