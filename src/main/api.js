@@ -698,13 +698,14 @@ export function initAPI() {
         }
 
         // calculate value and return
-        let now = new Date()
+        const now = new Date()
 
-        let tLastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 7, 30, 0))
-        let tThisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 7, 30, 0))
-        let tYesterday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1, 7, 30, 0))
-        let tToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 7, 30, 0))
-        let tTomorrow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0))
+        const tLastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 7, 30, 0))
+        const tThisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth()    , 1, 7, 30, 0))
+        const tNextMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1, 7, 30, 0))
+        const tYesterday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1, 7, 30, 0))
+        const tToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()        , 7, 30, 0))
+        const tTomorrow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 1, 7, 30, 0))
 
         let energyLastMonth = 0
         let energyThisMonth = 0
@@ -777,7 +778,7 @@ export function initAPI() {
                     DateTimeUpdate: {
                         [Op.and]: {
                             [Op.gte]: tLastMonth,
-                            [Op.lte]: tTomorrow
+                            [Op.lte]: tNextMonth
                         }
                     }
                 },
@@ -789,7 +790,7 @@ export function initAPI() {
                     DateTimeUpdate: {
                         [Op.and]: {
                             [Op.gte]: tLastMonth,
-                            [Op.lte]: tTomorrow
+                            [Op.lte]: tNextMonth
                         }
                     },
                     snmKey: snmKey
@@ -812,6 +813,10 @@ export function initAPI() {
                 energy = e.TotalkWh
             }
 
+            if(energy <= 0){
+                continue;
+            }
+
             if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
                 prevEnergy[e.snmKey] = energy
                 prevTime[e.snmKey] = e.DateTimeUpdate
@@ -832,7 +837,7 @@ export function initAPI() {
             prevEnergy[e.snmKey] = energy
 
             if (e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate <= tThisMonth) {
-                // Last month
+                // Last month    
                 if(prevTime[e.snmKey] >= tLastMonth && prevTime[e.snmKey] <= tThisMonth)
                 {
                     energyLastMonth += absEnergy
@@ -849,8 +854,10 @@ export function initAPI() {
                 
             } else {
                 // This month
-                if(prevTime[e.snmKey] >= tThisMonth && prevTime[e.snmKey] <= tTomorrow)
+                if(prevTime[e.snmKey] >= tThisMonth && prevTime[e.snmKey] <= tNextMonth)
                 {
+                  
+                    
                     energyThisMonth += absEnergy
 
                     if (isOnPeak(e.DateTimeUpdate)) {
@@ -861,9 +868,10 @@ export function initAPI() {
 
                         maxDemandThisMonth[tKey][e.snmKey] = absEnergy * DEMAND
                     }
-
+           
                     if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate <= tToday) {
                         // Yesterday
+                       
                         if(prevTime[e.snmKey] >= tYesterday && prevTime[e.snmKey] <= tTomorrow)
                         {
                             energyYesterday += absEnergy
@@ -878,9 +886,8 @@ export function initAPI() {
                             }
                         }
                         
-                    } else if (e.DateTimeUpdate >= tToday && prevTime[e.snmKey] <= tTomorrow) {
+                    } else if (e.DateTimeUpdate >= tToday && prevTime[e.snmKey] < tTomorrow) {
                         energyToday += absEnergy
-
                         if (isOnPeak(e.DateTimeUpdate)) {
                             if(!(tKey in maxDemandToday))
                             {
@@ -896,8 +903,6 @@ export function initAPI() {
 
             prevTime[e.snmKey] = e.DateTimeUpdate
         }
-
-        
 
         let todayKeys = Object.keys(maxDemandToday)
         let yesterdayKeys = Object.keys(maxDemandYesterday)
@@ -1152,6 +1157,11 @@ export function initAPI() {
                 energy = e.TotalkWh
             }
 
+            //skip if energy = 0
+            if(energy <= 0){
+                continue;
+            }
+
             if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
                 prevTime[e.snmKey] = e.DateTimeUpdate
                 prevEnergy[e.snmKey] = energy
@@ -1172,8 +1182,10 @@ export function initAPI() {
             if(adjustedTime.getTime() > date_compare.getTime()){
                 date_compare.setHours(date_compare.getHours() + 1)
                 index_ret++;
-            }
+            } 
 
+            //console.log(e.DateTimeUpdate,absEnergy);
+            
             ret[index_ret].value1 += absEnergy
 
             prevTime[e.snmKey] = e.DateTimeUpdate
@@ -1309,25 +1321,32 @@ export function initAPI() {
                 energy = e.TotalkWh
             }
 
+            //skip if energy = 0
+            if(energy <= 0){
+                continue;
+            }
+
             if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
                 prevTime[e.snmKey] = e.DateTimeUpdate
                 prevEnergy[e.snmKey] = energy
                 continue
             }
 
-            let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
-
+            const absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+            
             // if (absEnergy == -1) {
             //     absEnergy = 0
             // }
 
             prevEnergy[e.snmKey] = energy
 
-            let adjustedTime = new Date(e.DateTimeUpdate)
-
-            adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
-
-            let day = adjustedTime.getUTCDate() - 1
+            const adjustedTime = new Date(e.DateTimeUpdate)
+            adjustedTime.setHours(adjustedTime.getHours() - 7)
+            adjustedTime.setMinutes(adjustedTime.getMinutes() - 31)
+            const day = adjustedTime.getUTCDate() - 1;
+            // if(day == 14){
+            //     console.log(e.DateTimeUpdate,absEnergy);
+            // }
 
             ret[day].value1 += absEnergy
 
@@ -1460,6 +1479,11 @@ export function initAPI() {
             else
             {
                 energy = e.TotalkWh
+            }
+
+            //skip if energy = 0
+            if(energy <= 0){
+                continue;
             }
 
             if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
