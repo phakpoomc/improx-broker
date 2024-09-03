@@ -35,6 +35,7 @@ export var api_server
 const MAX_NUMBER = 99999999999
 const TIME_PERIOD = 15*60*1000
 const DEMAND = 60*60*1000/TIME_PERIOD
+const delay_monitor = 5;
 
 // gtype = Group Method, dtype = data storage type (accumulative/instance)
 const cmap = {
@@ -1736,7 +1737,7 @@ export function initAPI() {
             const bn_lastUpdate = new Date(bn.last_update);
             let bn_status = 'off';
             if (bn_lastUpdate instanceof Date && !isNaN(bn_lastUpdate)){
-                if((new Date() - bn_lastUpdate)  / (1000 * 60) <= 5){
+                if((new Date() - bn_lastUpdate)  / (1000 * 60) <= delay_monitor){
                     bn_status = 'on';
                 }
             }
@@ -1754,7 +1755,7 @@ export function initAPI() {
                 const m_lastUpdate = new Date(bn.meter_list[i].last_update);
                 let m_status = 'off';
                 if (m_lastUpdate instanceof Date && !isNaN(m_lastUpdate)){
-                    if((new Date() - m_lastUpdate)  / (1000 * 60) <= 5){
+                    if((new Date() - m_lastUpdate)  / (1000 * 60) <= delay_monitor){
                         m_status = 'on';
                     }
                 }
@@ -3201,7 +3202,7 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.post('/rp_export/:type/:ttype/:year/:month/:day/:syear/:smonth/:sday', async (req, res) => {
+    api.post('/rp_export/:type/:ttype/:year/:month/:day/:hour/:min/:syear/:smonth/:sday/:shour/:smin', async (req, res) => {
         if(await apiguard(req, 'rp_chart', '') == false)
         {
             res.send('Permission not allowed.')
@@ -3210,20 +3211,35 @@ export function initAPI() {
 
         const workbook = new ExcelJS.Workbook()
 
-        if(req.params.ttype == 'electrical')
-        {
+        let feederWS;
+        const start_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day,req.params.hour,req.params.min));
+        let end_date = new Date(Date.UTC(req.params.syear, parseInt(req.params.smonth)-1, req.params.sday,req.params.shour,req.params.smin));
+
+        if(req.params.ttype == 'electrical'){
             await workbook.xlsx.readFile(path.join(process.cwd(), 'Report-01_template.xlsx'))
         }
-        else
-        {
-            await workbook.xlsx.readFile(path.join(process.cwd(), 'Report-02_energy_template.xlsx'))
-            var feederWS = workbook.getWorksheet('RawFeeder')
+        else if(req.params.ttype == 'eonline_kWh'){
+            await workbook.xlsx.readFile(path.join(process.cwd(), 'Report-Energy_Online_(kWh).xlsx'))
+            feederWS = workbook.getWorksheet('RawFeeder')
+            const date_sheet = workbook.getWorksheet('Energy Online (kWh)');
+            date_sheet.getCell('D2').value = new Date(start_date.getTime());
+        }else if(req.params.ttype == 'eonline_kWhConsumption'){
+            await workbook.xlsx.readFile(path.join(process.cwd(), 'Report-Energy_Online_(kWhConsumption).xlsx'))
+            feederWS = workbook.getWorksheet('RawFeeder')
+            const date_sheet = workbook.getWorksheet('Energy Online (kWhConsumption)');
+            date_sheet.getCell('D2').value = new Date(start_date.getTime());
+            date_sheet.getCell('F2').value = new Date(end_date.getTime());
+        }else if(req.params.ttype == 'energy_distribution'){
+            await workbook.xlsx.readFile(path.join(process.cwd(), 'Report-Energy_Distribution.xlsx'))
+            feederWS = workbook.getWorksheet('RawFeeder');
+        }else{
+            await workbook.xlsx.readFile(path.join(process.cwd(), 'Report-02_energy_template.xlsx'));
+            feederWS = workbook.getWorksheet('RawFeeder');
         }
-        
-        let worksheet = workbook.getWorksheet('RawData')
 
-        let start_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
-        let end_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
+        const worksheet = workbook.getWorksheet('RawData')
+
+
 
         if(req.params.type == "year")
         {
@@ -3237,7 +3253,6 @@ export function initAPI() {
         else if(req.params.type == "month")
         {
             start_date.setUTCDate(1);
-
             end_date.setUTCMonth(end_date.getUTCMonth() + 1);
             end_date.setUTCDate(1);
         }
@@ -3246,11 +3261,15 @@ export function initAPI() {
             start_date.setUTCFullYear(parseInt(req.params.syear))
             start_date.setUTCMonth(parseInt(req.params.smonth) - 1)
             start_date.setUTCDate(req.params.sday)
+        }else if(req.params.ttype == 'eonline_kWh')
+        {   
+            end_date = start_date;
         }
-        else
-        {
+        else if(req.params.ttype == 'day')
+        {   
             end_date.setUTCDate(end_date.getUTCDate() + 1);
         }
+
 
         let now = new Date()
         now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
@@ -3282,6 +3301,7 @@ export function initAPI() {
 
             if(arr[0] == 'M')
             {
+          
                 let sn = arr[1];
                 let siteid = arr[2];
                 let nodeid = arr[3];
@@ -3292,19 +3312,22 @@ export function initAPI() {
                 let param = arr[1];
                 let eData;
 
-                if(param == "TotalkWh" && req.params.ttype != 'electrical' && meta_cfg.useImport && meta_cfg.useImport.value)
-                {
-                    var cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + kwhType
-                    param = kwhType
+                try {
+                    if(param == "TotalkWh" && req.params.ttype != 'electrical' && meta_cfg.useImport && meta_cfg.useImport.value)
+                    {
+                        var cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + kwhType
+                        param = kwhType
+                    }
+                    else
+                    {
+                        var cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + param
+                    }
+                } catch (error) {
+                    console.log(error);
+                    continue;
                 }
-                else
-                {
-                    var cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + param
-                }
-                
 
-                if(param == 'kWdemand')
-                {
+                if(param == 'kWdemand'){
                     eData = await db.energy.findAll({
                         attributes: ['DateTimeUpdate', 'SerialNo', kwhType],
                         where: {
@@ -3318,9 +3341,32 @@ export function initAPI() {
                         },
                         order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
                     })
-                }
-                else
-                {
+                }else if(req.params.ttype === "eonline_kWhConsumption" || req.params.ttype === "energy_distribution"){
+                    arr_size = 2;
+                    eData = await db.energy.findAll({
+                        attributes: ['DateTimeUpdate', 'SerialNo', kwhType],
+                        where: {
+                            DateTimeUpdate: {
+                                [Op.or]: [start_date, end_date]
+                            },
+                            snmKey: siteid + "%" + nodeid + "%" + modbusid
+                        },
+                        order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                    })
+                    
+                }else if(req.params.ttype === "eonline_kWh"){
+                    arr_size = 1;
+                    eData = await db.energy.findAll({
+                        attributes: ['DateTimeUpdate', 'SerialNo', kwhType],
+                        where: {
+                            DateTimeUpdate: {
+                                [Op.or]: [start_date]
+                            },
+                            snmKey: siteid + "%" + nodeid + "%" + modbusid
+                        },
+                        order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                    })        
+                }else{
                     eData = await db.energy.findAll({
                         attributes: ['DateTimeUpdate', 'SerialNo', param],
                         where: {
@@ -3347,107 +3393,122 @@ export function initAPI() {
 
                 let prev_dval  = -1;
                 let prev_time = null;
+                if(req.params.ttype === "eonline_kWhConsumption" || req.params.ttype === "energy_distribution"){
+                    for(const e of eData){
+                        const adjustedTime = new Date(e.DateTimeUpdate.getTime())
+                        let seq = Math.trunc(adjustedTime.getTime()/1000/60/15) - start_seq;
 
-                for(let e of eData)
-                {
-                    let seq;
-                    let dval;
-
-                    let adjustedTime = new Date(e.DateTimeUpdate.getTime())
-                    // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes()-1)
-
-                    seq = Math.trunc(adjustedTime.getTime()/1000/60/15) - start_seq;
-
-                    if(seq < 0) 
-                    {
-                        seq = 0
-                    }
-
-                    if(cmap[param].storage == "accumulative" && param != kwhType)
-                    {
-                        let sn = e.SerialNo
-                        let period = blacknode[sn].period * 60 * 1000
-
-                        if(prev_time == null || e.DateTimeUpdate.getTime() - prev_time.getTime() != period)
+                        if(seq > 0) 
                         {
-                            prev_time = e.DateTimeUpdate
-
-                            if(param == 'kWdemand')
-                            {
-                                prev_dval = e[kwhType]
-                            }
-                            else
-                            {
-                                prev_dval = e[param]
-                            }
-
-                            continue
+                            seq = 1
                         }
-                        else
+                        
+                        ret[cellName][seq] = e[param];
+                    }
+                }else{
+                    for(const e of eData)
+                    {
+                        
+                        let seq;
+                        let dval;
+
+                        let adjustedTime = new Date(e.DateTimeUpdate.getTime())
+                        // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes()-1)
+
+                        seq = Math.trunc(adjustedTime.getTime()/1000/60/15) - start_seq;
+                
+                        
+                        if(seq < 0) 
                         {
-                            if(param == 'kWdemand')
+                            seq = 0
+                        }
+
+                        if(cmap[param].storage == "accumulative" && param != kwhType)
+                        {
+                            let sn = e.SerialNo
+                            let period = blacknode[sn].period * 60 * 1000
+
+                            if(prev_time == null || e.DateTimeUpdate.getTime() - prev_time.getTime() != period)
                             {
-                                if(e[kwhType] != undefined || e[kwhType] != -1)
+                                prev_time = e.DateTimeUpdate
+
+                                if(param == 'kWdemand')
                                 {
-                                    dval = (e[kwhType] - prev_dval) * DEMAND
+                                    prev_dval = e[kwhType]
                                 }
                                 else
                                 {
-                                    dval = 0
+                                    prev_dval = e[param]
                                 }
+
+                                continue
                             }
                             else
                             {
-                                dval = e[param] - prev_dval
+                                if(param == 'kWdemand')
+                                {
+                                    if(e[kwhType] != undefined || e[kwhType] != -1)
+                                    {
+                                        dval = (e[kwhType] - prev_dval) * DEMAND
+                                    }
+                                    else
+                                    {
+                                        dval = 0
+                                    }
+                                }
+                                else
+                                {
+                                    dval = e[param] - prev_dval
+                                }
+                                
                             }
-                            
-                        }
-                    }
-                    else
-                    {
-                        if(param == 'kWdemand')
-                        {
-                            dval = e[kwhType]
                         }
                         else
                         {
-                            dval = e[param]
+                            if(param == 'kWdemand')
+                            {
+                                dval = e[kwhType]
+                            }
+                            else
+                            {
+                                dval = e[param]
+                            }
                         }
-                    }
 
-                    //Get the average
+                        //Get the average
+                        
+                        ret[cellName][seq] += dval;
+                        count[seq]++;
 
-                    ret[cellName][seq] += dval;
-                    count[seq]++;
-
-                    if(param == 'kWdemand')
-                    {
-                        prev_dval = e[kwhType]
-                    }
-                    else
-                    {
-                        prev_dval = e[param]
-                    }
-                    
-                    prev_time = e.DateTimeUpdate
-                }
-
-
-                if(cmap[param].storage != "accumulative" && param != kwhType)
-                {
-                    for(let i=0; i<arr_size; i++)
-                    {
-                        if(count[i] > 0)
+                        if(param == 'kWdemand')
                         {
-                            ret[cellName][i] /= count[i];
+                            prev_dval = e[kwhType]
+                        }
+                        else
+                        {
+                            prev_dval = e[param]
+                        }
+                        
+                        prev_time = e.DateTimeUpdate
+                    }
+        
+                    if(cmap[param].storage != "accumulative" && param != kwhType)
+                    {
+                        for(let i=0; i<arr_size; i++)
+                        {
+                            if(count[i] > 0)
+                            {
+                                ret[cellName][i] /= count[i];
+                            }
                         }
                     }
+                    if(req.params.type != 'day')
+                    {
+                        ret[cellName].length = ret[cellName].length - 1
+                    }
                 }
+    
 
-                if(req.params.type != 'day')
-                {
-                    ret[cellName].length = ret[cellName].length - 1
-                }
             }
             else if(arr[0] == 'G')
             {
@@ -3657,38 +3718,90 @@ export function initAPI() {
 
         if(req.params.ttype != 'electrical')
         {
-            let fData = await db.feedmeter.findAll({
-                where: {
-                    DateTime: {
-                        [Op.and]: {
-                            [Op.gte]: start_date,
-                            [Op.lte]: end_date
+            const s_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day,req.params.hour,req.params.min));
+            const e_date = new Date(Date.UTC(req.params.syear, parseInt(req.params.smonth)-1, req.params.sday,req.params.shour,req.params.smin));
+            let fData;
+            if(req.params.ttype === "eonline_kWhConsumption" || req.params.ttype === "energy_distribution"){
+                arr_size = 2;
+                fData =  await db.feedmeter.findAll({
+                    where: {
+                        FeederDateTime: {
+                            [Op.or]: [s_date, e_date]
                         }
-                    }
-                },
-                order: [['FeederDateTime', 'ASC'], ['id', 'asc']]
-            })
-
+                    },
+                    order: [['FeederDateTime', 'ASC'], ['id', 'asc']]
+                })
+                feederWS.getCell('A2').value = s_date;
+                feederWS.getCell('A3').value = e_date;
+            }else if(req.params.ttype === "eonline_kWh"){
+                arr_size = 1;
+                fData =  await db.feedmeter.findAll({
+                    where: {
+                        FeederDateTime: {
+                            [Op.or]: [s_date]
+                        }
+                    },
+                    order: [['FeederDateTime', 'ASC'], ['id', 'asc']]
+                })        
+            }else{
+                fData = await db.feedmeter.findAll({
+                    where: {
+                        FeederDateTime: {
+                            [Op.and]: {
+                                [Op.gte]: start_date,
+                                [Op.lte]: end_date
+                            }
+                        }
+                    },
+                    order: [['FeederDateTime', 'ASC'], ['id', 'asc']]
+                })
+            }
             let fRet = {}
 
-            for(let f of fData)
-            {
-                if(!fRet[f.name])
-                {
-                    fRet[f.name] = []
-
-                    for(let i=0; i<arr_size; i++)
+            if(req.params.ttype === "eonline_kWhConsumption" || req.params.ttype === "energy_distribution"){
+                for(const f of fData){
+                    if(!fRet[f.name])
                     {
-                        fRet[f.name].push(0);
+                        fRet[f.name] = []
+    
+                        for(let i=0; i<arr_size; i++)
+                        {
+                            fRet[f.name].push(0);
+                        }
                     }
+                    
+                    const adjustedTime = new Date(f.FeederDateTime.getTime())
+                    let seq = Math.trunc(adjustedTime.getTime()/1000/60/15) - start_seq;
+
+                    if(seq > 0) 
+                    {
+                        seq = 1
+                    }
+                    
+                    fRet[f.name][seq] = f.value
                 }
-
-                let adjustedTime = new Date(f.DateTime.getTime())
-
-                let seq = Math.trunc(adjustedTime.getTime()/1000/60/15) - start_seq;
-
-                fRet[f.name][seq] = f.value
+            }else{
+              
+                for(let f of fData)
+                {
+                    if(!fRet[f.name])
+                    {
+                        fRet[f.name] = []
+    
+                        for(let i=0; i<arr_size; i++)
+                        {
+                            fRet[f.name].push(0);
+                        }
+                    }
+                    const adjustedTime = new Date(f.FeederDateTime.getTime())
+    
+                    const seq = Math.trunc(adjustedTime.getTime()/1000/60/15) - start_seq;
+    
+                    fRet[f.name][seq] = f.value
+                }
             }
+
+            
 
             let keys = Object.keys(fRet)
             let currCol = 2
@@ -3702,32 +3815,32 @@ export function initAPI() {
                 currCol++
             }
 
-            for(let i=1; i<=arr_size; i++)
-            {
-                feederWS.getCell('A' + String(i+1)).value = new Date(start_date.getTime() + ((i-1)*15*60*1000));
-            }
         }
         
 
-        let keys = Object.keys(ret)
+        const keys = Object.keys(ret)
         let currCol = 2
 
-        for(let k of keys)
-        {
-            let col = worksheet.getColumn(currCol)
 
+        for(const k of keys)
+        {
+            const col = worksheet.getColumn(currCol)
             col.values = [k].concat(ret[k])
             col.width = k.length+5
             currCol++
         }
 
-
-
-        for(let i=1; i<=arr_size; i++)
-        {
-            worksheet.getCell('A' + String(i+1)).value = new Date(start_date.getTime() + ((i-1)*15*60*1000));
+        if(req.params.ttype === "eonline_kWhConsumption" || req.params.ttype === "energy_distribution"){
+            worksheet.getCell('A2').value = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day,req.params.hour,req.params.min));
+            worksheet.getCell('A3').value = new Date(Date.UTC(req.params.syear, parseInt(req.params.smonth)-1, req.params.sday,req.params.shour,req.params.smin));
+        }else{
+            for(let i=1; i<=arr_size; i++)
+            {
+                worksheet.getCell('A' + String(i+1)).value = new Date(start_date.getTime() + ((i-1)*15*60*1000));
+            }
+        
         }
-
+       
         res.attachment(req.params.ttype + '_export.xlsx')
         workbook.xlsx.write(res).then(() => {
             res.end()

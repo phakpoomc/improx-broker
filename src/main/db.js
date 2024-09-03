@@ -197,7 +197,7 @@ export async function syncDB() {
             'feedmeter',
             {
                 id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
-                DateTime: { type: DataTypes.DATE, field: 'FeederDateTime' },
+                FeederDateTime: { type: DataTypes.DATE, field: 'FeederDateTime' },
                 name: { type: DataTypes.STRING, field: 'FeederMeterName' },
                 value: { type: DataTypes.FLOAT, field: 'FeederMeterValue' },
             },
