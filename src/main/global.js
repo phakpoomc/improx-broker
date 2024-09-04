@@ -233,7 +233,7 @@ export async function loadMetaDB()
         let groups = await db.group.findAll()
 
         for (let g of groups) {
-            group[g.id] = { id: g.id, name: g.name, showDashboard: g.showDashboard, member: [] }
+            group[g.id] = { id: g.id, name: g.name, showDashboard: g.showDashboard,type:g?.type ? g.type : 'Monitor', member: [] }
         }
 
         let gmembers = await db.gmember.findAll()
@@ -244,7 +244,8 @@ export async function loadMetaDB()
                 siteid: g.SiteID,
                 nodeid: g.NodeID,
                 modbusid: g.ModbusID,
-                multiplier: g.multiplier
+                multiplier: g.multiplier,
+                source:g.soruce ? g.soruce :   "null"
             }
 
             group[g.GroupID].member.push(m)
@@ -277,7 +278,7 @@ export async function loadGroup() {
         let groups = await db.group.findAll()
 
         for (let g of groups) {
-            group[g.id] = { id: g.id, name: g.name, showDashboard: g.showDashboard, member: [] }
+            group[g.id] = { id: g.id, name: g.name, showDashboard: g.showDashboard,type:g?.type ? g.type : 'Monitor' , member: [] }
         }
 
         let gmembers = await db.gmember.findAll()
@@ -288,7 +289,8 @@ export async function loadGroup() {
                 siteid: g.SiteID,
                 nodeid: g.NodeID,
                 modbusid: g.ModbusID,
-                multiplier: g.multiplier
+                multiplier: g.multiplier,
+                source:g.soruce ? g.soruce :   "null"
             }
 
             group[g.GroupID].member.push(m)

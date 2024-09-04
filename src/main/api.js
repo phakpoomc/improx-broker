@@ -391,6 +391,8 @@ const routes = {
     'phasor': ['owner', 'user', 'admin', 'test'],
     'report': ['owner', 'user', 'admin', 'test'],
     'usermanage': ['owner', 'admin', 'test'],
+    'single_line_diagram': ['owner', 'user', 'admin', 'test'],
+    'layout': ['owner', 'user', 'admin', 'test'],
 }
 
 const apis = {
@@ -410,7 +412,9 @@ const apis = {
     'getholiday': ['owner', 'user', 'admin', 'test'],
     'getuser': ['owner', 'user', 'admin', 'test'],
     'rp_chart': ['owner', 'user', 'admin', 'test'],
-    'feedmeter': ['owner', 'admin', 'test']
+    'feedmeter': ['owner', 'admin', 'test'],
+    'single_line_diagram': ['owner', 'user', 'admin', 'test'],
+    'layout': ['owner', 'user', 'admin', 'test'],
 }
 
 async function routeguard(req, route)
@@ -1717,6 +1721,43 @@ export function initAPI() {
         res.json(ret)
     })
 
+    api.post('/single_line_diagram', async (req, res) => {
+        const ret = {}
+
+        if(await apiguard(req, 'single_line_diagram', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+
+        const p = req.body
+        for (const k of p) {
+            let arr = k.split("@");
+            const sn = arr[1];
+
+            arr = arr[4].split("%");
+
+            const modbusid = arr[0];
+            const param = arr[1];
+
+            const snid = sn + "%" + modbusid;
+
+            if(!lastUpdateData[snid] && !lastUpdateTime[snid]) continue;
+
+            const diff_time = (new Date()- (new Date(lastUpdateTime[snid]))) /  (1000 * 60);
+
+            if(diff_time > delay_monitor) continue;
+
+            ret[k] = {
+                time: lastUpdateTime[snid],
+                value: lastUpdateData[snid][param]
+            };
+            
+        }
+
+        res.json(ret)
+    })
+
     api.get('/node_monitor', async (req, res) => {
         let ret = {}
 
@@ -2010,8 +2051,130 @@ export function initAPI() {
             res.json({})
             return
         }
-
         res.json(group)
+    })
+
+    api.post('/group_type', async (_req, res) => {
+        const types = _req.body.types;
+        if(!_req.body.types){
+            res.json({});
+            return
+        }
+        if(await apiguard(_req, 'getgroup', '') == false)
+        {
+            res.json({})
+            return
+        }
+        const result = {}
+        for(const g in group){
+            const find = types.find((t)=>t === group[g].type)
+            if(!find) continue;
+            result[group[g].type] = group[g];
+        }
+        res.json(result)
+    })
+
+    api.get('/layout/:year/:month/:day/:hour/:min', async (req, res) => {
+        const ret = {}
+
+        if(await apiguard(req, 'layout', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+
+        const startTime = new Date(Date.UTC(req.params.year, req.params.month - 1, req.params.day, req.params.hour, req.params.min, 0))
+        const endTime = new Date(Date.UTC(req.params.year, req.params.month - 1, req.params.day + 1, req.params.hour, req.params.min, 0))
+        let now = new Date()
+        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
+
+
+        const snmKey = []
+        const prevEnergy = {}
+        const prevTime = {}
+        const multmap = {}
+        const types = [
+            "Layout Sub 1",
+            "Layout Sub 1.1",
+            "Layout Sub 2",
+            "Layout Sub 3",
+            "Layout Sub 4",
+            "Layout Sub 5",
+            "Layout Sub 6",
+            "Layout Sub 7",
+            "Layout Sub 8",
+            "Layout Sub 9.1",
+            "Layout Sub 9.2",
+            "Layout Sub 9.3",
+            "Layout WORK SHOP / OFFICE"
+        ];
+
+        for(const g in group){
+            const find = types.find((t)=>t === group[g].type)
+            if(!find) continue;
+
+            // const members = await db.gmember.findAll({
+            //     where: { GroupID: group[g].id }
+            // })
+            
+            if(!group[g].member || group[g].member.length == 0) continue;
+          
+            for (const m of group[g].member) {
+                const key = m.siteid + '%' + m.nodeid + '%' + String(m.modbusid)
+                snmKey.push(key)
+                prevEnergy[key] = 0
+                prevTime[key] = null
+                multmap[key] = parseFloat(m.multiplier)
+            }
+
+            const eData = await db.energy.findAll({
+                where: {
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startTime,
+                            [Op.lte]: endTime
+                        }
+                    },
+                    snmKey: snmKey
+                },
+                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+            })
+            
+            ret[group[g].type] = 0;
+
+            for (const e of eData) {
+                const sn = e.SerialNo
+                const period = blacknode[sn].period * 60 * 1000
+                let energy = 0;
+    
+                if(meta_cfg.useImport.value)
+                {
+                    energy = e.Import_kWh
+                }
+                else
+                {
+                    energy = e.TotalkWh
+                }
+
+                if(energy == 0){
+                    continue;
+                }
+    
+                if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
+                    prevTime[e.snmKey] = e.DateTimeUpdate
+                    prevEnergy[e.snmKey] = energy
+                    continue
+                }
+    
+                const absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+                prevEnergy[e.snmKey] = energy
+                ret[group[g].type] += absEnergy
+                prevTime[e.snmKey] = e.DateTimeUpdate
+    
+            }
+        }
+
+        res.json(ret)
     })
 
     api.get('/meter', async (_req, res) => {
@@ -2047,16 +2210,17 @@ export function initAPI() {
             return
         }
 
-        let id = req.body.id
-        let name = req.body.name
-
+        const id = req.body.id
+        const name = req.body.name
+        const type = req.body.type
         try {
             await db.group.update(
                 {
-                    name: name
+                    name,
+                    type
                 },
                 {
-                    where: { id: id }
+                    where: { id }
                 }
             )
 

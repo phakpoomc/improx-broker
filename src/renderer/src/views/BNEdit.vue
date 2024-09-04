@@ -45,9 +45,10 @@ function save(sendack) {
     for (let i = 1; i <= Math.min(maxmeter, bnCFG.value.maxmeter); i++) {
         let mname = document.getElementById('meter-' + String(i) + '-name').value
         let mtype = document.getElementById('meter-' + String(i) + '-type').value
-
+        let rname = document.getElementById('meter-' + String(i) + '-rname').value
         let mobj = {
             name: mname,
+            rname,
             type: mtype
         }
 
@@ -294,6 +295,7 @@ var nodes = [
                         <thead class="table-dark">
                             <tr>
                                 <th style="text-align: center">ID</th>
+                                <th>Meter Code</th>
                                 <th>Meter Name</th>
                                 <th>Meter Type</th>
                                 <th style="text-align: center">Status</th>
@@ -313,6 +315,17 @@ var nodes = [
                                             class="form-control border-1 mt-1 mb-1"
                                             :name="'meter-' + m.id + '-name'"
                                             :value="m.name"
+                                            required
+                                            autofocus
+                                        />
+                                    </td>
+                                    <td>
+                                        <input
+                                            :id="'meter-' + m.id + '-rname'"
+                                            type="text"
+                                            class="form-control border-1 mt-1 mb-1"
+                                            :name="'meter-' + m.id + '-rname'"
+                                            :value="m.rname"
                                             required
                                             autofocus
                                         />
@@ -362,7 +375,9 @@ var nodes = [
             <div class="row mt-3">
                 <div class="col-12 d-flex justify-content-end">
                     <button class="btn btn-secondary ms-2" @click="save(false)">Save</button>
-                    <button class="btn btn-secondary ms-2" @click="save(true)">Save and Send ACK</button>
+                    <button class="btn btn-secondary ms-2" @click="save(true)">
+                        Save and Send ACK
+                    </button>
                     <button class="btn btn-secondary ms-2" @click="reset(route.params.id)">
                         Reboot
                     </button>
@@ -373,7 +388,6 @@ var nodes = [
         <template #username>
             {{ user }}
         </template>
-
     </Navbar>
 </template>
 

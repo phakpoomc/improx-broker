@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, /*autoUpdater, dialog, safeStorage*/ } from 'electron'
+import { app, shell, BrowserWindow, ipcMain /*autoUpdater, dialog, safeStorage*/ } from 'electron'
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
@@ -14,7 +14,7 @@ import {
     loadMetaDB,
     loadBNInfoFromLocal,
     checkHeartbeat,
-    db,
+    db
     // savetoDB
 } from './global.js'
 
@@ -26,17 +26,13 @@ import crypto from 'crypto'
 
 const QOS = 2
 
-function loginWith(uname, pwd)
-{
+function loginWith(uname, pwd) {
     let correctHash = crypto.createHash('sha512')
     correctHash.update('password')
 
-    if(uname == 'admin' && pwd == correctHash.digest('hex'))
-    {
+    if (uname == 'admin' && pwd == correctHash.digest('hex')) {
         return true
-    }
-    else
-    {
+    } else {
         return false
     }
 }
@@ -111,18 +107,16 @@ function createWindow(): void {
 
         loadMetaCFG()
 
-        if(meta_cfg.auth_cred.remember)
-        {
-            if(loginWith(meta_cfg.auth_cred.username, meta_cfg.auth_cred.password))
-            {
+        if (meta_cfg.auth_cred.remember) {
+            if (loginWith(meta_cfg.auth_cred.username, meta_cfg.auth_cred.password)) {
                 authenticated = true
-                username = meta_cfg.auth_cred.username;
+                username = meta_cfg.auth_cred.username
 
                 if (!aedesInst || aedesInst.closed) {
                     startMQTT(BN_CFG_PATH)
                     initWeb()
                     initAPI()
-                    
+
                     await syncDB()
                     await loadMetaDB()
                 }
@@ -168,7 +162,6 @@ app.whenReady().then(async () => {
     })
 
     ipcMain.handle('cmd:updateBN', async (_event, cfg, sn) => {
-
         let prev_max = parseInt(blacknode[sn].maxmeter)
         let curr_max = parseInt(cfg.maxmeter)
 
@@ -207,18 +200,15 @@ app.whenReady().then(async () => {
         blacknode[sn].gateway = cfg.gateway
         blacknode[sn].dns = cfg.dns
 
-        if(curr_max < prev_max)
-        {
-            for(let i = curr_max; i < prev_max; i++)
-            {
-                if(db && db.gmember)
-                {
+        if (curr_max < prev_max) {
+            for (let i = curr_max; i < prev_max; i++) {
+                if (db && db.gmember) {
                     await db.gmember.destroy({
                         where: {
                             SerialNo: sn,
                             SiteID: cfg.siteid,
                             NodeID: cfg.nodeid,
-                            ModbusID: i+1
+                            ModbusID: i + 1
                         }
                     })
                 }
@@ -232,6 +222,7 @@ app.whenReady().then(async () => {
                 let initMeter = {
                     id: i + 1,
                     name: 'undefined',
+                    rname: 'undefined',
                     type: 0,
                     status: 'off',
                     last_update: new Date(),
@@ -246,6 +237,7 @@ app.whenReady().then(async () => {
             if (i < prev_max) {
                 blacknode[sn].meter_list[i].name = cfg.meter_list[i].name
                 blacknode[sn].meter_list[i].type = cfg.meter_list[i].type
+                blacknode[sn].meter_list[i].rname = cfg.meter_list[i].rname
 
                 if (cfg.meter_list[i].type != '') {
                     pkt +=
@@ -280,11 +272,16 @@ app.whenReady().then(async () => {
         writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
         await loadMetaDB()
 
-        if(cfg.sendack)
-        {
-
+        if (cfg.sendack) {
             aedesInst.publish(
-                { cmd: 'publish', qos: QOS, dup: false, retain: false, topic: 'ACK/' + sn, payload: pkt },
+                {
+                    cmd: 'publish',
+                    qos: QOS,
+                    dup: false,
+                    retain: false,
+                    topic: 'ACK/' + sn,
+                    payload: pkt
+                },
                 function () {}
             )
         }
@@ -326,7 +323,6 @@ app.whenReady().then(async () => {
 
     ipcMain.handle('data:getCFGFile', (_event) => {
         return JSON.stringify(meta_cfg)
-
     })
 
     ipcMain.handle('data:getBNFile', (_event) => {
@@ -334,7 +330,6 @@ app.whenReady().then(async () => {
     })
 
     ipcMain.handle('data:setCFGFile', async (_event, data) => {
-
         writeFile(META_CFG_PATH, data, { flag: 'w' })
         loadMetaCFG()
         await syncDB()
@@ -357,7 +352,7 @@ app.whenReady().then(async () => {
         meta_cfg.db.dbname = dbCFG.dbname
         meta_cfg.db.username = dbCFG.username
         meta_cfg.db.password = dbCFG.password
- 
+
         writeFile(META_CFG_PATH, JSON.stringify(meta_cfg), { flag: 'w' })
 
         await syncDB()
@@ -401,16 +396,13 @@ app.whenReady().then(async () => {
             path: app.getPath('exe')
             // path: process.cwd()
         })
-    
-        if(meta_cfg.broker.autorun)
-        {
+
+        if (meta_cfg.broker.autorun) {
             autoLaunch.isEnabled().then((isEnabled) => {
-                if(!isEnabled) autoLaunch.enable();
+                if (!isEnabled) autoLaunch.enable()
             })
-        }
-        else
-        {
-            autoLaunch.disable();
+        } else {
+            autoLaunch.disable()
         }
     })
 
@@ -441,7 +433,6 @@ app.whenReady().then(async () => {
 // app.on('ready', () => {
 //     // console.log(app.getName(), app.getPath('exe'), process.cwd());
 
-    
 // })
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -487,9 +478,9 @@ ipcMain.on('authenticate', async (_event, args) => {
         authenticated = true
         username = data['username']
 
-        meta_cfg.auth_cred.username = username;
+        meta_cfg.auth_cred.username = username
         meta_cfg.auth_cred.password = hashPwd
-        meta_cfg.auth_cred.remember = data['remember'];
+        meta_cfg.auth_cred.remember = data['remember']
 
         writeFile(META_CFG_PATH, JSON.stringify(meta_cfg), { flag: 'w' })
 
@@ -498,8 +489,7 @@ ipcMain.on('authenticate', async (_event, args) => {
             startMQTT(BN_CFG_PATH)
             initWeb()
             initAPI()
-            
-            
+
             await syncDB()
             await loadMetaDB()
         }
