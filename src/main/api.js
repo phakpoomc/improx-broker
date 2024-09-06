@@ -374,6 +374,18 @@ function checkRoles(givenRoles, allowedRoles)
     return false
 }
 
+const compareDateTime = (date1,date2) => {
+    const d1 = new Date(date1);
+    const d2 = new Date(date2)
+    if(d1.getDate() == d2.getDate() && d1.getMonth() == d2.getMonth() && d1.getFullYear() == d2.getFullYear() 
+        && d1.getHours() == d2.getHours() && d1.getMinutes() == d2.getMinutes())
+    {
+        return true;
+    }else{
+        return false;
+    }
+}
+
 
 const formatDateTime = (date_string) => {
     const date = new Date(date_string)
@@ -4179,7 +4191,7 @@ export function initAPI() {
 
                 for(let i=0; i<arr_size; i++)
                 {
-                    ret[cellName].push(0);
+                    ret[cellName].push(-1);
                     count.push(0)
                 }
 
@@ -4618,7 +4630,7 @@ export function initAPI() {
 
                 ret[cellName] = []
                 for (let index = 0; index < arr_size; index++) {
-                    ret[cellName].push(0) 
+                    ret[cellName].push(-1) 
                 }
                 if(eData.length > 0){
                     const tmpMonth = new Date(eData[0].DateTimeUpdate).getMonth();
@@ -4628,6 +4640,7 @@ export function initAPI() {
                         const index = new Date(e.DateTimeUpdate).getDate() - 1;
                         const currMonth = new Date(e.DateTimeUpdate).getMonth();
                         const currYear = new Date(e.DateTimeUpdate).getFullYear();
+                        
                         if(currMonth > tmpMonth || tmpYear > currYear){
                             ret[cellName][ret[cellName].length - 1] = e[param];
                         }
@@ -4677,7 +4690,7 @@ export function initAPI() {
         })
     })
 
-    api.post('/report_export/month/:s_year/:s_month/:s_day/:s_hour/:s_min', async (req, res) => {
+    api.post('/report_export/month/:s_year/:s_month/:s_day/:s_hour/:s_min/:e_year/:e_month/:e_day/:e_hour/:e_min', async (req, res) => {
         if(await apiguard(req, 'rp_chart', '') == false)
         {
             res.send('Permission not allowed.')
@@ -4692,14 +4705,10 @@ export function initAPI() {
             return;    
         }
 
-        const worksheet = workbook.getWorksheet('RawData')
+        const worksheet = workbook.getWorksheet('RawData');
         
         const start_date = new Date(Date.UTC(req.params.s_year, parseInt(req.params.s_month)-1, req.params.s_day,req.params.s_hour,req.params.s_min));
-        const end_date = new Date(Date.UTC(req.params.s_year, parseInt(req.params.s_month)-1, req.params.s_day,req.params.s_hour,req.params.s_min));
-
-        start_date.setUTCDate(1);
-        end_date.setUTCDate(1);
-        end_date.setUTCMonth(end_date.getUTCMonth() + 1)
+        const end_date = new Date(Date.UTC(req.params.e_year, parseInt(req.params.e_month)-1, req.params.e_day,req.params.e_hour,req.params.e_min));
 
         const arr_size = 2
         
@@ -4737,22 +4746,20 @@ export function initAPI() {
 
                 ret[cellName] = []
                 for (let index = 0; index < arr_size; index++) {
-                    ret[cellName].push(0) 
+                    ret[cellName].push(-1) 
                 }
                 if(eData.length > 0){
-                    const tmpMonth = new Date(start_date).getMonth();
-                    const tmpYear = new Date(start_date).getFullYear();
                     for(const e of eData)
                     { 
-                        const index = new Date(e.DateTimeUpdate).getDate() - 1;
-                        const currMonth = new Date(e.DateTimeUpdate).getMonth();
-                        const currYear = new Date(e.DateTimeUpdate).getFullYear();
-                        if(currMonth > tmpMonth || tmpYear > currYear){
-                            ret[cellName][ret[cellName].length - 1] = e[param];
+                       
+                        let index;
+                        if(compareDateTime(new Date(e.DateTimeUpdate),start_date)){
+                            index  = 0
+                        }else{
+                            index  = 1
                         }
-                        else if(index >= 0 && index <=30 ){
-                            ret[cellName][index] = e[param];
-                        } 
+                        //console.log(eDate,start_date,index,e[param]);
+                        ret[cellName][index] = e[param];
                     }
                 }
             }
