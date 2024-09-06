@@ -245,7 +245,7 @@ export async function loadMetaDB()
                 nodeid: g.NodeID,
                 modbusid: g.ModbusID,
                 multiplier: g.multiplier,
-                source:g.soruce ? g.soruce :   "null"
+                source:g.source ? g.source :   "null"
             }
 
             group[g.GroupID].member.push(m)
@@ -290,7 +290,7 @@ export async function loadGroup() {
                 nodeid: g.NodeID,
                 modbusid: g.ModbusID,
                 multiplier: g.multiplier,
-                source:g.soruce ? g.soruce :   "null"
+                source:g.source ? g.source :   "null"
             }
 
             group[g.GroupID].member.push(m)

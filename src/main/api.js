@@ -1498,14 +1498,15 @@ export function initAPI() {
             return
         }
 
-        let initGroup = []
-        let groups = {}
+        const initGroup = []
+        const groups = {}
 
         if (db.gmember) {
-            let groupInfo = await db.gmember.findAll()
+            const groupInfo = await db.gmember.findAll()
 
             if (groupInfo !== null) {
-                for (let g of groupInfo) {
+                for (const g of groupInfo) {
+                    if(group[g.GroupID].type && group[g.GroupID].type !== 'Monitor') continue;
                     if (!(initGroup.includes(g.GroupID))) {
                         groups[g.GroupID] = {
                             id: g.GroupID,
@@ -1529,7 +1530,6 @@ export function initAPI() {
                             })
                         }
                     }
-
                     groups[g.GroupID].member.push({
                         name: blacknode[g.SerialNo].meter_list[g.ModbusID-1].name,
                         SerialNo: g.SerialNo
@@ -1538,9 +1538,9 @@ export function initAPI() {
             }
         }
 
-        let gKey = Object.keys(groups)
+        const gKey = Object.keys(groups)
 
-        for (let k of gKey) {
+        for (const k of gKey) {  
             ret.group.push(groups[k])
         }
 
@@ -1745,9 +1745,10 @@ export function initAPI() {
             if(!lastUpdateData[snid] && !lastUpdateTime[snid]) continue;
 
             const diff_time = (new Date()- (new Date(lastUpdateTime[snid]))) /  (1000 * 60);
-
             if(diff_time > delay_monitor) continue;
-
+            
+            // if(lastUpdateData[snid]['V12'] <= 0) continue;
+            
             ret[k] = {
                 time: lastUpdateTime[snid],
                 value: lastUpdateData[snid][param]
@@ -2074,7 +2075,7 @@ export function initAPI() {
         res.json(result)
     })
 
-    api.get('/layout/:year/:month/:day/:hour/:min', async (req, res) => {
+    api.get('/layout/:syear/:smonth/:sday/:shour/:smin/:eyear/:emonth/:eday/:ehour/:emin', async (req, res) => {
         const ret = {}
 
         if(await apiguard(req, 'layout', '') == false)
@@ -2083,11 +2084,8 @@ export function initAPI() {
             return
         }
 
-        const startTime = new Date(Date.UTC(req.params.year, req.params.month - 1, req.params.day, req.params.hour, req.params.min, 0))
-        const endTime = new Date(Date.UTC(req.params.year, req.params.month - 1, req.params.day + 1, req.params.hour, req.params.min, 0))
-        let now = new Date()
-        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
-
+        const startTime = new Date(Date.UTC(req.params.syear, req.params.smonth - 1, req.params.sday, req.params.shour, req.params.smin, 0));
+        const endTime = new Date(Date.UTC(req.params.eyear, req.params.emonth - 1, req.params.eday, req.params.ehour, req.params.emin, 0));
 
         const snmKey = []
         const prevEnergy = {}
@@ -2102,10 +2100,12 @@ export function initAPI() {
             "Layout Sub 5",
             "Layout Sub 6",
             "Layout Sub 7",
+            "Layout Sub 7.1",
             "Layout Sub 8",
             "Layout Sub 9.1",
             "Layout Sub 9.2",
             "Layout Sub 9.3",
+            "Layout Sub 10",
             "Layout WORK SHOP / OFFICE"
         ];
 
@@ -2171,6 +2171,58 @@ export function initAPI() {
                 ret[group[g].type] += absEnergy
                 prevTime[e.snmKey] = e.DateTimeUpdate
     
+            }
+        }
+
+        res.json(ret)
+    })
+
+    api.get('/single_line_group', async (req, res) => {
+        const ret = {}
+
+        if(await apiguard(req, 'single_line_diagram', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+
+        const types = [
+            "Line Sub 1",
+            "Line Sub 1.1",
+            "Line Sub 2",
+            "Line Sub 3",
+            "Line Sub 4",
+            "Line Sub 5",
+            "Line Sub 6",
+            "Line Sub 7",
+            "Line Sub 7.1",
+            "Line Sub 8",
+            "Line Sub 9.1",
+            "Line Sub 9.2",
+            "Line Sub 9.3",
+            "Line Sub 10",
+            "Line WORK SHOP / OFFICE"
+        ];
+
+        for(const g in group){
+            const find = types.find((t)=>t === group[g].type)
+            if(!find) continue;
+            if(!group[g].member || group[g].member.length == 0) continue;
+            ret[group[g].type] = [];
+            for (const m of group[g].member) {
+                try {
+                    const mname = blacknode[m.serial].meter_list[m.modbusid-1].name;
+                    const rname = blacknode[m.serial].meter_list[m.modbusid-1].rname;
+                    if(m.source != 'null'){
+                        ret[group[g].type].push({name:mname,rname: rname ? rname: '' ,source:m.source})
+                    }else{
+                        ret[group[g].type].push({name:mname,rname: rname ? rname: '' })
+                    }
+                } catch (error) {
+                    console.log(error);
+                    continue;
+                    
+                }
             }
         }
 
@@ -3551,7 +3603,7 @@ export function initAPI() {
 
                 for(let i=0; i<arr_size; i++)
                 {
-                    ret[cellName].push(0);
+                    ret[cellName].push(-1);
                     count.push(0)
                 }
 
@@ -3898,6 +3950,7 @@ export function initAPI() {
                 feederWS.getCell('A2').value = s_date;
                 feederWS.getCell('A3').value = e_date;
             }else if(req.params.ttype === "eonline_kWh"){
+                feederWS.getCell('A2').value = s_date;
                 arr_size = 1;
                 fData =  await db.feedmeter.findAll({
                     where: {
@@ -4025,7 +4078,7 @@ export function initAPI() {
         if(!lastFeedTime[req.body.name] || lastFeedTime[req.body.name] < utc)
         {
             await db.feedmeter.create({
-                DateTime: utc,
+                FeederDateTime: utc,
                 name: req.body.name,
                 value: parseFloat(req.body.value)
             })
