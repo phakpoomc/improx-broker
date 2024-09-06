@@ -3461,7 +3461,7 @@ export function initAPI() {
         {
             start_date.setUTCMonth(0);
             start_date.setUTCDate(1);
-
+            end_date = new Date(start_date)
             end_date.setUTCFullYear(end_date.getUTCFullYear() + 1);
             end_date.setUTCMonth(0);
             end_date.setUTCDate(1);
@@ -3469,20 +3469,17 @@ export function initAPI() {
         else if(req.params.type == "month")
         {
             start_date.setUTCDate(1);
+            end_date = new Date(start_date)
             end_date.setUTCMonth(end_date.getUTCMonth() + 1);
             end_date.setUTCDate(1);
         }
-        else if(req.params.type == "range")
-        {
-            start_date.setUTCFullYear(parseInt(req.params.syear))
-            start_date.setUTCMonth(parseInt(req.params.smonth) - 1)
-            start_date.setUTCDate(req.params.sday)
-        }else if(req.params.ttype == 'eonline_kWh')
+        else if(req.params.ttype == 'eonline_kWh')
         {   
             end_date = start_date;
         }
-        else if(req.params.ttype == 'day')
+        else if(req.params.type == 'day')
         {   
+            end_date = new Date(start_date)
             end_date.setUTCDate(end_date.getUTCDate() + 1);
         }
 
@@ -3718,7 +3715,7 @@ export function initAPI() {
                             }
                         }
                     }
-                    if(req.params.type != 'day')
+                    if(req.params.type == 'range_online')
                     {
                         ret[cellName].length = ret[cellName].length - 1
                     }
@@ -3924,7 +3921,7 @@ export function initAPI() {
                     }
                 }
 
-                if(req.params.type != 'day')
+                if(req.params.type == 'range_online')
                 {
                     ret[cellName].length = ret[cellName].length - 1;
                 }
