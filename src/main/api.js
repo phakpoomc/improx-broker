@@ -1742,12 +1742,11 @@ export function initAPI() {
 
             const snid = sn + "%" + modbusid;
 
-            if(!lastUpdateData[snid] && !lastUpdateTime[snid]) continue;
 
-            const diff_time = (new Date()- (new Date(lastUpdateTime[snid]))) /  (1000 * 60);
-            if(diff_time > delay_monitor) continue;
+            // const diff_time = (new Date()- (new Date(lastUpdateTime[snid]))) /  (1000 * 60);
+            // if(diff_time > delay_monitor) continue;'
             
-            // if(lastUpdateData[snid]['V12'] <= 0) continue;
+            if(!lastUpdateData[snid] || lastUpdateData[snid]['V12'] <= 0) continue;
             
             ret[k] = {
                 time: lastUpdateTime[snid],
