@@ -415,6 +415,7 @@ const apis = {
     'feedmeter': ['owner', 'admin', 'test'],
     'single_line_diagram': ['owner', 'user', 'admin', 'test'],
     'layout': ['owner', 'user', 'admin', 'test'],
+    'group_type': ['owner', 'admin', 'test'],
 }
 
 async function routeguard(req, route)
@@ -614,9 +615,8 @@ export function initAPI() {
         })
     })
 
-    api.get('/dashboard_card', async (req, res) => {
+    api.get('/dashboard_card/:gid', async (req, res) => {
         let ret = {}
-
         if(await apiguard(req, 'dashboard', '') == false)
         {
             ret = {
@@ -648,23 +648,29 @@ export function initAPI() {
         let energyToday = 0
 
         // console.log(tTomorrow)
-
-        let user = await db.user.findOne({
-            where: { username: req.session.user }
-        })
-
-        if(user && user.dataValues.group)
-        {
-            var group = await db.group.findOne({
-                where: { id: user.dataValues.group }
+        let group = null;
+        const gid = req.params.gid
+        if(isNaN(gid)){
+            const user = await db.user.findOne({
+                where: { username: req.session.user }
+            })
+            if(user && user.dataValues.group)
+            {
+                group = await db.group.findOne({
+                    where: { id: user.dataValues.group }
+                })
+            }
+            else
+            {
+                group = await db.group.findOne({
+                    where: { showDashboard: true }
+                })
+            } 
+        }else{
+            group = await db.group.findOne({
+                where: { id: gid }
             })
         }
-        else
-        {
-            var group = await db.group.findOne({
-                where: { showDashboard: true }
-            })
-        } 
 
         group = group.dataValues;
        
@@ -915,7 +921,7 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.get('/dashboard/:year/:month/:day', async (req, res) => {
+    api.get('/dashboard/:year/:month/:day/:gid', async (req, res) => {
         let ret = []
 
         if(await apiguard(req, 'dashboard', '') == false)
@@ -947,22 +953,29 @@ export function initAPI() {
             endTime = new Date(now)
         }
 
-        let user = await db.user.findOne({
-            where: { username: req.session.user }
-        })
-
-        if(user && user.dataValues.group)
-        {
-            var group = await db.group.findOne({
-                where: { id: user.dataValues.group }
+        let group = null;
+        const gid = req.params.gid
+        if(isNaN(gid)){
+            const user = await db.user.findOne({
+                where: { username: req.session.user }
+            })
+            if(user && user.dataValues.group)
+            {
+                group = await db.group.findOne({
+                    where: { id: user.dataValues.group }
+                })
+            }
+            else
+            {
+                group = await db.group.findOne({
+                    where: { showDashboard: true }
+                })
+            } 
+        }else{
+            group = await db.group.findOne({
+                where: { id: gid }
             })
         }
-        else
-        {
-            var group = await db.group.findOne({
-                where: { showDashboard: true }
-            })
-        } 
 
         group = group.dataValues;
 
@@ -1061,7 +1074,7 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.get('/dashboard/:year/:month', async (req, res) => {
+    api.get('/dashboard/:year/:month/:gid', async (req, res) => {
         let ret = []
 
         if(await apiguard(req, 'dashboard', '') == false)
@@ -1095,22 +1108,29 @@ export function initAPI() {
             endTime = new Date(now)
         }
 
-        let user = await db.user.findOne({
-            where: { username: req.session.user }
-        })
-
-        if(user && user.dataValues.group)
-        {
-            var group = await db.group.findOne({
-                where: { id: user.dataValues.group }
+        let group = null;
+        const gid = req.params.gid
+        if(isNaN(gid)){
+            const user = await db.user.findOne({
+                where: { username: req.session.user }
+            })
+            if(user && user.dataValues.group)
+            {
+                group = await db.group.findOne({
+                    where: { id: user.dataValues.group }
+                })
+            }
+            else
+            {
+                group = await db.group.findOne({
+                    where: { showDashboard: true }
+                })
+            } 
+        }else{
+            group = await db.group.findOne({
+                where: { id: gid }
             })
         }
-        else
-        {
-            var group = await db.group.findOne({
-                where: { showDashboard: true }
-            })
-        } 
 
         group = group.dataValues;
 
@@ -1209,7 +1229,7 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.get('/dashboard/:year', async (req, res) => {
+    api.get('/dashboard/:year/:gid', async (req, res) => {
         let ret = []
 
         if(await apiguard(req, 'dashboard', '') == false)
@@ -1239,22 +1259,29 @@ export function initAPI() {
             endTime = new Date(now)
         }
 
-        let user = await db.user.findOne({
-            where: { username: req.session.user }
-        })
-
-        if(user && user.dataValues.group)
-        {
-            var group = await db.group.findOne({
-                where: { id: user.dataValues.group }
+        let group = null;
+        const gid = req.params.gid
+        if(isNaN(gid)){
+            const user = await db.user.findOne({
+                where: { username: req.session.user }
+            })
+            if(user && user.dataValues.group)
+            {
+                group = await db.group.findOne({
+                    where: { id: user.dataValues.group }
+                })
+            }
+            else
+            {
+                group = await db.group.findOne({
+                    where: { showDashboard: true }
+                })
+            } 
+        }else{
+            group = await db.group.findOne({
+                where: { id: gid }
             })
         }
-        else
-        {
-            var group = await db.group.findOne({
-                where: { showDashboard: true }
-            })
-        } 
 
         group = group.dataValues;
 
@@ -1742,11 +1769,12 @@ export function initAPI() {
 
             const snid = sn + "%" + modbusid;
 
+            if(!lastUpdateData[snid] && !lastUpdateTime[snid]) continue;
 
-            // const diff_time = (new Date()- (new Date(lastUpdateTime[snid]))) /  (1000 * 60);
-            // if(diff_time > delay_monitor) continue;'
+            const diff_time = (new Date()- (new Date(lastUpdateTime[snid]))) /  (1000 * 60);
+            if(diff_time > delay_monitor) continue;
             
-            if(!lastUpdateData[snid] || lastUpdateData[snid]['V12'] <= 0) continue;
+            // if(lastUpdateData[snid]['V12'] <= 0) continue;
             
             ret[k] = {
                 time: lastUpdateTime[snid],
@@ -2060,7 +2088,7 @@ export function initAPI() {
             res.json({});
             return
         }
-        if(await apiguard(_req, 'getgroup', '') == false)
+        if(await apiguard(_req, 'group_type', '') == false)
         {
             res.json({})
             return
@@ -2069,7 +2097,8 @@ export function initAPI() {
         for(const g in group){
             const find = types.find((t)=>t === group[g].type)
             if(!find) continue;
-            result[group[g].type] = group[g];
+            if(!result[group[g].type]) result[group[g].type] = [group[g]];
+            else result[group[g].type].push(group[g])
         }
         res.json(result)
     })
