@@ -25,7 +25,6 @@ function formatDateTime(date) {
     const day = String(date.getDate()).padStart(2, '0');
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
-
     return `${year}/${month}/${day} ${hours}:${minutes}`;
 }
 
@@ -369,9 +368,18 @@ async function start(BN_CFG_PATH) {
                             {
                                 console.log('Received duplicated packet. Ignored.')
                                 try{
-                                    console.log(blacknode[sn].meter_list[modbusid].name);
-                                    console.log('broker_last_db:'+formatDateTime(new Date(blacknode[sn].meter_list[modbusid].last_db)));
-                                    console.log('bn_last_db:'+formatDateTime(dt));
+                                    const currTime = new Date();
+                                    const brokerTime = new Date(blacknode[sn].meter_list[modbusid].last_db);
+                                    const bnTime = new Date(dt);
+                                    console.log("\n"+blacknode[sn].meter_list[modbusid].name);
+                                    console.log('Current Time (UTC+7)" '+formatDateTime(currTime));
+                                    console.log('Broker (UTC): '+formatDateTime(brokerTime));
+                                    console.log('BlackNode (UTC): '+formatDateTime(bnTime));
+                                    brokerTime.setHours(brokerTime.getHours()-7);
+                                    bnTime.setHours(bnTime.getHours()-7);
+                                    console.log('Broker (UTC+7): '+formatDateTime(brokerTime));
+                                    console.log('BlackNode (UTC+7): '+formatDateTime(bnTime));
+                                    console.log('Import_kWh: '+obj.Import_kWh+' : '+'V12: '+obj.V12);
                                 }
                                     catch(err){console.log(err);
                                 }

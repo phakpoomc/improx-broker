@@ -1918,20 +1918,28 @@ export function initAPI() {
                 energy = e.TotalkWh
             }
             let absEnergy = 0;
-            if(prevEnergy[e.snmKey] > 0 && energy > 0){
+
+            if(prevEnergy[e.snmKey] > 0 && energy > 0 && energy > prevEnergy[e.snmKey]){
                 absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
             }
-         
+            
             prevEnergy[e.snmKey] = energy;
 
             const dt = new Date(e.DateTimeUpdate)
             dt.setHours(dt.getHours()-7)
+            dt.setMinutes(dt.getMinutes()-15)
+            // if(e.snmKey == 'TEP%N09%9'){
+            //     console.log(e.DateTimeUpdate);
+            //     console.log(energy,prevEnergy[e.snmKey],absEnergy);
+            // }
+         
 
             const findArray = ret.findIndex(r=>r.category == formatDateTime(dt))
             
-            if(dt.getMinutes() %15 != 0){
-                console.log('not 15 min : '+dt);
-            }
+            // if(dt.getMinutes() %15 != 0){
+            //     console.log('not 15 min : '+dt);
+            // }
+
             if(findArray > -1){
                 ret[findArray].value1 += absEnergy;
             }
@@ -1985,38 +1993,45 @@ export function initAPI() {
 
             if (groupInfo !== null) {
                 for (let g of groupInfo) {
-                    if (!(initGroup.includes(g.GroupID))) {
-                        groups[g.GroupID] = {
-                            id: g.GroupID,
-                            name: group[g.GroupID].name,
-                            type: group[g.GroupID].type,
-                            parameter: [],
-                            member: []
+                    try {
+                        if (!(initGroup.includes(g.GroupID))) {
+                            groups[g.GroupID] = {
+                                id: g.GroupID,
+                                name: group[g.GroupID].name,
+                                type: group[g.GroupID].type,
+                                parameter: [],
+                                member: []
+                            }
+    
+                            initGroup.push(g.GroupID)
+    
+                            for (let i = 0; i < pmap.length; i++) {
+                                groups[g.GroupID].parameter.push({
+                                    name: cmap[pmap[i]].name + ' ' + cmap[pmap[i]].unit,
+                                    display:
+                                        group[g.GroupID].name +
+                                        ' - ' +
+                                        cmap[pmap[i]].name +
+                                        ' ' +
+                                        cmap[pmap[i]].unit,
+                                    selectedSeries: 'G@' + String(g.GroupID) + '%' + cmap[pmap[i]].name
+                                })
+                            }
                         }
-
-                        initGroup.push(g.GroupID)
-
-                        for (let i = 0; i < pmap.length; i++) {
-                            groups[g.GroupID].parameter.push({
-                                name: cmap[pmap[i]].name + ' ' + cmap[pmap[i]].unit,
-                                display:
-                                    group[g.GroupID].name +
-                                    ' - ' +
-                                    cmap[pmap[i]].name +
-                                    ' ' +
-                                    cmap[pmap[i]].unit,
-                                selectedSeries: 'G@' + String(g.GroupID) + '%' + cmap[pmap[i]].name
-                            })
-                        }
+    
+                        groups[g.GroupID].member.push({
+                            name: blacknode[g.SerialNo].meter_list[g.ModbusID-1].name,
+                            SerialNo: g.SerialNo,
+                            SiteID:g.SiteID,
+                            NodeID:g.NodeID,
+                            ModbusID:parseInt(g.ModbusID) - 1,
+                        })
+                    }catch(err){
+                        console.log(g.SerialNo,g.ModbusID);
+                        console.log(err);
+                        
                     }
-
-                    groups[g.GroupID].member.push({
-                        name: blacknode[g.SerialNo].meter_list[g.ModbusID-1].name,
-                        SerialNo: g.SerialNo,
-                        SiteID:g.SiteID,
-                        NodeID:g.NodeID,
-                        ModbusID:parseInt(g.ModbusID) - 1,
-                    })
+                    
                 }
             }
         }

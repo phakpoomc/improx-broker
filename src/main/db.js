@@ -276,8 +276,13 @@ export async function syncDB() {
                 tableName: 'target'
             }
         )
-
-        await alterTable(sequelize);
+        
+        try {
+            await alterTable(sequelize);
+        } catch (error) {
+            console.log("can't alter table create new")
+        }
+    
 
         try {
             await sequelize.sync()
