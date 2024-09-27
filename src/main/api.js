@@ -4600,13 +4600,13 @@ export function initAPI() {
         const arr_size = ((end_date - start_date) / (1000 * 60 * 60 * 24)) + 1;
 
         const ret = {}
-
+        const storeCName = {};
+        const snmKeys = [];
         const p = req.body
-
+        if(p.length == 0) return;
         for (const k of p) {
             // Get data and fill
             let arr = k.split("@");
-
             if(arr[0] == 'M')
             {
                 const sn = arr[1];
@@ -4617,53 +4617,52 @@ export function initAPI() {
 
                 const modbusid = String(parseInt(arr[0]) + 1);
                 const param = arr[1];
-                let eData = null;
                 const cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + param
-          
-                
-
-                eData = await db.energy.findAll({
-                    attributes: ['DateTimeUpdate', 'SerialNo', param],
-                    where: {
-                        DateTimeUpdate: {
-                            [Op.between]: [start_date, end_date]
-                        },
-                        [Op.and]: [
-                            db.sequelize.where(
-                                db.sequelize.fn('DATE_PART', 'hour', db.sequelize.col('DateTimeUpdate')),
-                                req.params.s_hour
-                            ),
-                            db.sequelize.where(
-                                db.sequelize.fn('DATE_PART', 'minute', db.sequelize.col('DateTimeUpdate')),
-                                req.params.s_min
-                            )
-                        ],
-                        snmKey: siteid + "%" + nodeid + "%" + modbusid
-                    },
-                    order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
-                })
-
-                ret[cellName] = []
+                snmKeys.push(siteid + "%" + nodeid + "%" + modbusid);
+                ret[cellName] = [];
                 for (let index = 0; index < arr_size; index++) {
                     ret[cellName].push(-1) 
                 }
-                if(eData.length > 0){
-                    const tmpMonth = new Date(eData[0].DateTimeUpdate).getMonth();
-                    const tmpYear = new Date(eData[0].DateTimeUpdate).getFullYear();
-                    for(const e of eData)
-                    { 
-                        const index = new Date(e.DateTimeUpdate).getDate() - 1;
-                        const currMonth = new Date(e.DateTimeUpdate).getMonth();
-                        const currYear = new Date(e.DateTimeUpdate).getFullYear();
-                        
-                        if(currMonth > tmpMonth || tmpYear > currYear){
-                            ret[cellName][ret[cellName].length - 1] = e[param];
-                        }
-                        else if(index >= 0 && index <=30 ){
-                            ret[cellName][index] = e[param];
-                        } 
-                    }
+                storeCName[siteid + "%" + nodeid + "%" + modbusid] = [cellName,param];
+            }
+        }
+
+        const eData = await db.energy.findAll({
+            where: {
+                DateTimeUpdate: {
+                    [Op.between]: [start_date, end_date]
+                },
+                [Op.and]: [
+                    db.sequelize.where(
+                        db.sequelize.fn('DATE_PART', 'hour', db.sequelize.col('DateTimeUpdate')),
+                        req.params.s_hour
+                    ),
+                    db.sequelize.where(
+                        db.sequelize.fn('DATE_PART', 'minute', db.sequelize.col('DateTimeUpdate')),
+                        req.params.s_min
+                    )
+                ],
+                snmKey: { [Op.in]: snmKeys }
+            },
+            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+        })
+
+        if(eData.length > 0){
+            const tmpMonth = new Date(eData[0].DateTimeUpdate).getMonth();
+            const tmpYear = new Date(eData[0].DateTimeUpdate).getFullYear();
+            for(const e of eData)
+            { 
+                if(!storeCName[e.snmKey] || storeCName[e.snmKey].length != 2) continue;
+                const index = new Date(e.DateTimeUpdate).getDate() - 1;
+                const currMonth = new Date(e.DateTimeUpdate).getMonth();
+                const currYear = new Date(e.DateTimeUpdate).getFullYear();
+                
+                if(currMonth > tmpMonth || tmpYear > currYear){
+                    ret[storeCName[e.snmKey][0]][ret[storeCName[e.snmKey][0]].length - 1] = e[storeCName[e.snmKey][1]];
                 }
+                else if(index >= 0 && index <=30 ){
+                    ret[storeCName[e.snmKey][0]][index] = e[storeCName[e.snmKey][1]];
+                } 
             }
         }
 
@@ -4728,9 +4727,12 @@ export function initAPI() {
         const arr_size = 2
         
         const ret = {}
-
+        const storeCName = {};
+        const snmKeys = [];
         const p = req.body
 
+        if(p.length == 0) return;
+        let param;
         for (const k of p) {
             // Get data and fill
             let arr = k.split("@");
@@ -4744,39 +4746,37 @@ export function initAPI() {
                 arr = arr[4].split("%");
 
                 const modbusid = String(parseInt(arr[0]) + 1);
-                const param = arr[1];
-                let eData = null;
+                param = arr[1];
                 const cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + param
-          
-                
-
-                eData = await db.energy.findAll({
-                    attributes: ['DateTimeUpdate', 'SerialNo', param],
-                    where: {
-                        DateTimeUpdate:  {[Op.in]:[start_date,end_date]},
-                        snmKey: siteid + "%" + nodeid + "%" + modbusid
-                    },
-                    order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
-                })
-
-                ret[cellName] = []
+                snmKeys.push(siteid + "%" + nodeid + "%" + modbusid);
+                ret[cellName] = [];
                 for (let index = 0; index < arr_size; index++) {
                     ret[cellName].push(-1) 
                 }
-                if(eData.length > 0){
-                    for(const e of eData)
-                    { 
-                       
-                        let index;
-                        if(compareDateTime(new Date(e.DateTimeUpdate),start_date)){
-                            index  = 0
-                        }else{
-                            index  = 1
-                        }
-                        //console.log(eDate,start_date,index,e[param]);
-                        ret[cellName][index] = e[param];
-                    }
+                storeCName[siteid + "%" + nodeid + "%" + modbusid] = [cellName,param];
+            }
+        }
+ 
+        const eData = await db.energy.findAll({
+            where: {
+                DateTimeUpdate:  {[Op.in]:[start_date,end_date]},
+                snmKey: { [Op.in]: snmKeys }
+            },
+            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+        })
+
+        if(eData.length > 0){
+            for(const e of eData)
+            { 
+                if(!storeCName[e.snmKey] || storeCName[e.snmKey].length != 2) continue;
+                let index;
+                if(compareDateTime(new Date(e.DateTimeUpdate),start_date)){
+                    index  = 0
+                }else{
+                    index  = 1
                 }
+                //console.log(eDate,start_date,index,e[param]);
+                ret[storeCName[e.snmKey][0]][index] = e[storeCName[e.snmKey][1]];
             }
         }
 
@@ -4790,8 +4790,6 @@ export function initAPI() {
             col.width = k.length+5
             currCol++
         }
-
-
 
         worksheet.getCell('A' + String(2)).value = start_date;
         worksheet.getCell('A' + String(3)).value = end_date;
