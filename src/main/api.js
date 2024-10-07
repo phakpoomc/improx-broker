@@ -2398,17 +2398,20 @@ export function initAPI() {
             }
             let isPartial = false;
             for (let i = 0; i < bn.maxmeter; i++) {
-                //delay  2 min
                 const m_lastUpdate = new Date(bn.meter_list[i].last_update);
                 let m_status = 'off';
                 if (m_lastUpdate instanceof Date && !isNaN(m_lastUpdate)){
                     if((new Date() - m_lastUpdate)  / (1000 * 60) <= 5){
                         m_status = 'on';
                     }
+                }else{
+                    continue;
                 }
+
                 if(m_status === 'off'){
                     isPartial = true;
                 }
+                
                 ret[bn.serial].meter_list[i] = {
                     id: i + 1,
                     address: bn.meter_list[i].id,
