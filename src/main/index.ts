@@ -9,7 +9,6 @@ import {
     meta_cfg,
     blacknode,
     writeFile,
-    readFile,
     paths,
     loadMetaCFG,
     loadMetaDB,
@@ -73,9 +72,6 @@ function loginWith(uname, pwd)
 // const META_CFG_PATH = path.resolve(app.getPath('appData'), 'meta.cfg')
 const META_CFG_PATH = path.join(process.cwd(), 'meta.cfg')
 paths['META_CFG_PATH'] = META_CFG_PATH
-
-const METER_TYPE_PATH = path.join(process.cwd(), 'meter_type.cfg')
-paths['METER_TYPE_PATH'] = METER_TYPE_PATH
 
 /* MQTT Broker Section */
 import { aedesInst, httpServer, startMQTT } from './mqtt.js'
@@ -192,24 +188,6 @@ app.whenReady().then(async () => {
             cfg.gateway +
             '|dns=' +
             cfg.dns +
-            '|protocol=' +
-            cfg.modbus +
-            '|baud=' +
-            cfg.baud +
-            '|databit=' +
-            cfg.databit +
-            '|par=' +
-            cfg.par +
-            '|stop=' +
-            cfg.stop +
-            '|mgip=' +
-            cfg.mgip +
-            '|mgsub=' +
-            cfg.mgsub +
-            '|mggate=' +
-            cfg.mggate +
-            '|mgport=' +
-            cfg.mgport +
             '|key=' +
             cfg.siteid +
             '/' +
@@ -228,15 +206,6 @@ app.whenReady().then(async () => {
         blacknode[sn].subnet = cfg.subnet
         blacknode[sn].gateway = cfg.gateway
         blacknode[sn].dns = cfg.dns
-        blacknode[sn].modbus = cfg.modbus
-        blacknode[sn].baud = cfg.baud
-        blacknode[sn].databit = cfg.databit
-        blacknode[sn].par = cfg.par
-        blacknode[sn].stop = cfg.stop
-        blacknode[sn].mgip = cfg.mgip
-        blacknode[sn].mgsub = cfg.mgsub
-        blacknode[sn].mggate = cfg.mggate
-        blacknode[sn].mgport = cfg.mgport
 
         if(curr_max < prev_max)
         {
@@ -278,7 +247,7 @@ app.whenReady().then(async () => {
                 blacknode[sn].meter_list[i].name = cfg.meter_list[i].name
                 blacknode[sn].meter_list[i].type = cfg.meter_list[i].type
 
-                if (cfg.meter_list[i].type != '' && cfg.meter_list[i].type.length <= 2) {
+                if (cfg.meter_list[i].type != '') {
                     pkt +=
                         String(i + 1).padStart(2, '0') +
                         ':' +
@@ -349,18 +318,7 @@ app.whenReady().then(async () => {
 
     ipcMain.handle('data:getBlacknodeCFG', (_event, key) => {
         if (blacknode.hasOwnProperty(key)) {
-            const data = readFile(METER_TYPE_PATH, { encoding: 'utf-8', flag: 'r' })
-
-            var lines = data.split('\n');
-            var meter_types : any[] = [];
-
-            for(let line of lines)
-            {
-                let l = line.split(' : ')
-                let obj = {value: l[0], text: line}
-                meter_types.push(obj)
-            }
-            return {...blacknode[key], mtypes: meter_types }
+            return blacknode[key]
         } else {
             return null
         }

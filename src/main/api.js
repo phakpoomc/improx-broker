@@ -390,6 +390,7 @@ const routes = {
     'phasor': ['owner', 'user', 'admin', 'test'],
     'report': ['owner', 'user', 'admin', 'test'],
     'usermanage': ['owner', 'admin', 'test'],
+    'layout': ['owner', 'user', 'admin', 'test'],
 }
 
 const apis = {
@@ -409,7 +410,8 @@ const apis = {
     'getholiday': ['owner', 'user', 'admin', 'test'],
     'getuser': ['owner', 'user', 'admin', 'test'],
     'rp_chart': ['owner', 'user', 'admin', 'test'],
-    'feedmeter': ['owner', 'admin', 'test']
+    'feedmeter': ['owner', 'admin', 'test'],
+    'layout': ['owner', 'user', 'admin', 'test'],
 }
 
 async function routeguard(req, route)
@@ -3709,6 +3711,89 @@ export function initAPI() {
         workbook.xlsx.write(res).then(() => {
             res.end()
         })
+    })
+
+    api.get('/layout/:syear/:smonth/:sday/:shour/:smin/:eyear/:emonth/:eday/:ehour/:emin', async (req, res) => {
+        const ret = {}
+
+        if(await apiguard(req, 'layout', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+
+        const startTime = new Date(Date.UTC(req.params.syear, req.params.smonth - 1, req.params.sday, req.params.shour, req.params.smin, 0));
+        const endTime = new Date(Date.UTC(req.params.eyear, req.params.emonth - 1, req.params.eday, req.params.ehour, req.params.emin, 0));
+
+        const snmKey = []
+        const prevEnergy = {}
+        const prevTime = {}
+        const multmap = {}
+        for(const g in group){
+            // const members = await db.gmember.findAll({
+            //     where: { GroupID: group[g].id }
+            // })
+
+            if(!group[g].name.startsWith('Layout') || !group[g].member || group[g].member.length == 0) continue;
+            
+            for (const m of group[g].member) {
+                const key = m.siteid + '%' + m.nodeid + '%' + String(m.modbusid)
+                snmKey.push(key)
+                prevEnergy[key] = 0
+                prevTime[key] = null
+                multmap[key] = parseFloat(m.multiplier)
+            }
+
+            const eData = await db.energy.findAll({
+                where: {
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startTime,
+                            [Op.lte]: endTime
+                        }
+                    },
+                    snmKey: snmKey
+                },
+                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+            })
+            
+            const gName = group[g].name.split('-').length == 2 ? group[g].name.split('-')[1]  : group[g].name
+            
+            ret[gName] = 0;
+
+            for (const e of eData) {
+                const sn = e.SerialNo
+                const period = blacknode[sn].period * 60 * 1000
+                let energy = 0;
+    
+                if(meta_cfg.useImport.value)
+                {
+                    energy = e.Import_kWh
+                }
+                else
+                {
+                    energy = e.TotalkWh
+                }
+
+                if(energy == 0){
+                    continue;
+                }
+    
+                if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
+                    prevTime[e.snmKey] = e.DateTimeUpdate
+                    prevEnergy[e.snmKey] = energy
+                    continue
+                }
+    
+                const absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+                prevEnergy[e.snmKey] = energy
+                ret[gName] += absEnergy
+                prevTime[e.snmKey] = e.DateTimeUpdate
+    
+            }
+        }
+
+        res.json(ret)
     })
 
     api.post('/feedmeter', async (req, res) => {
