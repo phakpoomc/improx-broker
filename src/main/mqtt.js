@@ -336,33 +336,90 @@ async function start(BN_CFG_PATH) {
                                 blacknode[sn].meter_list[modbusid].last_db = new Date(0)
                             }
 
-                            if(new Date(blacknode[sn].meter_list[modbusid].last_db).getTime() < dt.getTime())
+                            //console.log("Before: "+ new Date(blacknode[sn].meter_list[modbusid].last_db));
+                            
+                            const lastDbDate = new Date(blacknode[sn].meter_list[modbusid].last_db);
+                            if(lastDbDate.getTime() < dt.getTime())
                             {
-                                blacknode[sn].meter_list[modbusid].last_db = dt
+                                const nextThreeMonth = new Date(lastDbDate);
+                                let roundedMinutes = (Math.round(nextThreeMonth.getMinutes() / 15)) * 15;
+                                if (roundedMinutes === 60) {
+                                    nextThreeMonth.setHours(nextThreeMonth.getHours() + 1);
+                                    roundedMinutes = 0;
+                                }
+                                nextThreeMonth.setMinutes(roundedMinutes);
+                                nextThreeMonth.setSeconds(0);
+                                nextThreeMonth.setMilliseconds(0);
+                                nextThreeMonth.setMonth(nextThreeMonth.getMonth() + 3)
+                                // check if blacknode time more then three month
+                                if(dt.getTime() > nextThreeMonth.getTime()){
+                                    console.log('Received Over range packet. Ignored.')
+                                    try{
+                                        const currTime = new Date();
+                                        const brokerTime = new Date(blacknode[sn].meter_list[modbusid].last_db);
+                                        const bnTime = new Date(dt);
+                                        console.log("\n"+blacknode[sn].meter_list[modbusid].name);
+                                        console.log('Current Time (UTC+7)" '+formatDateTime(currTime));
+                                        console.log('Broker (UTC): '+formatDateTime(brokerTime));
+                                        console.log('BlackNode (UTC): '+formatDateTime(bnTime));
+                                        brokerTime.setHours(brokerTime.getHours()-7);
+                                        bnTime.setHours(bnTime.getHours()-7);
+                                        console.log('Broker (UTC+7): '+formatDateTime(brokerTime));
+                                        console.log('BlackNode (UTC+7): '+formatDateTime(bnTime));
+                                        console.log('Import_kWh: '+obj.Import_kWh+' : '+'V12: '+obj.V12);
+                                    }
+                                        catch(err){console.log(err);
+                                    }
+                                    //set current date
+                                    const curr = new Date();
+                                    const currDate = new Date(Date.UTC(curr.getFullYear(), curr.getMonth() , curr.getDate(), curr.getHours(), curr.getMinutes(), curr.getSeconds()));
+                                    blacknode[sn].meter_list[modbusid].last_db = currDate;
+                                    aedesInst.publish(
+                                        {
+                                            cmd: 'publish',
+                                            qos: QOS,
+                                            dup: false,
+                                            retain: false,
+                                            topic:
+                                                'LOG/DATABASE/' +
+                                                sn +
+                                                '/' +
+                                                siteid +
+                                                '/' +
+                                                nodeid +
+                                                '/' +
+                                                String(modbusid + 1).padStart(2, '0'),
+                                            payload: 'OK'
+                                        },
+                                        function () {}
+                                    )
+                                }else{           
+                                    blacknode[sn].meter_list[modbusid].last_db = dt
 
-                                checkOverRange(obj)
+                                    checkOverRange(obj)
 
-                                await db.energy.create(obj)
+                                    await db.energy.create(obj)
 
-                                aedesInst.publish(
-                                    {
-                                        cmd: 'publish',
-                                        qos: QOS,
-                                        dup: false,
-                                        retain: false,
-                                        topic:
-                                            'LOG/DATABASE/' +
-                                            sn +
-                                            '/' +
-                                            siteid +
-                                            '/' +
-                                            nodeid +
-                                            '/' +
-                                            String(modbusid + 1).padStart(2, '0'),
-                                        payload: 'OK'
-                                    },
-                                    function () {}
-                                )
+                                    aedesInst.publish(
+                                        {
+                                            cmd: 'publish',
+                                            qos: QOS,
+                                            dup: false,
+                                            retain: false,
+                                            topic:
+                                                'LOG/DATABASE/' +
+                                                sn +
+                                                '/' +
+                                                siteid +
+                                                '/' +
+                                                nodeid +
+                                                '/' +
+                                                String(modbusid + 1).padStart(2, '0'),
+                                            payload: 'OK'
+                                        },
+                                        function () {}
+                                    )
+                                }        
                             }
                             else
                             {
@@ -404,6 +461,7 @@ async function start(BN_CFG_PATH) {
                                 )
                             }
                             
+                            //console.log("After: "+new Date(blacknode[sn].meter_list[modbusid].last_db));
 
                             // let aQ = {
                             //     cmd: 'publish',
