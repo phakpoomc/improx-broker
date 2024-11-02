@@ -20,6 +20,12 @@ export async function syncDB() {
             define: {
                 timestamps: false
             },
+            pool: {
+                max: 50,
+                min: 5,
+                acquire: 30000,
+                idle: 10000
+            },
             // dialectOptions: {
             //     useUTC: true
             // },

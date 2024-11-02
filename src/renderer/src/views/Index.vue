@@ -81,6 +81,14 @@ function getIconClasses(status) {
         'text-warning': status === 'Equipment failure'
     }
 }
+
+function initCache() {
+    if(window.confirm('Initializing cache may take time'))
+    {
+        window.mainprocess.initCache();
+    }
+    
+}
 </script>
 
 <template>
@@ -241,11 +249,20 @@ function getIconClasses(status) {
 
         <template #datetime>
             <br />
+            
+
             <router-link
                 :to="'/sql_edit'"
                 type="button"
                 class="btn btn-outline-secondary float-end mt-3"
                 >Edit Connection</router-link
+            >
+
+            <button
+                type="button"
+                @click="initCache()"
+                class="btn btn-outline-secondary float-end mx-3 mt-3"
+                >Initialize Cache</button
             >
         </template>
 

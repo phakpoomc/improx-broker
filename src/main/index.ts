@@ -13,6 +13,7 @@ import {
     paths,
     loadMetaCFG,
     loadMetaDB,
+    initCache,
     loadBNInfoFromLocal,
     checkHeartbeat,
     db,
@@ -129,6 +130,7 @@ function createWindow(): void {
                     
                     await syncDB()
                     await loadMetaDB()
+                    initCache()
                 }
             }
         }
@@ -310,6 +312,7 @@ app.whenReady().then(async () => {
 
         writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
         await loadMetaDB()
+        // initCache()
 
         if(cfg.sendack)
         {
@@ -381,6 +384,7 @@ app.whenReady().then(async () => {
         loadMetaCFG()
         await syncDB()
         await loadMetaDB()
+        // initCache()
     })
 
     ipcMain.handle('data:setBNFile', (_event, data) => {
@@ -404,6 +408,7 @@ app.whenReady().then(async () => {
 
         await syncDB()
         await loadMetaDB()
+        // initCache()
     })
 
     ipcMain.handle('data:getAPICFG', (_event) => {
@@ -464,6 +469,14 @@ app.whenReady().then(async () => {
         console.log('Clear messaged.')
     })
 
+    ipcMain.handle('cmd:initCache', (_event) => {
+        initCache().then((data) => {
+            last['message'] = data.msg
+            last['time'] = new Date()
+            last['status'] = data.status
+        })
+    })
+
     // Default open or close DevTools by F12 in development
     // and ignore CommandOrControl + R in production.
     // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
@@ -500,6 +513,7 @@ app.on('before-quit', async function () {
     clearInterval(minuteInterval)
     clearInterval(gettimeInterval)
     clearInterval(heartbeatInterval)
+    clearInterval(cacheRefreshInterval)
     // clearInterval(dbSaveInterval)
 
     // await savetoDB()
@@ -544,6 +558,7 @@ ipcMain.on('authenticate', async (_event, args) => {
             
             await syncDB()
             await loadMetaDB()
+            initCache()
         }
     } else {
         authenticated = false
@@ -646,6 +661,13 @@ let heartbeatInterval = setInterval(() => {
         }
     }
 }, 10 * 1000)
+
+let cacheRefreshInterval = setInterval(() => {
+    // sendtime every minute on the 0-9th second
+    if (authenticated) {
+        initCache()
+    }
+}, 24*60*60 * 1000)
 
 // let dbSaveInterval = setInterval(() => {
 //     if (authenticated) {

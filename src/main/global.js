@@ -1,6 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { Sequelize } from 'sequelize';
+import { Sequelize, Op } from 'sequelize';
 // import { aedesInst } from './mqtt.js'
+
+// import { Worker } from 'worker_threads';
 
 export var last = {
     message: '',
@@ -36,8 +38,362 @@ const MINIMUM_REALERT = 61 * 60 * 1000
 // var dbQueue = [];
 // var aedesQueue = [];
 
-var qLock = false;
+export var qLock = false;
+export var cacheDirty = false;
 
+// Cache
+export var cached = {}
+
+export function isOnPeak(dt) {
+    let dayinweek = dt.getUTCDay()
+
+    // Saturday or Sunday
+    if (dayinweek == 0 || dayinweek == 6) {
+        return false
+    }
+
+    // In case of holidays...
+    let k = String(dt.getUTCFullYear()) + '-' + String(parseInt(dt.getUTCMonth()) + 1) + '-' + String(dt.getUTCDate())
+
+    if (holidays[k]) {
+        return false
+    }
+
+    // Mon - Fri
+    let hours = dt.getUTCHours()
+    let min = dt.getUTCMinutes()
+
+    if (hours < 9 || hours > 22) {
+        return false
+    } else {
+        if ((hours == 9 && min == 0) || (hours == 22 && min > 0)) {
+            return false
+        }
+    }
+
+    return true
+}
+
+export function setCacheDirty()
+{
+    cacheDirty = true;
+}
+
+var timeout = null;
+
+export async function initCache() 
+{
+    if(qLock)
+    {
+        if(cacheDirty)
+        {
+            if(!timeout)
+            {
+                setTimeout(initCache, 3*60*1000);
+            }
+            
+            cacheDirty = false;
+        }
+
+        return {msg: 'Lock is busy. Cannot initialize cache', status: 'error'};
+    }
+
+    qLock = true;
+    timeout = null;
+
+    if(!db)
+    {
+        qLock = false;
+        return {msg: 'DB is busy. Cannot initialize cache.', status: 'error'};
+    }
+
+    cached = {};
+
+    // calculate value and return
+    let now = new Date()
+
+    let tLastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0))
+    let tThisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0))
+    let tYesterday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0))
+    let tToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0))
+    let tTomorrow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0))
+
+    let prevEnergy = {}
+    let prevTime = {}
+
+    let lastTime = new Date(tLastMonth);
+    let currTime = new Date(tLastMonth);
+    currTime.setDate(currTime.getDate() + 1 );
+
+    // const workerPromises = [];
+
+    for(; currTime < tTomorrow; currTime.setDate(currTime.getDate() + 1 ))
+    {
+        console.log("Loading ", currTime);
+
+        var eData = await db.energy.findAll({
+            where: {
+                DateTimeUpdate: {
+                    [Op.and]: {
+                        [Op.gte]: lastTime,
+                        [Op.lte]: currTime
+                    }
+                }
+            },
+            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+        })
+
+        console.log("Count: ", eData.length);
+
+        for (let e of eData) {
+            if(!cached.hasOwnProperty(e.snmKey))
+            {
+                cached[e.snmKey] = {
+                    energyLastMonth: 0,
+                    energyThisMonth: 0,
+                    energyYesterday: 0,
+                    energyToday: 0,
+                    maxDemandLastMonth: {},
+                    maxDemandThisMonth: {},
+                    maxDemandYesterday: {},
+                    maxDemandToday: {},
+                    prevEnergy: 0,
+                    prevTime: null
+                }
+            }
+
+            let energy = 0;
+    
+            if(meta_cfg.useImport.value)
+            {
+                energy = e.Import_kWh
+            }
+            else
+            {
+                energy = e.TotalkWh
+            }
+    
+            if (!prevTime[e.snmKey]) {
+                prevEnergy[e.snmKey] = energy
+                prevTime[e.snmKey] = e.DateTimeUpdate
+                continue
+            }
+    
+            let adjustedTime = new Date(Date.UTC(e.DateTimeUpdate.getUTCFullYear(), e.DateTimeUpdate.getUTCMonth(), e.DateTimeUpdate.getUTCDate(), e.DateTimeUpdate.getUTCHours(), e.DateTimeUpdate.getUTCMinutes()))
+            // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes() - 1)
+            let tKey = adjustedTime.getUTCFullYear() + '-' + (adjustedTime.getUTCMonth()+1) + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
+
+            let absEnergy = (energy - prevEnergy[e.snmKey])
+    
+            prevEnergy[e.snmKey] = energy
+
+            cached[e.snmKey].prevEnergy = energy;
+            cached[e.snmKey].prevTime = e.DateTimeUpdate;
+
+            let gap = ((e.DateTimeUpdate - prevTime[e.snmKey])/1000/60)/60
+
+            let d = absEnergy/gap;
+    
+            if (e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate <= tThisMonth) {
+                // Last month
+                if(prevTime[e.snmKey] >= tLastMonth && prevTime[e.snmKey] <= tThisMonth)
+                {
+                    cached[e.snmKey].energyLastMonth += absEnergy
+    
+                    // if (isOnPeak(e.DateTimeUpdate)) {
+                    //     cached[e.snmKey].maxDemandLastMonth[tKey] = d;
+                    // }
+                }
+            } else {
+                // This month
+                if(prevTime[e.snmKey] >= tThisMonth && prevTime[e.snmKey] <= tTomorrow)
+                {
+                    cached[e.snmKey].energyThisMonth += absEnergy
+    
+                    // if (isOnPeak(e.DateTimeUpdate)) {
+                    //     if(d > cached[e.snmKey].maxDemandThisMonth)
+                    //     {
+                    //         cached[e.snmKey].maxDemandThisMonth[tKey] = d;
+                    //     }
+                    // }
+    
+                    if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate <= tToday) {
+                        // Yesterday
+                        if(prevTime[e.snmKey] >= tYesterday && prevTime[e.snmKey] <= tTomorrow)
+                        {
+                            cached[e.snmKey].energyYesterday += absEnergy
+    
+                            // if (isOnPeak(e.DateTimeUpdate)) {
+                            //     if(d > cached[e.snmKey].maxDemandYesterday)
+                            //     {
+                            //         cached[e.snmKey].maxDemandYesterday[tKey] = d;
+                            //     }
+                            // }
+                        }
+                        
+                    } else if (e.DateTimeUpdate >= tToday && prevTime[e.snmKey] <= tTomorrow) {
+                        cached[e.snmKey].energyToday += absEnergy
+    
+                        // if (isOnPeak(e.DateTimeUpdate)) {
+                        //     if(d > cached[e.snmKey].maxDemandToday)
+                        //     {
+                        //         cached[e.snmKey].maxDemandToday[tKey] = d;
+                        //     }
+                        // }
+                    }
+                }
+            }
+    
+            prevTime[e.snmKey] = e.DateTimeUpdate
+        }
+
+        lastTime.setDate(lastTime.getDate() + 1)
+    }
+
+    let elapsed = new Date();
+    console.log('Cached initialization done. Took', (elapsed.getTime() - now.getTime())/1000, 'seconds');
+
+    // let keys = Object.keys(cached);
+
+    // for(let k of keys)
+    // {
+    //     let obj = {
+    //         energyLastMonth: cached[k].energyLastMonth,
+    //         energyThisMonth: cached[k].energyThisMonth,
+    //         energyYesterday: cached[k].energyYesterday,
+    //         energyToday: cached[k].energyToday
+    //     }
+
+    //     console.log(k, obj)
+    // }
+    qLock = false;
+
+    return {msg: 'Cached initialization done. Took ' + String((elapsed.getTime() - now.getTime())/1000) + ' seconds', status: 'success'};
+
+    // return promisedData.then((eData) => {
+    //     for (let e of eData) {
+    //         if(!cached.hasOwnProperty(e.snmKey))
+    //         {
+    //             cached[e.snmKey] = {
+    //                 energyLastMonth: 0,
+    //                 energyThisMonth: 0,
+    //                 energyYesterday: 0,
+    //                 energyToday: 0,
+    //                 maxDemandLastMonth: {},
+    //                 maxDemandThisMonth: {},
+    //                 maxDemandYesterday: {},
+    //                 maxDemandToday: {},
+    //                 prevEnergy: 0,
+    //                 prevTime: null
+    //             }
+    //         }
+
+    //         let energy = 0;
+    
+    //         if(meta_cfg.useImport.value)
+    //         {
+    //             energy = e.Import_kWh
+    //         }
+    //         else
+    //         {
+    //             energy = e.TotalkWh
+    //         }
+    
+    //         if (!prevTime[e.snmKey]) {
+    //             prevEnergy[e.snmKey] = energy
+    //             prevTime[e.snmKey] = e.DateTimeUpdate
+    //             continue
+    //         }
+    
+    //         let adjustedTime = new Date(Date.UTC(e.DateTimeUpdate.getUTCFullYear(), e.DateTimeUpdate.getUTCMonth(), e.DateTimeUpdate.getUTCDate(), e.DateTimeUpdate.getUTCHours(), e.DateTimeUpdate.getUTCMinutes()))
+    //         // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes() - 1)
+    //         let tKey = adjustedTime.getUTCFullYear() + '-' + (adjustedTime.getUTCMonth()+1) + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
+
+    //         let absEnergy = (energy - prevEnergy[e.snmKey])
+    
+    //         prevEnergy[e.snmKey] = energy
+
+    //         cached[e.snmKey].prevEnergy = energy;
+    //         cached[e.snmKey].prevTime = e.DateTimeUpdate;
+
+    //         let gap = ((e.DateTimeUpdate - prevTime[e.snmKey])/1000/60)/60
+
+    //         let d = absEnergy/gap;
+    
+    //         if (e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate <= tThisMonth) {
+    //             // Last month
+    //             if(prevTime[e.snmKey] >= tLastMonth && prevTime[e.snmKey] <= tThisMonth)
+    //             {
+    //                 cached[e.snmKey].energyLastMonth += absEnergy
+    
+    //                 if (isOnPeak(e.DateTimeUpdate)) {
+    //                     cached[e.snmKey].maxDemandLastMonth[tKey] = d;
+    //                 }
+    //             }
+    //         } else {
+    //             // This month
+    //             if(prevTime[e.snmKey] >= tThisMonth && prevTime[e.snmKey] <= tTomorrow)
+    //             {
+    //                 cached[e.snmKey].energyThisMonth += absEnergy
+    
+    //                 if (isOnPeak(e.DateTimeUpdate)) {
+    //                     if(d > cached[e.snmKey].maxDemandThisMonth)
+    //                     {
+    //                         cached[e.snmKey].maxDemandThisMonth[tKey] = d;
+    //                     }
+    //                 }
+    
+    //                 if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate <= tToday) {
+    //                     // Yesterday
+    //                     if(prevTime[e.snmKey] >= tYesterday && prevTime[e.snmKey] <= tTomorrow)
+    //                     {
+    //                         cached[e.snmKey].energyYesterday += absEnergy
+    
+    //                         if (isOnPeak(e.DateTimeUpdate)) {
+    //                             if(d > cached[e.snmKey].maxDemandYesterday)
+    //                             {
+    //                                 cached[e.snmKey].maxDemandYesterday[tKey] = d;
+    //                             }
+    //                         }
+    //                     }
+                        
+    //                 } else if (e.DateTimeUpdate >= tToday && prevTime[e.snmKey] <= tTomorrow) {
+    //                     cached[e.snmKey].energyToday += absEnergy
+    
+    //                     if (isOnPeak(e.DateTimeUpdate)) {
+    //                         if(d > cached[e.snmKey].maxDemandToday)
+    //                         {
+    //                             cached[e.snmKey].maxDemandToday[tKey] = d;
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+    
+    //         prevTime[e.snmKey] = e.DateTimeUpdate
+    //     }
+
+    //     let elapsed = new Date();
+    //     console.log('Cached initialization done. Took', (elapsed.getTime() - now.getTime())/1000, 'seconds');
+
+    //     // let keys = Object.keys(cached);
+
+    //     // for(let k of keys)
+    //     // {
+    //     //     let obj = {
+    //     //         energyLastMonth: cached[k].energyLastMonth,
+    //     //         energyThisMonth: cached[k].energyThisMonth,
+    //     //         energyYesterday: cached[k].energyYesterday,
+    //     //         energyToday: cached[k].energyToday
+    //     //     }
+
+    //     //     console.log(k, obj)
+    //     // }
+    //     qLock = false;
+
+    //     return {msg: 'Cached initialization done. Took ' + String((elapsed.getTime() - now.getTime())/1000) + ' seconds', status: 'success'};
+    // })
+}
 // export async function addQueue(obj, aedObj)
 // {
 //     if(!qLock)
@@ -50,7 +406,7 @@ var qLock = false;
 //         qLock = false;
 //     }
     
-// }
+// }    
 
 // export async function savetoDB()
 // {
