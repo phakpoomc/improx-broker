@@ -665,9 +665,24 @@ let heartbeatInterval = setInterval(() => {
 let cacheRefreshInterval = setInterval(() => {
     // sendtime every minute on the 0-9th second
     if (authenticated) {
-        initCache()
+        let now = new Date();
+
+        if(now.getHours() == 23 && now.getMinutes() >= 45)
+        {
+            let target = new Date();
+            target.setDate(target.getDate() + 1)
+            target.setHours(0)
+            target.setMinutes(7)
+
+            console.log("Setting timeout in ", target.getTime() - now.getTime(), "ms")
+
+            setTimeout(() => {
+                initCache()
+            }, target.getTime() - now.getTime())
+        }
+        
     }
-}, 24*60*60 * 1000)
+}, 15*60 * 1000)
 
 // let dbSaveInterval = setInterval(() => {
 //     if (authenticated) {

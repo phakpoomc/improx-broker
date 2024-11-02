@@ -1,8 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { Sequelize, Op } from 'sequelize';
-// import { aedesInst } from './mqtt.js'
-
-// import { Worker } from 'worker_threads';
 
 export var last = {
     message: '',
@@ -125,8 +122,6 @@ export async function initCache()
     let currTime = new Date(tLastMonth);
     currTime.setDate(currTime.getDate() + 1 );
 
-    // const workerPromises = [];
-
     for(; currTime < tTomorrow; currTime.setDate(currTime.getDate() + 1 ))
     {
         console.log("Loading ", currTime);
@@ -200,9 +195,9 @@ export async function initCache()
                 {
                     cached[e.snmKey].energyLastMonth += absEnergy
     
-                    // if (isOnPeak(e.DateTimeUpdate)) {
-                    //     cached[e.snmKey].maxDemandLastMonth[tKey] = d;
-                    // }
+                    if (isOnPeak(e.DateTimeUpdate)) {
+                        cached[e.snmKey].maxDemandLastMonth[tKey] = d;
+                    }
                 }
             } else {
                 // This month
@@ -210,12 +205,12 @@ export async function initCache()
                 {
                     cached[e.snmKey].energyThisMonth += absEnergy
     
-                    // if (isOnPeak(e.DateTimeUpdate)) {
-                    //     if(d > cached[e.snmKey].maxDemandThisMonth)
-                    //     {
-                    //         cached[e.snmKey].maxDemandThisMonth[tKey] = d;
-                    //     }
-                    // }
+                    if (isOnPeak(e.DateTimeUpdate)) {
+                        if(d > cached[e.snmKey].maxDemandThisMonth)
+                        {
+                            cached[e.snmKey].maxDemandThisMonth[tKey] = d;
+                        }
+                    }
     
                     if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate <= tToday) {
                         // Yesterday
@@ -223,23 +218,23 @@ export async function initCache()
                         {
                             cached[e.snmKey].energyYesterday += absEnergy
     
-                            // if (isOnPeak(e.DateTimeUpdate)) {
-                            //     if(d > cached[e.snmKey].maxDemandYesterday)
-                            //     {
-                            //         cached[e.snmKey].maxDemandYesterday[tKey] = d;
-                            //     }
-                            // }
+                            if (isOnPeak(e.DateTimeUpdate)) {
+                                if(d > cached[e.snmKey].maxDemandYesterday)
+                                {
+                                    cached[e.snmKey].maxDemandYesterday[tKey] = d;
+                                }
+                            }
                         }
                         
                     } else if (e.DateTimeUpdate >= tToday && prevTime[e.snmKey] <= tTomorrow) {
                         cached[e.snmKey].energyToday += absEnergy
     
-                        // if (isOnPeak(e.DateTimeUpdate)) {
-                        //     if(d > cached[e.snmKey].maxDemandToday)
-                        //     {
-                        //         cached[e.snmKey].maxDemandToday[tKey] = d;
-                        //     }
-                        // }
+                        if (isOnPeak(e.DateTimeUpdate)) {
+                            if(d > cached[e.snmKey].maxDemandToday)
+                            {
+                                cached[e.snmKey].maxDemandToday[tKey] = d;
+                            }
+                        }
                     }
                 }
             }
