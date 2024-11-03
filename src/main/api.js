@@ -870,6 +870,7 @@ export function initAPI() {
 
         if (all) {
             eData = await db.energy.findAll({
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
                     DateTimeUpdate: timeList
                     // DateTimeUpdate: {
@@ -898,7 +899,7 @@ export function initAPI() {
         }
 
         for (let e of eData) {
-            let sn = e.SerialNo
+            // let sn = e.SerialNo
             // let period = blacknode[sn].period * 60 * 1000
             let energy = 0;
 
@@ -1027,6 +1028,7 @@ export function initAPI() {
 
         if (all) {
             eData = await db.energy.findAll({
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
                     // DateTimeUpdate: {
                     //     [Op.and]: {
@@ -1040,6 +1042,7 @@ export function initAPI() {
             })
         } else {
             eData = await db.energy.findAll({
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
                     // DateTimeUpdate: {
                     //     [Op.and]: {
@@ -1055,8 +1058,8 @@ export function initAPI() {
         }
 
         for (let e of eData) {
-            let sn = e.SerialNo
-            let period = blacknode[sn].period * 60 * 1000
+            // let sn = e.SerialNo
+            // let period = blacknode[sn].period * 60 * 1000
             let energy = 0;
 
             if(meta_cfg.useImport.value)
@@ -1181,6 +1184,7 @@ export function initAPI() {
 
         if (all) {
             eData = await db.energy.findAll({
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
                     // DateTimeUpdate: {
                     //     [Op.and]: {
@@ -1194,6 +1198,7 @@ export function initAPI() {
             })
         } else {
             eData = await db.energy.findAll({
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
                     // DateTimeUpdate: {
                     //     [Op.and]: {
@@ -1209,8 +1214,8 @@ export function initAPI() {
         }
 
         for (let e of eData) {
-            let sn = e.SerialNo
-            let period = blacknode[sn].period * 60 * 1000
+            // let sn = e.SerialNo
+            // let period = blacknode[sn].period * 60 * 1000
             let energy = 0;
 
             if(meta_cfg.useImport.value)
@@ -1324,6 +1329,7 @@ export function initAPI() {
 
         if (all) {
             eData = await db.energy.findAll({
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
                     // DateTimeUpdate: {
                     //     [Op.and]: {
@@ -1337,6 +1343,7 @@ export function initAPI() {
             })
         } else {
             eData = await db.energy.findAll({
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
                     // DateTimeUpdate: {
                     //     [Op.and]: {
@@ -1352,8 +1359,8 @@ export function initAPI() {
         }
 
         for (let e of eData) {
-            let sn = e.SerialNo
-            let period = blacknode[sn].period * 60 * 1000
+            // let sn = e.SerialNo
+            // let period = blacknode[sn].period * 60 * 1000
             let energy = 0;
 
             if(meta_cfg.useImport.value)

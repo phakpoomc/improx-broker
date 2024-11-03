@@ -340,7 +340,7 @@ async function start(BN_CFG_PATH) {
 
                                 checkOverRange(obj)
 
-                                db.energy.create(obj).then(() => {
+                                db.energy.create(obj, {raw: true}).then(() => {
                                     aedesInst.publish(
                                         {
                                             cmd: 'publish',

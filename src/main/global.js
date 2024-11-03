@@ -141,11 +141,12 @@ export async function initCache()
                 break;
             }
 
-            console.log("Loading ", lastTime);
+            // console.log("Loading ", lastTime);
             availableSlots--;
 
 
             var energyData = db.energy.findAll({ 
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
                     DateTimeUpdate: {
                         [Op.and]: {
@@ -154,7 +155,8 @@ export async function initCache()
                         }
                     }
                 },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']],
+                raw: true
             })
 
             currTime.setDate(currTime.getDate() + 1)
@@ -166,7 +168,7 @@ export async function initCache()
             await Promise.all(promises).then((data) => {
                 for(let eData of data) {
 
-                    console.log(eData.length)
+                    // console.log(eData.length)
                     promises = [];
                 // energyData.then((eData) => {
                     let prevEnergy = {}
