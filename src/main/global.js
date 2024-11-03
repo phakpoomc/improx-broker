@@ -115,134 +115,197 @@ export async function initCache()
     let tToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0))
     let tTomorrow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0))
 
-    let prevEnergy = {}
-    let prevTime = {}
-
     let lastTime = new Date(tLastMonth);
     let currTime = new Date(tLastMonth);
     currTime.setDate(currTime.getDate() + 1 );
 
-    for(; currTime < tTomorrow; currTime.setDate(currTime.getDate() + 1 ))
+    var tasksDone = 0;
+    var maxTasks = Math.ceil((tTomorrow.getTime() - lastTime.getTime())/(24*60*60*1000));
+    var availableSlots = 1;
+    var maxAvailableSlots = 1;
+
+    var promises = [];
+
+    for(;;)
     {
-        console.log("Loading ", currTime);
+    // while(true) {
+        if(tasksDone >= maxTasks)
+        {
+            break;
+        }
 
-        var eData = await db.energy.findAll({
-            where: {
-                DateTimeUpdate: {
-                    [Op.and]: {
-                        [Op.gte]: lastTime,
-                        [Op.lte]: currTime
-                    }
-                }
-            },
-            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
-        })
-
-        console.log("Count: ", eData.length);
-
-        for (let e of eData) {
-            if(!cached.hasOwnProperty(e.snmKey))
+        if(availableSlots > 0)
+        {
+            if(availableSlots == maxAvailableSlots && currTime > tTomorrow)
             {
-                cached[e.snmKey] = {
-                    energyLastMonth: 0,
-                    energyThisMonth: 0,
-                    energyYesterday: 0,
-                    energyToday: 0,
-                    maxDemandLastMonth: {},
-                    maxDemandThisMonth: {},
-                    maxDemandYesterday: {},
-                    maxDemandToday: {},
-                    prevEnergy: 0,
-                    prevTime: null
-                }
+                break;
             }
 
-            let energy = 0;
-    
-            if(meta_cfg.useImport.value)
-            {
-                energy = e.Import_kWh
-            }
-            else
-            {
-                energy = e.TotalkWh
-            }
-    
-            if (!prevTime[e.snmKey]) {
-                prevEnergy[e.snmKey] = energy
-                prevTime[e.snmKey] = e.DateTimeUpdate
-                continue
-            }
-    
-            let adjustedTime = new Date(Date.UTC(e.DateTimeUpdate.getUTCFullYear(), e.DateTimeUpdate.getUTCMonth(), e.DateTimeUpdate.getUTCDate(), e.DateTimeUpdate.getUTCHours(), e.DateTimeUpdate.getUTCMinutes()))
-            // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes() - 1)
-            let tKey = adjustedTime.getUTCFullYear() + '-' + (adjustedTime.getUTCMonth()+1) + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
+            console.log("Loading ", lastTime);
+            availableSlots--;
 
-            let absEnergy = (energy - prevEnergy[e.snmKey])
-    
-            prevEnergy[e.snmKey] = energy
 
-            cached[e.snmKey].prevEnergy = energy;
-            cached[e.snmKey].prevTime = e.DateTimeUpdate;
-
-            let gap = ((e.DateTimeUpdate - prevTime[e.snmKey])/1000/60)/60
-
-            let d = absEnergy/gap;
-    
-            if (e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate <= tThisMonth) {
-                // Last month
-                if(prevTime[e.snmKey] >= tLastMonth && prevTime[e.snmKey] <= tThisMonth)
-                {
-                    cached[e.snmKey].energyLastMonth += absEnergy
-    
-                    if (isOnPeak(e.DateTimeUpdate)) {
-                        cached[e.snmKey].maxDemandLastMonth[tKey] = d;
-                    }
-                }
-            } else {
-                // This month
-                if(prevTime[e.snmKey] >= tThisMonth && prevTime[e.snmKey] <= tTomorrow)
-                {
-                    cached[e.snmKey].energyThisMonth += absEnergy
-    
-                    if (isOnPeak(e.DateTimeUpdate)) {
-                        if(d > cached[e.snmKey].maxDemandThisMonth)
-                        {
-                            cached[e.snmKey].maxDemandThisMonth[tKey] = d;
+            var energyData = db.energy.findAll({ 
+                where: {
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: lastTime,
+                            [Op.lte]: currTime
                         }
                     }
-    
-                    if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate <= tToday) {
-                        // Yesterday
-                        if(prevTime[e.snmKey] >= tYesterday && prevTime[e.snmKey] <= tTomorrow)
+                },
+                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+            })
+
+            currTime.setDate(currTime.getDate() + 1)
+            lastTime.setDate(lastTime.getDate() + 1)
+
+            promises.push(energyData)
+        } else {
+        
+            await Promise.all(promises).then((data) => {
+                for(let eData of data) {
+
+                    console.log(eData.length)
+                    promises = [];
+                // energyData.then((eData) => {
+                    let prevEnergy = {}
+                    let prevTime = {}
+
+                    for (let e of eData) {
+                        if(!cached.hasOwnProperty(e.snmKey))
                         {
-                            cached[e.snmKey].energyYesterday += absEnergy
-    
-                            if (isOnPeak(e.DateTimeUpdate)) {
-                                if(d > cached[e.snmKey].maxDemandYesterday)
-                                {
-                                    cached[e.snmKey].maxDemandYesterday[tKey] = d;
+                            cached[e.snmKey] = {
+                                energyLastMonth: 0,
+                                energyThisMonth: 0,
+                                energyYesterday: 0,
+                                energyToday: 0,
+                                maxDemandLastMonth: {}, //Init keys here
+                                maxDemandThisMonth: {},
+                                maxDemandYesterday: {},
+                                maxDemandToday: {},
+                                prevEnergy: 0,
+                                prevTime: null
+                            }
+
+                            let sDate = new Date(tLastMonth)
+                            let eDate = new Date(tToday)
+
+                            for(; sDate <= eDate; sDate.setMinutes(sDate.getMinutes() + 15))
+                            {
+                                let adjustedTime = new Date(Date.UTC(sDate.getUTCFullYear(), sDate.getUTCMonth(), sDate.getUTCDate(), sDate.getUTCHours(), sDate.getUTCMinutes()))
+                                // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes() - 1)
+                                let tKey = adjustedTime.getUTCFullYear() + '-' + (adjustedTime.getUTCMonth()+1) + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
+                                cached[e.snmKey].maxDemandLastMonth[tKey] = 0;
+                                cached[e.snmKey].maxDemandThisMonth[tKey] = 0;
+                                cached[e.snmKey].maxDemandYesterday[tKey] = 0;
+                                cached[e.snmKey].maxDemandToday[tKey] = 0;
+                            }
+                        }
+            
+                        let energy = 0;
+                
+                        if(meta_cfg.useImport.value)
+                        {
+                            energy = e.Import_kWh
+                        }
+                        else
+                        {
+                            energy = e.TotalkWh
+                        }
+                
+                        if (!prevTime[e.snmKey]) {
+                            prevEnergy[e.snmKey] = energy
+                            prevTime[e.snmKey] = e.DateTimeUpdate
+
+                            cached[e.snmKey].prevEnergy = energy;
+                            cached[e.snmKey].prevTime = e.DateTimeUpdate;
+
+                            continue
+                        }
+                
+                        let adjustedTime = new Date(Date.UTC(e.DateTimeUpdate.getUTCFullYear(), e.DateTimeUpdate.getUTCMonth(), e.DateTimeUpdate.getUTCDate(), e.DateTimeUpdate.getUTCHours(), e.DateTimeUpdate.getUTCMinutes()))
+                        // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes() - 1)
+                        let tKey = adjustedTime.getUTCFullYear() + '-' + (adjustedTime.getUTCMonth()+1) + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
+            
+                        let absEnergy = (energy - prevEnergy[e.snmKey])
+                
+                        prevEnergy[e.snmKey] = energy
+            
+
+                        if(e.DateTimeUpdate > cached[e.snmKey].prevTime)
+                        {
+                            cached[e.snmKey].prevEnergy = energy;
+                            cached[e.snmKey].prevTime = e.DateTimeUpdate;
+                        }
+                        
+            
+                        let gap = ((e.DateTimeUpdate - prevTime[e.snmKey])/1000/60)/60
+            
+                        let d = absEnergy/gap;
+                
+                        if (e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate <= tThisMonth) {
+                            // Last month
+                            if(prevTime[e.snmKey] >= tLastMonth && prevTime[e.snmKey] <= tThisMonth)
+                            {
+                                cached[e.snmKey].energyLastMonth += absEnergy
+                
+                                if (isOnPeak(e.DateTimeUpdate)) {
+                                    cached[e.snmKey].maxDemandLastMonth[tKey] = d;
+                                }
+                            }
+                        } else {
+                            // This month
+                            if(prevTime[e.snmKey] >= tThisMonth && prevTime[e.snmKey] <= tTomorrow)
+                            {
+                                cached[e.snmKey].energyThisMonth += absEnergy
+                
+                                if (isOnPeak(e.DateTimeUpdate)) {
+                                    if(d > cached[e.snmKey].maxDemandThisMonth)
+                                    {
+                                        cached[e.snmKey].maxDemandThisMonth[tKey] = d;
+                                    }
+                                }
+                
+                                if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate <= tToday) {
+                                    // Yesterday
+                                    if(prevTime[e.snmKey] >= tYesterday && prevTime[e.snmKey] <= tTomorrow)
+                                    {
+                                        cached[e.snmKey].energyYesterday += absEnergy
+                
+                                        if (isOnPeak(e.DateTimeUpdate)) {
+                                            if(d > cached[e.snmKey].maxDemandYesterday)
+                                            {
+                                                cached[e.snmKey].maxDemandYesterday[tKey] = d;
+                                            }
+                                        }
+                                    }
+                                    
+                                } else if (e.DateTimeUpdate >= tToday && prevTime[e.snmKey] <= tTomorrow) {
+                                    cached[e.snmKey].energyToday += absEnergy
+                
+                                    if (isOnPeak(e.DateTimeUpdate)) {
+                                        if(d > cached[e.snmKey].maxDemandToday)
+                                        {
+                                            cached[e.snmKey].maxDemandToday[tKey] = d;
+                                        }
+                                    }
                                 }
                             }
                         }
-                        
-                    } else if (e.DateTimeUpdate >= tToday && prevTime[e.snmKey] <= tTomorrow) {
-                        cached[e.snmKey].energyToday += absEnergy
-    
-                        if (isOnPeak(e.DateTimeUpdate)) {
-                            if(d > cached[e.snmKey].maxDemandToday)
-                            {
-                                cached[e.snmKey].maxDemandToday[tKey] = d;
-                            }
-                        }
+                
+                        prevTime[e.snmKey] = e.DateTimeUpdate
                     }
+
+                    tasksDone++;
+                    availableSlots++;
                 }
-            }
-    
-            prevTime[e.snmKey] = e.DateTimeUpdate
+            })
         }
 
-        lastTime.setDate(lastTime.getDate() + 1)
+        
+
+        
     }
 
     let elapsed = new Date();

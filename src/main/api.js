@@ -687,11 +687,6 @@ export function initAPI() {
             snmKey = Object.keys(cached);
         }
 
-        let ukDLastMonth = new Set();
-        let ukDThisMonth = new Set();
-        let ukDYesterday = new Set();
-        let ukDToday = new Set();
-
         for(let k of snmKey)
         {
             if(!cached.hasOwnProperty(k))
@@ -704,33 +699,13 @@ export function initAPI() {
             ret.t_yesterday += cached[k].energyYesterday;
             ret.t_today += cached[k].energyToday;
 
-            let kDLastMonth = Object.keys(cached[k].maxDemandLastMonth);
-            let kDThisMonth = Object.keys(cached[k].maxDemandThisMonth);
-            let kDYesterday = Object.keys(cached[k].maxDemandYesterday);
-            let kDToday = Object.keys(cached[k].maxDemandToday);
-
-            for(let o of kDLastMonth)
-            {
-                ukDLastMonth.add(o)
-            }
-
-            for(let o of kDThisMonth)
-            {
-                ukDThisMonth.add(o)
-            }
-
-            for(let o of kDYesterday)
-            {
-                ukDYesterday.add(o)
-            }
-
-            for(let o of kDToday)
-            {
-                ukDToday.add(o)
-            }
+            var kDLastMonth = Object.keys(cached[k].maxDemandLastMonth);
+            var kDThisMonth = Object.keys(cached[k].maxDemandThisMonth);
+            var kDYesterday = Object.keys(cached[k].maxDemandYesterday);
+            var kDToday = Object.keys(cached[k].maxDemandToday);
         }
 
-        for(let t of Array.from(ukDLastMonth)) {
+        for(let t of kDLastMonth) {
             let sum = 0;
 
             for(let k of snmKey)
@@ -749,7 +724,7 @@ export function initAPI() {
             }
         };
 
-        for(let t of Array.from(ukDThisMonth)) {
+        for(let t of kDThisMonth) {
             let sum = 0;
 
             for(let k of snmKey)
@@ -768,7 +743,7 @@ export function initAPI() {
             }
         };
 
-        for(let t of Array.from(ukDYesterday)) {
+        for(let t of kDYesterday) {
             let sum = 0;
 
             for(let k of snmKey)
@@ -787,7 +762,7 @@ export function initAPI() {
             }
         };
 
-        for(let t of Array.from(ukDToday)) {
+        for(let t of kDToday) {
             let sum = 0;
 
             for(let k of snmKey)
