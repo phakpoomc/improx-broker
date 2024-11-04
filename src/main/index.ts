@@ -349,16 +349,15 @@ app.whenReady().then(async () => {
         if (blacknode.hasOwnProperty(key)) {
             const data = readFile(METER_TYPE_PATH, { encoding: 'utf-8', flag: 'r' })
 
-            var lines = data.split('\n');
-            var meter_types : any[] = [];
+            var lines = data.split('\n')
+            var meter_types: any[] = []
 
-            for(let line of lines)
-            {
+            for (let line of lines) {
                 let l = line.split(' : ')
-                let obj = {value: l[0], text: line}
+                let obj = { value: l[0], text: line }
                 meter_types.push(obj)
             }
-            return {...blacknode[key], mtypes: meter_types }
+            return { ...blacknode[key], mtypes: meter_types }
         } else {
             return null
         }

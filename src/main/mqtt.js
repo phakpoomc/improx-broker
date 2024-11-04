@@ -330,48 +330,104 @@ async function start(BN_CFG_PATH) {
                             }
 
                             // Check duplicate
-                            
                             if(!blacknode[sn].meter_list[modbusid].last_db)
                             {
                                 blacknode[sn].meter_list[modbusid].last_db = new Date(0)
                             }
-
-                            if(new Date(blacknode[sn].meter_list[modbusid].last_db).getTime() < dt.getTime())
+    
+                            //console.log("Before: "+ new Date(blacknode[sn].meter_list[modbusid].last_db));
+                            
+                            const lastDbDate = new Date(blacknode[sn].meter_list[modbusid].last_db);
+                            if(lastDbDate.getTime() < dt.getTime())
                             {
-                                blacknode[sn].meter_list[modbusid].last_db = dt
+                                const nextThreeMonth = new Date(lastDbDate);
+                                let roundedMinutes = (Math.round(nextThreeMonth.getMinutes() / 15)) * 15;
+                                if (roundedMinutes === 60) {
+                                    nextThreeMonth.setHours(nextThreeMonth.getHours() + 1);
+                                    roundedMinutes = 0;
+                                }
+                                nextThreeMonth.setMinutes(roundedMinutes);
+                                nextThreeMonth.setSeconds(0);
+                                nextThreeMonth.setMilliseconds(0);
+                                nextThreeMonth.setMonth(nextThreeMonth.getMonth() + 3)
+                                // check if blacknode time more then three month
+                                if(dt.getTime() > nextThreeMonth.getTime()){
+                                    console.log('\nReceived Over Date packet. Ignored.');
+                                    try{
+                                        const currTime = new Date();
+                                        const brokerTime = new Date(blacknode[sn].meter_list[modbusid].last_db);
+                                        const bnTime = new Date(dt);
+                                        console.log(blacknode[sn].meter_list[modbusid].name);
+                                        console.log('Current Time (UTC+7)" '+formatDateTime(currTime));
+                                        console.log('Broker (UTC): '+formatDateTime(brokerTime));
+                                        console.log('BlackNode (UTC): '+formatDateTime(bnTime));
+                                        brokerTime.setHours(brokerTime.getHours()-7);
+                                        bnTime.setHours(bnTime.getHours()-7);
+                                        console.log('Broker (UTC+7): '+formatDateTime(brokerTime));
+                                        console.log('BlackNode (UTC+7): '+formatDateTime(bnTime));
+                                        console.log('Import_kWh: '+obj.Import_kWh+' : '+'V12: '+obj.V12);
+                                    }
+                                        catch(err){console.log(err);
+                                    }
+                                    //set current date
+                                    const curr = new Date();
+                                    const currDate = new Date(Date.UTC(curr.getFullYear(), curr.getMonth() , curr.getDate(), curr.getHours(), curr.getMinutes(), curr.getSeconds()));
+                                    blacknode[sn].meter_list[modbusid].last_db = currDate;
+                                    aedesInst.publish(
+                                        {
+                                            cmd: 'publish',
+                                            qos: QOS,
+                                            dup: false,
+                                            retain: false,
+                                            topic:
+                                                'LOG/DATABASE/' +
+                                                sn +
+                                                '/' +
+                                                siteid +
+                                                '/' +
+                                                nodeid +
+                                                '/' +
+                                                String(modbusid + 1).padStart(2, '0'),
+                                            payload: 'OK'
+                                        },
+                                        function () {}
+                                    )
+                                }else{           
+                                    blacknode[sn].meter_list[modbusid].last_db = dt
 
-                                checkOverRange(obj)
+                                    checkOverRange(obj)
 
-                                await db.energy.create(obj)
+                                    await db.energy.create(obj)
 
-                                aedesInst.publish(
-                                    {
-                                        cmd: 'publish',
-                                        qos: QOS,
-                                        dup: false,
-                                        retain: false,
-                                        topic:
-                                            'LOG/DATABASE/' +
-                                            sn +
-                                            '/' +
-                                            siteid +
-                                            '/' +
-                                            nodeid +
-                                            '/' +
-                                            String(modbusid + 1).padStart(2, '0'),
-                                        payload: 'OK'
-                                    },
-                                    function () {}
-                                )
+                                    aedesInst.publish(
+                                        {
+                                            cmd: 'publish',
+                                            qos: QOS,
+                                            dup: false,
+                                            retain: false,
+                                            topic:
+                                                'LOG/DATABASE/' +
+                                                sn +
+                                                '/' +
+                                                siteid +
+                                                '/' +
+                                                nodeid +
+                                                '/' +
+                                                String(modbusid + 1).padStart(2, '0'),
+                                            payload: 'OK'
+                                        },
+                                        function () {}
+                                    )
+                                }        
                             }
                             else
                             {
-                                console.log('Received duplicated packet. Ignored.')
+                                console.log('\nReceived duplicated packet. Ignored.'+`\nLastDB:${lastDbDate.getTime()}|BNTime:${dt.getTime()}`)
                                 try{
                                     const currTime = new Date();
                                     const brokerTime = new Date(blacknode[sn].meter_list[modbusid].last_db);
                                     const bnTime = new Date(dt);
-                                    console.log("\n"+blacknode[sn].meter_list[modbusid].name);
+                                    console.log(blacknode[sn].meter_list[modbusid].name);
                                     console.log('Current Time (UTC+7)" '+formatDateTime(currTime));
                                     console.log('Broker (UTC): '+formatDateTime(brokerTime));
                                     console.log('BlackNode (UTC): '+formatDateTime(bnTime));
@@ -403,26 +459,6 @@ async function start(BN_CFG_PATH) {
                                     function () {}
                                 )
                             }
-                            
-
-                            // let aQ = {
-                            //     cmd: 'publish',
-                            //     qos: QOS,
-                            //     dup: false,
-                            //     retain: false,
-                            //     topic:
-                            //         'LOG/DATABASE/' +
-                            //         sn +
-                            //         '/' +
-                            //         siteid +
-                            //         '/' +
-                            //         nodeid +
-                            //         '/' +
-                            //         String(modbusid + 1),
-                            //     payload: 'OK'
-                            // };
-
-                            // addQueue(obj, aQ)
 
                             
                         } catch (err) {
@@ -521,16 +557,16 @@ async function start(BN_CFG_PATH) {
                             )
                             lastFifteenTime.setUTCSeconds(0)
                             lastFifteenTime.setUTCMilliseconds(0)
-                            let lastFifteenData = (lastUpdateData[snid].lastFifteenData) ? lastUpdateData[snid].lastFifteenData : parseFloat(e[2])
+                            let lastFifteenData = (lastUpdateData[snid].lastFifteenData) ? lastUpdateData[snid].lastFifteenData : parseFloat(e[0])
 
                             if (
                                 lastUpdateData[snid] &&
                                 lastUpdateData[snid].lastFifteenTime &&
                                 lastUpdateData[snid].lastFifteenTime.getTime() != lastFifteenTime.getTime()
                             ) {
-                                lastFifteenData = parseFloat(e[2])
+                                lastFifteenData = parseFloat(e[0])
                             }
-
+                            
                             let obj = {
                                 SerialNo: sn,
                                 SiteID: siteid,

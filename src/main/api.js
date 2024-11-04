@@ -361,6 +361,7 @@ const cmap = {
 
 const pmap = Object.keys(cmap)
 
+
 function checkRoles(givenRoles, allowedRoles)
 {
     for(let r of givenRoles)
@@ -462,6 +463,7 @@ const routes = {
     'target': ['owner', 'admin', 'test'],
     'total_kWh_22kV': ['owner', 'user', 'admin', 'test'],
     'dashboard_group': ['owner', 'user', 'admin', 'test'],
+    'demand_manage': ['owner', 'admin', 'test'],
 }
 
 const apis = {
@@ -487,6 +489,8 @@ const apis = {
     'air_comp_monitor': ['owner', 'user', 'admin', 'test'],
     'target': ['owner', 'admin', 'test'],
     'group_monitor': ['owner', 'user', 'admin', 'test'],
+    'demand': ['owner', 'user', 'admin', 'test'],
+    'demand_manage': ['owner', 'admin', 'test'],
 }
 
 async function routeguard(req, route)
@@ -556,6 +560,26 @@ function isOnPeak(dt) {
         if ((hours == 9 && min == 0) || (hours == 22 && min > 0)) {
             return false
         }
+    }
+
+    return true
+}
+
+function isOnPeakTOD(dt) {
+    // In case of holidays...
+    const k = String(dt.getUTCFullYear()) + '-' + String(parseInt(dt.getUTCMonth()) + 1) + '-' + String(dt.getUTCDate())
+    if (holidays[k]) {
+        return false
+    }
+
+    // Mon - Fri
+    const hours = dt.getUTCHours();
+    const min = dt.getUTCMinutes();
+    const calTime = (hours*60) + min;
+    // 18.30 - 21.30 
+    //call time = (hour x 60) + min
+    if (calTime < 1110 || calTime > 1290) {
+        return false
     }
 
     return true
@@ -854,7 +878,7 @@ export function initAPI() {
                 {
                     energyLastMonth += absEnergy
 
-                    if (isOnPeak(e.DateTimeUpdate)) {
+                    if (isOnPeakTOD(e.DateTimeUpdate)) {
                         if(!(tKey in maxDemandLastMonth))
                         {
                             maxDemandLastMonth[tKey] = {}
@@ -872,7 +896,7 @@ export function initAPI() {
                     
                     energyThisMonth += absEnergy
 
-                    if (isOnPeak(e.DateTimeUpdate)) {
+                    if (isOnPeakTOD(e.DateTimeUpdate)) {
                         if(!(tKey in maxDemandThisMonth))
                         {
                             maxDemandThisMonth[tKey] = {}
@@ -888,7 +912,7 @@ export function initAPI() {
                         {
                             energyYesterday += absEnergy
 
-                            if (isOnPeak(e.DateTimeUpdate)) {
+                            if (isOnPeakTOD(e.DateTimeUpdate)) {
                                 if(!(tKey in maxDemandYesterday))
                                 {
                                     maxDemandYesterday[tKey] = {}
@@ -900,7 +924,7 @@ export function initAPI() {
                         
                     } else if (e.DateTimeUpdate >= tToday && prevTime[e.snmKey] < tTomorrow) {
                         energyToday += absEnergy
-                        if (isOnPeak(e.DateTimeUpdate)) {
+                        if (isOnPeakTOD(e.DateTimeUpdate)) {
                             if(!(tKey in maxDemandToday))
                             {
                                 maxDemandToday[tKey] = {}
@@ -4143,7 +4167,7 @@ export function initAPI() {
         {
             kwhType = "Import_kWh"
         }
-
+        
         for (let k of p) {
             // Get data and fill
             let arr = k.split("@");
@@ -4231,7 +4255,7 @@ export function initAPI() {
                         seq = 0
                     }
 
-                    if(cmap[param].storage == "accumulative" && param != kwhType)
+                    if(cmap[param].storage == "accumulative" && req.params.ttype != 'electrical')
                     {
                         let sn = e.SerialNo
                         let period = blacknode[sn].period * 60 * 1000
@@ -4284,7 +4308,7 @@ export function initAPI() {
                     }
 
                     //Get the average
-
+                    if(ret[cellName][seq] == -1) ret[cellName][seq] = 0
                     ret[cellName][seq] += dval;
                     count[seq]++;
 
@@ -4988,6 +5012,190 @@ export function initAPI() {
         } catch (err) {
             console.log(err)
             res.send('Cannot create group.')
+        }
+    })
+
+    api.get('/demand/:gid', async (req, res) => {
+        if(await apiguard(req, 'demand', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
+        const ret = {
+            actual:0,
+            target:0,
+            diff:0
+        };
+        
+        const demand = await db.demand.findAll({
+            where: {
+                name: {
+                    [Op.in]: ['onPeak','offPeak','partialPeak']
+                }
+            },
+        })
+
+        if(!demand){
+            res.send("please set demand first");
+            return;
+        }
+        try {
+            // Helper function to check if a time is between two other times
+            const now_time = new Date();
+            const findDate = demand.find(d => {
+
+                // Extract hours and minutes
+                const startHour = d.start_time.getUTCHours();
+                const startMinute = d.start_time.getUTCMinutes();
+                const endHour = d.end_time.getUTCHours();
+                const endMinute = d.end_time.getUTCMinutes();
+                const nowHour = now_time.getHours();
+                const nowMinute = now_time.getMinutes();
+
+                // Compare only hours and minutes
+
+                const isAfterStart = nowHour > startHour || (nowHour === startHour && nowMinute >= startMinute);
+                const isBeforeEnd = nowHour < endHour || (nowHour === endHour && nowMinute <= endMinute);
+
+                // For ranges that span midnight
+                if (endHour < startHour || (endHour === startHour && endMinute < startMinute)) {
+                    return isAfterStart || isBeforeEnd;
+                } else {
+                    return isAfterStart && isBeforeEnd;
+                }
+            });
+
+            if(!findDate){
+                ret.actual = -1;
+                ret.target = -1;
+                ret.diff = -1;
+                res.json(ret);
+                return;
+            }
+
+            ret.target = findDate.value;
+            const gid = req.params.gid
+            const members = await db.gmember.findAll({
+                where: { GroupID: gid },
+                order: [['order_meter', 'ASC']] 
+            })
+
+            if(!members){
+                res.json(ret);
+            }
+
+            if (members) {
+                for (const m of members) {
+                    if(lastUpdateData[m.SerialNo + '%' + String(parseInt(m.ModbusID) - 1)]?.kWdemand)
+                    ret.actual += lastUpdateData[m.SerialNo + '%' + String(parseInt(m.ModbusID) - 1)].kWdemand;
+                }
+            }
+            ret.diff = ret.target - ret.actual;
+            res.json(ret);
+        } catch (err) {
+            console.log(err);
+            res.send(err)
+            return;    
+        }
+    })
+
+    api.put('/demand-manage', async (req, res) => {
+        if(await apiguard(req, 'demand_manage', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
+        // function isDateString(value) {
+        //     const date = Date.parse(value);
+        //     return !isNaN(date);
+        // }
+
+        try {
+            const onPeak = req.body.onPeak
+            const offPeak = req.body.offPeak
+            const partialPeak = req.body.partialPeak
+
+            const demand = await db.demand.findAll({
+                where: {
+                    name: {
+                        [Op.in]: ['onPeak','offPeak','partialPeak']
+                    }
+                },
+            })
+
+            let opsDate = new Date(req.body.onPeakS)
+            opsDate = Date.UTC(opsDate.getFullYear(), opsDate.getMonth(), opsDate.getDate(), opsDate.getHours(), opsDate.getMinutes(), 0)
+            let opeDate = new Date(req.body.onPeakE)
+            opeDate = Date.UTC(opeDate.getFullYear(), opeDate.getMonth(), opeDate.getDate(), opeDate.getHours(), opeDate.getMinutes(), 0)
+            let ofpsDate = new Date(req.body.offPeakS)
+            ofpsDate = Date.UTC(ofpsDate.getFullYear(), ofpsDate.getMonth(), ofpsDate.getDate(), ofpsDate.getHours(), ofpsDate.getMinutes(), 0)
+            let ofpeDate = new Date(req.body.offPeakE)
+            ofpeDate = Date.UTC(ofpeDate.getFullYear(), ofpeDate.getMonth(), ofpeDate.getDate(), ofpeDate.getHours(), ofpeDate.getMinutes(), 0)
+            let ppsDate = new Date(req.body.partialPeakS)
+            ppsDate = Date.UTC(ppsDate.getFullYear(), ppsDate.getMonth(), ppsDate.getDate(), ppsDate.getHours(), ppsDate.getMinutes(), 0)
+            let ppeDate = new Date(req.body.partialPeakE)
+            ppeDate = Date.UTC(ppeDate.getFullYear(), ppeDate.getMonth(), ppeDate.getDate(), ppeDate.getHours(), ppeDate.getMinutes(), 0)
+
+            if(!demand){
+                const data = [
+                    { name: "onPeak",start_time:opsDate,value:onPeak,end_time:opeDate},
+                    { name: "offPeak",start_time:ofpsDate,value:offPeak,end_time:ofpeDate},
+                    { name: "partialPeak",start_time:ppsDate,value:partialPeak,end_time:ppeDate}
+                ]
+                await db.demand.bulkCreate(data);
+            }else{
+                const findOnPeak = demand.find(d=>d.name=='onPeak');
+                const findOffPeak = demand.find(d=>d.name=='offPeak');
+                const findPartialPeak = demand.find(d=>d.name=='partialPeak');
+                if(findOnPeak)  await db.demand.update({start_time:opsDate,value:onPeak,end_time:opeDate},{where: { name: 'onPeak' }});
+                else await db.demand.create({name:'onPeak',start_time:opsDate,value:onPeak,end_time:opeDate});
+                if(findOffPeak)  await db.demand.update({start_time:ofpsDate,value:offPeak,end_time:ofpeDate},{where: { name: 'offPeak' }});
+                else await db.demand.create({name:'offPeak',start_time:ofpsDate,value:offPeak,end_time:ofpeDate});
+                if(findPartialPeak)  await db.demand.update({start_time:ppsDate,value:partialPeak,end_time:ppeDate},{where: { name: 'partialPeak' }});
+                else await db.demand.create({name:'partialPeak',start_time:ppsDate,value:partialPeak,end_time:ppeDate});
+            }
+            res.send("Updated")
+        } catch (err) {
+            console.log(err);
+            res.send("Can't create")
+            return
+        }
+    })
+
+    api.get('/demand-manage', async (req, res) => {
+        if(await apiguard(req, 'demand', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
+        try {
+
+            let demand = await db.demand.findAll({
+                where: {
+                    name: {
+                        [Op.in]: ['onPeak','offPeak','partialPeak']
+                    }
+                },
+            })
+
+            demand = demand?.map((d)=>{
+                const newD =  d;
+                let sDate = new Date(d.start_date);
+                sDate = Date.UTC(sDate.getFullYear(), sDate.getMonth(), sDate.getDate(), sDate.getHours(), sDate.getMinutes(), 0);
+                d.start_date = sDate;
+                let eDate = new Date(d.start_date);
+                eDate = Date.UTC(eDate.getFullYear(), eDate.getMonth(), eDate.getDate(), eDate.getHours(), eDate.getMinutes(), 0);
+                d.end_date = eDate;
+                return newD;
+            })
+
+            res.json(demand);
+        } catch (err) {
+            res.send("Can't get demand")
+            return
         }
     })
 

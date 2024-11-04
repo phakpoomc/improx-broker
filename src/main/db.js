@@ -95,6 +95,7 @@ export async function syncDB() {
                 db.userrole = null;
                 db.feedmeter = null;
                 db.target = null;
+                db.demand = null;
 
                 last['message'] = 'Cannot connect to database.'
                 last['time'] = new Date()
@@ -276,6 +277,20 @@ export async function syncDB() {
                 tableName: 'target'
             }
         )
+
+        db.demand = sequelize.define(
+            'demand',
+            {
+                id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
+                start_time: { type: DataTypes.DATE, field: 'start_time',allowNull:false },
+                end_time:{ type: DataTypes.DATE, field: 'end_time',allowNull:false },
+                name: { type: DataTypes.STRING, field: 'name',allowNull:false },
+                value: { type: DataTypes.FLOAT, field: 'value',allowNull:false }
+            },
+            {
+                tableName: 'demand'
+            }
+        );
         
         try {
             await alterTable(sequelize);
@@ -331,6 +346,7 @@ export async function syncDB() {
             db.userrole = null;
             db.feedmeter = null;
             db.target = null;
+            db.demand = null;
 
             last['message'] = 'Cannot sync database table.'
             last['time'] = new Date()
@@ -349,6 +365,7 @@ export async function syncDB() {
         db.userrole = null;
         db.feedmeter = null;
         db.target = null;
+        db.demand = null;
 
         last['message'] = 'Database is not set up.'
         last['time'] = new Date()
