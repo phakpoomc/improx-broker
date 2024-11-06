@@ -9,32 +9,27 @@ const user = ref()
 
 user.value = await window.mainprocess.getUsername()
 
-
 const bnCFG = ref()
 const apiCFG = ref()
 const brokerCFG = ref()
 
 bnCFG.value = await window.mainprocess.getDBCFG()
 
-var dialect;
-var autorun;
+var dialect
+var autorun
 
-if(bnCFG.value)
-{
-    dialect = bnCFG.value.dialect;
-}
-else
-{
+if (bnCFG.value) {
+    dialect = bnCFG.value.dialect
+} else {
     bnCFG.value = {
-        username: "",
-        password: "",
-        dbname: "",
-        dialect: "",
-        host: "",
-        port: "",
+        username: '',
+        password: '',
+        dbname: '',
+        dialect: '',
+        host: '',
+        port: ''
     }
 }
-
 
 apiCFG.value = await window.mainprocess.getAPICFG()
 
@@ -48,12 +43,9 @@ let db_choices = [
 
 brokerCFG.value = await window.mainprocess.getBrokerCFG()
 console.log(brokerCFG.value)
-if(brokerCFG.value)
-{
-    autorun = (brokerCFG.value.autorun) ? 'Enable' : 'Disable'
-}
-else
-{
+if (brokerCFG.value) {
+    autorun = brokerCFG.value.autorun ? 'Enable' : 'Disable'
+} else {
     autorun = 'Disable'
 }
 
@@ -109,7 +101,7 @@ function saveBroker() {
         webport: weblocalport,
         apiport: apilocalport,
         mqttport: mqttlocalport,
-        autorun: (autorunEnabled == 'Enable') ? true : false,
+        autorun: autorunEnabled == 'Enable' ? true : false,
         cors: cors
     }
 
@@ -117,74 +109,68 @@ function saveBroker() {
     router.push('/sql_edit')
 }
 
-async function exportCFG()
-{
+async function exportCFG() {
     let data = await window.mainprocess.getCFGFile()
     let binaryData = []
     binaryData.push(data)
 
-    let file = window.URL.createObjectURL(new Blob(binaryData, {type: 'application/json'}));
-    let filelink = document.createElement('a');
-    filelink.href = file;
-    filelink.download = 'meta.info';
-    filelink.click();
+    let file = window.URL.createObjectURL(new Blob(binaryData, { type: 'application/json' }))
+    let filelink = document.createElement('a')
+    filelink.href = file
+    filelink.download = 'meta.info'
+    filelink.click()
 
     router.push('/sql_edit')
 }
 
-function importCFG()
-{
-    let cfg = document.getElementById('import-cfg');
+function importCFG() {
+    let cfg = document.getElementById('import-cfg')
 
     cfg.addEventListener('change', async (evt) => {
         let reader = new FileReader()
 
-        reader.onload = async function() {
-            
+        reader.onload = async function () {
             await window.mainprocess.setCFGFile(reader.result)
         }
 
         reader.readAsText(evt.target.files[0])
 
         router.push('/')
-    });
+    })
 
-    cfg.click();
+    cfg.click()
 }
 
-async function exportBN()
-{
+async function exportBN() {
     let data = await window.mainprocess.getBNFile()
     let binaryData = []
     binaryData.push(data)
 
-    let file = window.URL.createObjectURL(new Blob(binaryData, {type: 'application/json'}));
-    let filelink = document.createElement('a');
-    filelink.href = file;
-    filelink.download = 'blacknode.info';
-    filelink.click();
+    let file = window.URL.createObjectURL(new Blob(binaryData, { type: 'application/json' }))
+    let filelink = document.createElement('a')
+    filelink.href = file
+    filelink.download = 'blacknode.info'
+    filelink.click()
 
     router.push('/sql_edit')
 }
 
-function importBN()
-{
-    let cfg = document.getElementById('import-bn');
+function importBN() {
+    let cfg = document.getElementById('import-bn')
 
     cfg.addEventListener('change', async (evt) => {
         let reader = new FileReader()
 
-        reader.onload = async function() {
-            
+        reader.onload = async function () {
             await window.mainprocess.setBNFile(reader.result)
         }
 
         reader.readAsText(evt.target.files[0])
 
         router.push('/')
-    });
+    })
 
-    cfg.click();
+    cfg.click()
 }
 </script>
 
@@ -196,26 +182,52 @@ function importBN()
                     <div class="h2 mb-4">
                         Database Config
 
-                            <input type="file" class="form-control" name="import-bn" id="import-bn" hidden>
-                            <div class="btn btn-secondary float-end me-1" style="border-radius: 50px;" @click="importBN()">
-                                Import BN 
-                            </div>
+                        <input
+                            type="file"
+                            class="form-control"
+                            name="import-bn"
+                            id="import-bn"
+                            hidden
+                        />
+                        <div
+                            class="btn btn-secondary float-end me-1"
+                            style="border-radius: 50px"
+                            @click="importBN()"
+                        >
+                            Import BN
+                        </div>
 
-                            <div class="btn btn-secondary float-end me-1" style="border-radius: 50px;" @click="exportBN()">
-                                Export BN 
-                            </div>
+                        <div
+                            class="btn btn-secondary float-end me-1"
+                            style="border-radius: 50px"
+                            @click="exportBN()"
+                        >
+                            Export BN
+                        </div>
 
-                            <input type="file" class="form-control" name="import-cfg" id="import-cfg" hidden>
-                            <div class="btn btn-secondary float-end me-1" style="border-radius: 50px;" @click="importCFG()">
-                                Import CFG 
-                            </div>
+                        <input
+                            type="file"
+                            class="form-control"
+                            name="import-cfg"
+                            id="import-cfg"
+                            hidden
+                        />
+                        <div
+                            class="btn btn-secondary float-end me-1"
+                            style="border-radius: 50px"
+                            @click="importCFG()"
+                        >
+                            Import CFG
+                        </div>
 
-                            <div class="btn btn-secondary float-end me-1" style="border-radius: 50px;" @click="exportCFG()">
-                                Export CFG 
-                            </div>
-
+                        <div
+                            class="btn btn-secondary float-end me-1"
+                            style="border-radius: 50px"
+                            @click="exportCFG()"
+                        >
+                            Export CFG
+                        </div>
                     </div>
-                    
                 </div>
             </div>
             <div class="card card-body bg-light border-light mb-4">
@@ -394,7 +406,9 @@ function importBN()
                 <div class="row mb-4">
                     <div class="col-3">
                         <div class="setting-input mb-2">
-                            <label class="mb-2 text-muted" for="web-local-port">Web Local Port</label>
+                            <label class="mb-2 text-muted" for="web-local-port"
+                                >Web Local Port</label
+                            >
                             <input
                                 id="web-local-port"
                                 type="text"
@@ -406,7 +420,9 @@ function importBN()
                     </div>
                     <div class="col-3">
                         <div class="setting-input mb-2">
-                            <label class="mb-2 text-muted" for="api-local-port"> API Local Port </label>
+                            <label class="mb-2 text-muted" for="api-local-port">
+                                API Local Port
+                            </label>
                             <input
                                 id="api-local-port"
                                 type="text"
@@ -417,7 +433,9 @@ function importBN()
                     </div>
                     <div class="col-3">
                         <div class="setting-input mb-2">
-                            <label class="mb-2 text-muted" for="mqtt-local-port"> MQTT Local Port </label>
+                            <label class="mb-2 text-muted" for="mqtt-local-port">
+                                MQTT Local Port
+                            </label>
                             <input
                                 id="mqtt-local-port"
                                 type="text"
@@ -436,12 +454,8 @@ function importBN()
                                 class="form-select"
                                 aria-label="Autorun?"
                             >
-                                <option value='Disable'>
-                                    Disable
-                                </option>
-                                <option value='Enable'>
-                                    Enable
-                                </option>
+                                <option value="Disable">Disable</option>
+                                <option value="Enable">Enable</option>
                             </select>
                         </div>
                     </div>
@@ -456,7 +470,6 @@ function importBN()
                             />
                         </div>
                     </div>
-                    
                 </div>
             </div>
 
@@ -470,7 +483,6 @@ function importBN()
         <template #username>
             {{ user }}
         </template>
-
     </Navbar>
 </template>
 
