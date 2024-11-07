@@ -1817,7 +1817,7 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.get('/dashboard-consumption/:year/:month/:day/:groupId', async (req, res) => {
+    api.get('/dashboard-consumption/:year/:month/:day/:groupId/:type', async (req, res) => {
         let ret = [];
 
         if(await apiguard(req, 'dashboard', '') == false)
@@ -1832,24 +1832,50 @@ export function initAPI() {
         const year = req.params.year
         const month = parseInt(req.params.month) - 1
         const day = parseInt(req.params.day)
-
-        // calculate value and return
-        const date_category = new Date(year, month, day, 7, 15, 0)
-        for (let i = 0; i < 96; i++) {
-            date_category.setMinutes(date_category.getMinutes() + 15);
-            ret[i] = {
-                category: formatDateTime(date_category),
-                value1: 0
+        const type = req.params.type;
+        let date_category;
+        const startTime = new Date(Date.UTC(year, month, day, 7, 30, 0))
+        let endTime = new Date(Date.UTC(year, month, day + 1, 7, 30, 0))
+        if(type == 'month'){
+            const totalDay = new Date(year, month + 1, 0).getDate();
+            startTime.setDate(1);
+            endTime.setDate(1);
+            endTime.setMonth(startTime.getMonth() + 1)
+            for (let i = 0; i < totalDay; i++) {
+                ret[i] = {
+                    category: i+1,
+                    value1: 0,
+                    sTime: new Date(Date.UTC(year, month, i+1, 0, 15, 0)) ,
+                    eTime:new Date(Date.UTC(year, month, i+2, 0, 15, 0))
+                }
+            }
+        }else if(type == 'year'){
+            startTime.setDate(1);
+            startTime.setMonth(0);
+            endTime.setDate(1)
+            endTime.setMonth(0)
+            endTime.setFullYear(startTime.getFullYear() + 1)
+            for (let i = 0; i < 12; i++) {
+                ret[i] = {
+                    category: i+1,
+                    value1: 0,
+                    sTime: new Date(Date.UTC(year, i, 1, 0, 15, 0)) ,
+                    eTime:new Date(Date.UTC(year, i + 1, 1, 0, 15, 0))
+                }
+            }
+        }else{
+            date_category = new Date(year, month, day, 7, 15, 0)
+            for (let i = 0; i < 96; i++) {
+                date_category.setMinutes(date_category.getMinutes() + 15);
+                ret[i] = {
+                    category: formatDateTime(date_category),
+                    value1: 0
+                }
             }
         }
 
-
-        const startTime = new Date(Date.UTC(year, month, day, 7, 30, 0))
-        let endTime = new Date(Date.UTC(year, month, day + 1, 7, 30, 0))
-
         let now = new Date()
         now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
-
         if(now < endTime)
         {
             endTime = new Date(now)
@@ -1865,10 +1891,10 @@ export function initAPI() {
         })
 
         group = group.dataValues;
-        var snmKey = []
-        let prevEnergy = {}
-        let prevTime = {}
-        let multmap = {}
+        const snmKey = []
+        const prevEnergy = {}
+        const prevTime = {}
+        const multmap = {}
 
 
         if(!group){
@@ -1887,8 +1913,8 @@ export function initAPI() {
             }
 
  
-            for (let m of members) {
-                let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
+            for (const m of members) {
+                const key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
                 snmKey.push(key)
                 prevEnergy[key] = 0
                 prevTime[key] = null
@@ -1928,35 +1954,34 @@ export function initAPI() {
             const dt = new Date(e.DateTimeUpdate)
             dt.setHours(dt.getHours()-7)
             dt.setMinutes(dt.getMinutes()-15)
-            // if(e.snmKey == 'TEP%N09%9'){
-            //     console.log(e.DateTimeUpdate);
-            //     console.log(energy,prevEnergy[e.snmKey],absEnergy);
-            // }
-         
 
-            const findArray = ret.findIndex(r=>r.category == formatDateTime(dt))
-            
-            // if(dt.getMinutes() %15 != 0){
-            //     console.log('not 15 min : '+dt);
-            // }
-
+            let findArray;
+            if(type == 'month'){
+                findArray = ret.findIndex(r=>dt >= r.sTime && dt <= r.eTime)
+            }else if(type == 'year'){
+                findArray = ret.findIndex(r=>dt >= r.sTime && dt <= r.eTime)
+            }else{
+                findArray = ret.findIndex(r=>r.category == formatDateTime(dt))
+            }
+           
             if(findArray > -1){
                 ret[findArray].value1 += absEnergy;
             }
         }
 
-        const date_category2 = new Date(year, month, day, 7, 15, 0)
-        for (let i = 0; i < 96; i++) {
-            date_category2.setMinutes(date_category2.getMinutes() + 15);
-            ret[i].category = `${date_category2.getHours().toString().padStart(2,'0')}:${date_category2.getMinutes().toString().padStart(2,'0')}`
-            
+        if(type == 'day'){
+            const date_category2 = new Date(year, month, day, 7, 15, 0)
+            for (let i = 0; i < 96; i++) {
+                date_category2.setMinutes(date_category2.getMinutes() + 15);
+                ret[i].category = `${date_category2.getHours().toString().padStart(2,'0')}:${date_category2.getMinutes().toString().padStart(2,'0')}`
+                
+            }
+    
+            let start_date_time = new Date(year, month, day, 7, 30, 0);
+            ret[0].category = formatDateTime(start_date_time)
+            start_date_time = new Date(year, month, day+1, 0, 0, 0);
+            ret[66].category = formatDateTime(start_date_time)
         }
-
-        let start_date_time = new Date(year, month, day, 7, 30, 0);
-        ret[0].category = formatDateTime(start_date_time)
-        start_date_time = new Date(year, month, day+1, 0, 0, 0);
-        ret[66].category = formatDateTime(start_date_time)
-
         res.json(ret)
     })
 
@@ -4864,96 +4889,103 @@ export function initAPI() {
         startTime = new Date(Date.UTC(year, month, 1, 7, 30, 0))
         endTime = new Date(Date.UTC(year, month + 1, 1, 7, 30, 0))
 
-
-        const group_value = async (gid) => {
-            let snmKey = []
-            let prevEnergy = {}
-            let prevTime = {}
-            let multmap = {}
-
-            const members = await db.gmember.findAll({
-                where: { GroupID: gid },
-                order: [['order_meter', 'ASC']] 
-            })
-
-            if(!members){
-                return 0;
-            }
-
-            if (members) {
-                for (let m of members) {
-                    let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
-                    snmKey.push(key)
-                    prevEnergy[key] = 0
-                    prevTime[key] = null
-                    multmap[key] = parseFloat(m.multiplier)
+        const gData = {};
+        const mapGroup = group.map(g=>{
+            gData[g.id] = {}
+            gData[g.id]['value'] = 0;
+            return g.id
+        });
+     
+        const members = await db.gmember.findAll({
+            where: { 
+                GroupID: {
+                    [Op.in]: mapGroup
                 }
-            }
-        
+             },
+            order: [['order_meter', 'ASC']] 
+        })
 
-            const eData = await db.energy.findAll({
-                where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    },
-                    snmKey: snmKey
-                },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
-            })
-            
-            let total = 0;
-
-            for (const e of eData) {
-                let sn = e.SerialNo
-                let period = blacknode[sn].period * 60 * 1000
-                let energy = 0;
-
-                if(meta_cfg.useImport.value)
-                {
-                    energy = e.Import_kWh
-                }
-                else
-                {
-                    energy = e.TotalkWh
-                }
-
-                //skip if energy = 0
-                if(energy <= 0){
-                    continue;
-                }
-
-                if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
-                    prevTime[e.snmKey] = e.DateTimeUpdate
-                    prevEnergy[e.snmKey] = energy
-                    continue
-                }
-
-                let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
-                total += absEnergy
-                prevEnergy[e.snmKey] = energy
-                prevTime[e.snmKey] = e.DateTimeUpdate
-            }
-
-
-
-            return total;
-
+        if(!members){
+            return 0;
         }
 
-        const filterTarget = [];
+        const snmKey = []
+        const prevEnergy = {}
+        const prevTime = {}
+        const multmap = {}
+      
+
+        if (members) {
+            for (const m of members) {
+                const key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID);
+                snmKey.push(key)
+                prevEnergy[key] = 0
+                prevTime[key] = null
+                multmap[key] = parseFloat(m.multiplier)
+                gData[m.GroupID][key] = 0;
+            }
+        }
+
+        const eData = await db.energy.findAll({
+            where: {
+                DateTimeUpdate: {
+                    [Op.and]: {
+                        [Op.gte]: startTime,
+                        [Op.lte]: endTime
+                    }
+                },
+                snmKey: snmKey
+            },
+            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+        })
+        
+
+        for (const e of eData) {
+            const sn = e.SerialNo
+            const period = blacknode[sn].period * 60 * 1000
+            let energy = 0;
+
+            if(meta_cfg.useImport.value)
+            {
+                energy = e.Import_kWh
+            }
+            else
+            {
+                energy = e.TotalkWh
+            }
+
+            //skip if energy = 0
+            if(energy <= 0){
+                continue;
+            }
+
+            if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
+                prevTime[e.snmKey] = e.DateTimeUpdate
+                prevEnergy[e.snmKey] = energy
+                continue
+            }
+
+            const absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+
+            Object.values(gData).forEach(obj => {
+                if (Object.prototype.hasOwnProperty.call(obj, e.snmKey)) {
+                    obj['value'] += absEnergy;
+                }
+            });
+            prevEnergy[e.snmKey] = energy
+            prevTime[e.snmKey] = e.DateTimeUpdate
+        }
 
         const ret = [];
+        const filterTarget = [];
+    
         for (let i = 0; i < group.length; i++) {
-            const value = await group_value(group[i].id);
             const target_value = target.find((t)=>t.group_id == group[i].id)
             if(target_value){
                 ret[i] =   {
                     department: group[i].name,
                     target: target_value.value ? target_value.value : 0,
-                    usage: value,
+                    usage: gData[group[i].id]['value'],
                 }
                 filterTarget[i] = {
                     id:target_value.id,
@@ -4963,7 +4995,6 @@ export function initAPI() {
             }
         }
 
-        
         res.json({
             graph:ret,
             target:filterTarget

@@ -119,6 +119,18 @@ async function start(BN_CFG_PATH) {
         writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
     })
 
+    //check if authenticate
+    // aedesInst.authenticate = function (client, username, password, callback) {
+    //     const validUsername = 'admin';
+    //     const validPassword = 'password'; 
+    //     const passwordString = password ? password.toString() : '';
+    //     if (username === validUsername && passwordString === validPassword) {
+    //         callback(null, true); 
+    //     } else {
+    //         callback(null, false);
+    //     }
+    // };
+
     aedesInst.on('publish', async function (pkt, _client) {
         const data_re = /^(DATABASE|REALTIME)\/(.*?)\/(.*?)\/(.*?)\/(\d*)$/
         const cfg_re = /^CFG\/([^\/]*)$/
@@ -461,28 +473,6 @@ async function start(BN_CFG_PATH) {
                                 )
                             }
                             
-                            //console.log("After: "+new Date(blacknode[sn].meter_list[modbusid].last_db));
-
-                            // let aQ = {
-                            //     cmd: 'publish',
-                            //     qos: QOS,
-                            //     dup: false,
-                            //     retain: false,
-                            //     topic:
-                            //         'LOG/DATABASE/' +
-                            //         sn +
-                            //         '/' +
-                            //         siteid +
-                            //         '/' +
-                            //         nodeid +
-                            //         '/' +
-                            //         String(modbusid + 1),
-                            //     payload: 'OK'
-                            // };
-
-                            // addQueue(obj, aQ)
-
-                            
                         } catch (err) {
                             aedesInst.publish(
                                 {
@@ -579,14 +569,14 @@ async function start(BN_CFG_PATH) {
                             )
                             lastFifteenTime.setUTCSeconds(0)
                             lastFifteenTime.setUTCMilliseconds(0)
-                            let lastFifteenData = (lastUpdateData[snid].lastFifteenData) ? lastUpdateData[snid].lastFifteenData : parseFloat(e[2])
+                            let lastFifteenData = (lastUpdateData[snid].lastFifteenData) ? lastUpdateData[snid].lastFifteenData : parseFloat(e[0])
 
                             if (
                                 lastUpdateData[snid] &&
                                 lastUpdateData[snid].lastFifteenTime &&
                                 lastUpdateData[snid].lastFifteenTime.getTime() != lastFifteenTime.getTime()
                             ) {
-                                lastFifteenData = parseFloat(e[2])
+                                lastFifteenData = parseFloat(e[0])
                             }
 
                             let obj = {
