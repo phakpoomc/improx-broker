@@ -393,6 +393,8 @@ const routes = {
     'usermanage': ['owner', 'admin', 'test'],
     'single_line_diagram': ['owner', 'user', 'admin', 'test'],
     'layout': ['owner', 'user', 'admin', 'test'],
+    'report_manage': ['owner', 'admin', 'test'],
+    'report_display':['owner', 'user', 'admin', 'test']
 }
 
 const apis = {
@@ -416,6 +418,8 @@ const apis = {
     'single_line_diagram': ['owner', 'user', 'admin', 'test'],
     'layout': ['owner', 'user', 'admin', 'test'],
     'group_type': ['owner', 'admin', 'test'],
+    'report_manage': ['owner', 'admin', 'test'],
+    'report_display':['owner', 'user', 'admin', 'test']
 }
 
 async function routeguard(req, route)
@@ -1599,6 +1603,7 @@ export function initAPI() {
             for (let i = 0; i < blacknode[sn].meter_list.length; i++) {
                 let obj = {
                     name: blacknode[sn].meter_list[i].name,
+                    rname:blacknode[sn].meter_list[i].rname,
                     SerialNo: blacknode[sn].serial,
                     SiteID: blacknode[sn].siteid,
                     NodeID: blacknode[sn].nodeid,
@@ -1632,6 +1637,14 @@ export function initAPI() {
                 ret.meter.push(obj)
             }
         }
+
+        //sort meter
+        ret.meter.sort((a, b) => {
+            if (a.name < b.name) return -1; // a comes before b
+            if (a.name > b.name) return 1;  // a comes after b
+            return 0; // a and b are equal
+        });
+        
 
         res.json(ret)
     })
@@ -2122,7 +2135,7 @@ export function initAPI() {
         res.json(result)
     })
 
-    api.get('/layout/:syear/:smonth/:sday/:shour/:smin/:eyear/:emonth/:eday/:ehour/:emin', async (req, res) => {
+    api.post('/layout/:syear/:smonth/:sday/:shour/:smin/:eyear/:emonth/:eday/:ehour/:emin', async (req, res) => {
         const ret = {}
 
         if(await apiguard(req, 'layout', '') == false)
@@ -2133,98 +2146,162 @@ export function initAPI() {
 
         const startTime = new Date(Date.UTC(req.params.syear, req.params.smonth - 1, req.params.sday, req.params.shour, req.params.smin, 0));
         const endTime = new Date(Date.UTC(req.params.eyear, req.params.emonth - 1, req.params.eday, req.params.ehour, req.params.emin, 0));
+        const types = req.body.types;
 
-        const snmKey = []
-        const prevEnergy = {}
-        const prevTime = {}
-        const multmap = {}
-        const types = [
-            "Layout Sub 1",
-            "Layout Sub 1.1",
-            "Layout Sub 2",
-            "Layout Sub 3",
-            "Layout Sub 4",
-            "Layout Sub 5",
-            "Layout Sub 6",
-            "Layout Sub 7",
-            "Layout Sub 7.1",
-            "Layout Sub 8",
-            "Layout Sub 9.1",
-            "Layout Sub 9.2",
-            "Layout Sub 9.3",
-            "Layout Sub 10",
-            "Layout WORK SHOP / OFFICE"
-        ];
+        if(!Array.isArray(types))  res.json(ret);
 
-        for(const g in group){
-            const find = types.find((t)=>t === group[g].type)
-            if(!find) continue;
+        // for(const g in group){
+        //     const snmKey = []
+        //     const prevEnergy = {}
+        //     const prevTime = {}
+        //     const multmap = {}
+        //     const find = types.find((t)=>t === group[g].type)
+        //     if(!find) continue;
 
-            // const members = await db.gmember.findAll({
-            //     where: { GroupID: group[g].id }
-            // })
-            
-            if(!group[g].member || group[g].member.length == 0) continue;
+        //     if(!group[g].member || group[g].member.length == 0) continue;
           
-            for (const m of group[g].member) {
-                const key = m.siteid + '%' + m.nodeid + '%' + String(m.modbusid)
-                snmKey.push(key)
-                prevEnergy[key] = 0
-                prevTime[key] = null
-                multmap[key] = parseFloat(m.multiplier)
-            }
+        //     for (const m of group[g].member) {
+        //         const key = m.siteid + '%' + m.nodeid + '%' + String(m.modbusid)
+        //         snmKey.push(key)
+        //         prevEnergy[key] = 0
+        //         prevTime[key] = null
+        //         multmap[key] = parseFloat(m.multiplier)
+        //     }
 
-            const eData = await db.energy.findAll({
-                where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    },
-                    snmKey: snmKey
-                },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
-            })
+        //     const eData = await db.energy.findAll({
+        //         where: {
+        //             DateTimeUpdate: {
+        //                 [Op.and]: {
+        //                     [Op.gte]: startTime,
+        //                     [Op.lte]: endTime
+        //                 }
+        //             },
+        //             snmKey: snmKey
+        //         },
+        //         order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+        //     })
+
+        //     const adjTime = new Date(endTime);
+        //     adjTime.setMinutes(adjTime.getMinutes() + 15)
+        //     const eData = await db.energy.findAll({
+        //         where: {
+        //             DateTimeUpdate: {
+        //                 [Op.in]: [startTime,endTime,adjTime]
+        //             },
+        //             snmKey: snmKey
+        //         },
+        //         order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+        //     })
             
-            ret[group[g].type] = 0;
+        //     ret[group[g].type] = -1;
 
-            for (const e of eData) {
-                const sn = e.SerialNo
-                const period = blacknode[sn].period * 60 * 1000
-                let energy = 0;
+        //     for (const e of eData) {
+        //         const sn = e.SerialNo
+        //         const period = blacknode[sn].period * 60 * 1000
+        //         let energy = 0;
     
-                if(meta_cfg.useImport.value)
-                {
-                    energy = e.Import_kWh
-                }
-                else
-                {
-                    energy = e.TotalkWh
-                }
+        //         if(meta_cfg.useImport.value)
+        //         {
+        //             energy = e.Import_kWh
+        //         }
+        //         else
+        //         {
+        //             energy = e.TotalkWh
+        //         }
 
-                if(energy == 0){
-                    continue;
-                }
+        //         if(energy == 0){
+        //             continue;
+        //         }
+                
+        //         if(find == 'Layout Sub 1.1') console.log(e.snmKey,e.TotalkWh,e.DateTimeUpdate);
+                
     
-                if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
-                    prevTime[e.snmKey] = e.DateTimeUpdate
-                    prevEnergy[e.snmKey] = energy
-                    continue
-                }
+        //         if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
+        //             prevTime[e.snmKey] = e.DateTimeUpdate
+        //             prevEnergy[e.snmKey] = energy
+        //             continue
+        //         }
     
-                const absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
-                prevEnergy[e.snmKey] = energy
-                ret[group[g].type] += absEnergy
-                prevTime[e.snmKey] = e.DateTimeUpdate
+        //         const absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+        //         prevEnergy[e.snmKey] = energy
+        //         if(ret[group[g].type] == -1) ret[group[g].type] = 0
+        //         ret[group[g].type] += absEnergy
+        //         prevTime[e.snmKey] = e.DateTimeUpdate
     
+        //     }
+        // }
+        const snmKey = []
+        const mapGroup = {};
+        for (const g in group) {
+            const find = types.find((t)=>t === group[g].type);
+            if(!find || !group[g].member || group[g].member.length == 0) continue;
+            ret[find] = -1;
+            mapGroup[find] = {};
+            mapGroup[find]['tName'] = find;
+            mapGroup[find]['prevEnergy'] = {};
+            mapGroup[find]['prevTime'] = {};
+            mapGroup[find]['multmap'] = {};
+            mapGroup[find]['keys'] = [];
+            for (const m of group[g].member) {
+                const key = m.siteid + '%' + m.nodeid + '%' + String(m.modbusid);
+                snmKey.push(key);
+                mapGroup[find]['keys'].push(key);
+                mapGroup[find]['prevEnergy'][key] = 0;
+                mapGroup[find]['prevTime'][key] = null;
+                mapGroup[find]['multmap'][key]  = parseFloat(m.multiplier);
+                
+            }  
+        }
+        
+        const eData = await db.energy.findAll({
+            where: {
+                DateTimeUpdate: {
+                    [Op.in]: [startTime,endTime]
+                },
+                snmKey: snmKey
+            },
+            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+        });
+
+        for (const e of eData) {
+            let energy = 0;
+
+            if(meta_cfg.useImport.value)
+            {
+                energy = e.Import_kWh
             }
+            else
+            {
+                energy = e.TotalkWh
+            }
+
+            if(energy == 0){
+                continue;
+            }
+            
+            for (const mgKey in mapGroup) {
+                const mg = mapGroup[mgKey]
+                if (mg['keys'].includes(e.snmKey)) {
+                    if (!mg['prevTime'][e.snmKey]) {
+                        mg['prevTime'][e.snmKey] = e.DateTimeUpdate
+                        mg['prevEnergy'][e.snmKey] = energy;
+                    }else{
+                        const absEnergy = (energy - mg['prevEnergy'][e.snmKey]) * mg['multmap'][e.snmKey];
+                        mg['prevEnergy'][e.snmKey] = energy
+                        if(ret[mg['tName']] == -1) ret[mg['tName']] = 0
+                        ret[mg['tName']] += absEnergy
+                        mg['prevTime'][e.snmKey] = e.DateTimeUpdate
+                    }
+                    //if(ret[mg['tName']] == 'Layout Sub 1.1') console.log(e.snmKey,e.TotalkWh,e.DateTimeUpdate);
+                }
+            }
+
         }
 
         res.json(ret)
     })
 
-    api.get('/single_line_group', async (req, res) => {
+    api.post('/single_line_group', async (req, res) => {
         const ret = {}
 
         if(await apiguard(req, 'single_line_diagram', '') == false)
@@ -2233,23 +2310,8 @@ export function initAPI() {
             return
         }
 
-        const types = [
-            "Line Sub 1",
-            "Line Sub 1.1",
-            "Line Sub 2",
-            "Line Sub 3",
-            "Line Sub 4",
-            "Line Sub 5",
-            "Line Sub 6",
-            "Line Sub 7",
-            "Line Sub 7.1",
-            "Line Sub 8",
-            "Line Sub 9.1",
-            "Line Sub 9.2",
-            "Line Sub 9.3",
-            "Line Sub 10",
-            "Line WORK SHOP / OFFICE"
-        ];
+        const types = req.body.types;
+        if(!Array.isArray(types))  res.json(ret);
 
         for(const g in group){
             const find = types.find((t)=>t === group[g].type)
@@ -3683,7 +3745,7 @@ export function initAPI() {
                             seq = 0
                         }
 
-                        if(cmap[param].storage == "accumulative" && param != kwhType)
+                        if(cmap[param].storage == "accumulative" && req.params.ttype != 'electrical')
                         {
                             let sn = e.SerialNo
                             let period = blacknode[sn].period * 60 * 1000
@@ -3736,7 +3798,7 @@ export function initAPI() {
                         }
 
                         //Get the average
-                        
+                        if(ret[cellName][seq] == -1) ret[cellName][seq] = 0;
                         ret[cellName][seq] += dval;
                         count[seq]++;
 
@@ -4181,7 +4243,7 @@ export function initAPI() {
 
         const start_seq = Math.trunc(start_date.getTime()/1000/60/15);
         const end_seq = Math.trunc(end_date.getTime()/1000/60/15);
-        let arr_size = end_seq - start_seq + 1;
+        let arr_size = req.params.ttype === "eonline_kWh" ?  1 : 2;
         let kwhType = "TotalkWh"
         const ret = {}
         const storeCName = {};
@@ -4216,7 +4278,6 @@ export function initAPI() {
         }
         let eData = null;
         if(req.params.ttype === "eonline_kWh"){
-            arr_size = 1;
             eData = await db.energy.findAll({
                 where: {
                     DateTimeUpdate: {
@@ -4229,7 +4290,6 @@ export function initAPI() {
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
             })        
         }else if(req.params.ttype === "eonline_kWhConsumption" || req.params.ttype === "energy_distribution"){
-            arr_size = 2;
             eData = await db.energy.findAll({
                 where: {
                     DateTimeUpdate: {
@@ -4330,7 +4390,7 @@ export function initAPI() {
                 }
 
                     //Get the average
-                    
+                if(ret[cellName][seq] == -1) ret[cellName][seq] = 0;
                 ret[cellName][seq] += dval;
 
                 if(param == 'kWdemand')
@@ -4499,6 +4559,156 @@ export function initAPI() {
         res.send("SUCCESS");
     })
 
+    api.post('/report_manage', async (req, res) => {
+        if (await apiguard(req, 'report_manage', '') == false) {
+            res.send('Permission not allowed.');
+            return;
+        }
+    
+        const data = req.body.data;
+        const existingData = await db.report_manage.findAll();
+        try {
+            await db.report_manage.destroy({
+                where: {},
+                truncate: true
+            });
+            await db.report_manage.bulkCreate(data);
+            res.send('SUCCESS');
+        } catch (err) {
+            try {
+                if (existingData.length > 0) {
+                    await db.report_manage.bulkCreate(existingData);
+                }
+            } catch (restoreErr) {
+                console.error("Failed to restore deleted data:", restoreErr);
+            }
+            res.send("Can't update report");
+        }
+    });
+
+    api.get('/report_manage', async (req, res) => {
+        if(await apiguard(req, 'report_manage', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
+        try {
+            const data = await db.report_manage.findAll({
+                order: [
+                  ['order', 'ASC']
+                ]
+              });
+            res.json(data)
+        } catch (err) {
+            res.send('Cannot update group members')
+        }
+    })
+
+    api.get('/report_display/:year/:month/:day/:hour/:min', async (req, res) => {
+        if(await apiguard(req, 'report_display', '') == false)
+        {
+            res.send('Permission not allowed.')
+            return
+        }
+
+        try {
+            const ret = {};
+            const data = await db.report_manage.findAll({
+                order: [
+                    ['order', 'ASC']
+                ]
+            });
+            const snmKeys = [];
+            const rp_data = {};
+            const feeders = [];
+            for (const d of data) {
+                try{
+                    if(d.code == 'extra'){
+                        const sname = d.name.split('|');
+                        
+                        const obj = {
+                            group:d.group,
+                            code:sname.length  > 0 ? sname[0] : d.code,
+                            name:sname.length == 2 ? sname[1] : '',
+                            location:d.location,
+                            mv_lv:d.mv_lv,
+                            value:-1,
+                            order:d.order
+                        }
+                        feeders.push(obj.code);
+                        rp_data[obj.code] = obj;
+                        ret[d.order] = obj;
+                 
+                        continue;
+                    }
+                    const bn_json = JSON.parse(d.code);
+                    const key = bn_json.SiteID + "%" + bn_json.NodeID + "%" + parseInt(bn_json.ModbusID + 1);
+                    const obj = {
+                        group:d.group,
+                        code:bn_json.code,
+                        name:d.name,
+                        location:d.location,
+                        mv_lv:d.mv_lv,
+                        value:-1,
+                        order:d.order
+                    }
+                    snmKeys.push(key)
+                    rp_data[key] = obj;
+                    ret[d.order] = obj;
+                    
+                }catch(err){
+                    continue;
+                }
+            }
+
+            const start_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day,req.params.hour,req.params.min));
+
+            const eData = await db.energy.findAll({
+                attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh','snmKey'],
+                where: {
+                    DateTimeUpdate: start_date,
+                    snmKey: { 
+                        [Op.in]: snmKeys
+                    } 
+                },
+                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+            })
+
+            for (const e of eData) {
+                try {
+                    ret[rp_data[e.snmKey].order].value = e.TotalkWh;
+                } catch (error) {
+                    continue;
+                }
+            }
+
+            const fData = await db.feedmeter.findAll({
+                where: {
+                    FeederDateTime: start_date,
+                    name: { 
+                        [Op.in]: feeders
+                    } 
+                },
+                order: [['FeederDateTime', 'ASC'], ['id', 'asc']]
+            })
+
+            for (const f of fData) {
+                try {
+                    ret[rp_data[f.name].order].value = f.value;
+                } catch (error) {
+                    continue;
+                }
+            }
+            
+            res.json(ret)
+        } catch (err) {
+            console.log(err);
+            res.send('Cannot get report data')
+        }
+    })
+    
+    
     api_server = api.listen((meta_cfg.broker.apiport) ? meta_cfg.broker.apiport : 8888, () => {
         console.log('API Server is running at ', (meta_cfg.broker.apiport) ? meta_cfg.broker.apiport : 8888)
     })

@@ -72,6 +72,7 @@ export async function syncDB() {
                 db.user = null;
                 db.userrole = null;
                 db.feedmeter = null;
+                db.report_manage = null;
 
                 last['message'] = 'Cannot connect to database.'
                 last['time'] = new Date()
@@ -239,6 +240,23 @@ export async function syncDB() {
             }
         )
 
+
+        db.report_manage = sequelize.define(
+            'report_manage',
+            {
+                id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
+                group: { type: DataTypes.STRING, field: 'group' },
+                code: { type: DataTypes.STRING, field: 'code' },
+                name: { type: DataTypes.STRING, field: 'name' },
+                location: { type: DataTypes.STRING, field: 'location' },
+                mv_lv: { type: DataTypes.STRING, field: 'mv_lv' },
+                order: { type: DataTypes.INTEGER, field: 'order'},
+            },
+            {
+                tableName: 'report_manage'
+            }
+        )
+
         try {
             await alterTable(sequelize);
         } catch (error) {
@@ -290,6 +308,7 @@ export async function syncDB() {
             db.user = null;
             db.userrole = null;
             db.feedmeter = null;
+            db.report_manage = null;
 
             last['message'] = 'Cannot sync database table.'
             last['time'] = new Date()
@@ -307,6 +326,7 @@ export async function syncDB() {
         db.user = null;
         db.userrole = null;
         db.feedmeter = null;
+        db.report_manage = null;
 
         last['message'] = 'Database is not set up.'
         last['time'] = new Date()
