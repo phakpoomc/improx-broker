@@ -376,6 +376,16 @@ function checkRoles(givenRoles, allowedRoles)
     return false
 }
 
+function compareDateTime(date1, date2) {
+    return (
+        date1.getFullYear() === date2.getFullYear() &&
+        date1.getMonth() === date2.getMonth() && // Month is zero-based
+        date1.getDate() === date2.getDate() &&
+        date1.getHours() === date2.getHours() &&
+        date1.getMinutes() === date2.getMinutes()
+    );
+}
+
 const routes = {
     'index': ['owner', 'user', 'admin', 'test'],
     'alarm': ['owner', 'user', 'admin', 'test'],
@@ -4605,7 +4615,7 @@ export function initAPI() {
         }
     })
 
-    api.get('/report_display/:year/:month/:day/:hour/:min', async (req, res) => {
+    api.get('/report_display/:year/:month/:day/:hour/:min/:eyear/:emonth/:eday/:ehour/:emin/:type', async (req, res) => {
         if(await apiguard(req, 'report_display', '') == false)
         {
             res.send('Permission not allowed.')
@@ -4626,7 +4636,6 @@ export function initAPI() {
                 try{
                     if(d.code == 'extra'){
                         const sname = d.name.split('|');
-                        
                         const obj = {
                             group:d.group,
                             code:sname.length  > 0 ? sname[0] : d.code,
@@ -4639,7 +4648,6 @@ export function initAPI() {
                         feeders.push(obj.code);
                         rp_data[obj.code] = obj;
                         ret[d.order] = obj;
-                 
                         continue;
                     }
                     const bn_json = JSON.parse(d.code);
@@ -4662,45 +4670,121 @@ export function initAPI() {
                 }
             }
 
+
             const start_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day,req.params.hour,req.params.min));
+            const end_date = new Date(Date.UTC(req.params.eyear, parseInt(req.params.emonth)-1, req.params.eday,req.params.ehour,req.params.emin));
+            const type = req.params.type;
 
-            const eData = await db.energy.findAll({
-                attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh','snmKey'],
-                where: {
-                    DateTimeUpdate: start_date,
-                    snmKey: { 
-                        [Op.in]: snmKeys
-                    } 
-                },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
-            })
+            if(type == 'range'){
+                const eData = await db.energy.findAll({
+                    attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh','snmKey'],
+                    where: {
+                        DateTimeUpdate: {
+                            [Op.and]: {
+                                [Op.gte]:  start_date,
+                                [Op.lte]: end_date
+                            }
+                        },
+                        snmKey: { 
+                            [Op.in]: snmKeys
+                        } 
+                    },
+                    order: [['snmKey', 'ASC'],['DateTimeUpdate', 'ASC']]
+                })
+    
+                const fData = await db.feedmeter.findAll({
+                    where: {
+                        FeederDateTime: {
+                            [Op.and]: {
+                                [Op.gte]:  start_date,
+                                [Op.lte]: end_date
+                            }
+                        },
+                        name: { 
+                            [Op.in]: feeders
+                        } 
+                    },
+                    order: [['FeederDateTime', 'ASC'], ['id', 'asc']]
+                })
 
-            for (const e of eData) {
                 try {
-                    ret[rp_data[e.snmKey].order].value = e.TotalkWh;
-                } catch (error) {
-                    continue;
+                    const energyGroup = {};
+                
+                    // Group data by `snmKey`
+                    eData.forEach((item) => {
+                        if (!energyGroup[item.snmKey]) {
+                            energyGroup[item.snmKey] = [];
+                        }
+                        energyGroup[item.snmKey].push(item);
+                    });
+                
+                    // Process each group
+                    for (const [snmKey, group] of Object.entries(energyGroup)) {
+                        if (group.length > 2) {
+                            // Calculate and assign value
+                            ret[rp_data[snmKey]?.order].value =
+                                group[group.length - 1].TotalkWh - group[0].TotalkWh;
+                        }
+                    }
+                } catch (error) {}
+
+                try {
+                    const feederGroup = {};
+                    eData.forEach((item) => {
+                        if (!feederGroup[item.name]) {
+                            feederGroup[item.name] = [];
+                        }
+                        feederGroup[item.name].push(item);
+                    });
+                    for (const [name, group] of Object.entries(feederGroup)) {
+                        if (group.length > 2) {
+                            ret[rp_data[name]?.order].value =
+                                group[group.length - 1].TotalkWh - group[0].TotalkWh;
+                        }
+                    }
+                } catch (error) {}
+
+            }else{
+                const eData = await db.energy.findAll({
+                    attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh','snmKey'],
+                    where: {
+                        DateTimeUpdate: start_date,
+                        snmKey: { 
+                            [Op.in]: snmKeys
+                        } 
+                    },
+                    order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                })
+
+                const fData = await db.feedmeter.findAll({
+                    where: {
+                        FeederDateTime: start_date,
+                        name: { 
+                            [Op.in]: feeders
+                        } 
+                    },
+                    order: [['FeederDateTime', 'ASC'], ['id', 'asc']]
+                })
+    
+                for (const e of eData) {
+                    try {
+                        ret[rp_data[e.snmKey].order].value = e.TotalkWh;
+                        if(e.snmKey == 'SCGLP%N05%1'){
+                            console.log(e.DateTimeUpdate,e.snmKey);
+                        }   
+                    } catch (error) {
+                        continue;
+                    }
+                }
+                for (const f of fData) {
+                    try {
+                        ret[rp_data[f.name].order].value = f.value;
+                    } catch (error) {
+                        continue;
+                    }
                 }
             }
 
-            const fData = await db.feedmeter.findAll({
-                where: {
-                    FeederDateTime: start_date,
-                    name: { 
-                        [Op.in]: feeders
-                    } 
-                },
-                order: [['FeederDateTime', 'ASC'], ['id', 'asc']]
-            })
-
-            for (const f of fData) {
-                try {
-                    ret[rp_data[f.name].order].value = f.value;
-                } catch (error) {
-                    continue;
-                }
-            }
-            
             res.json(ret)
         } catch (err) {
             console.log(err);
