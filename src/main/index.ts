@@ -13,13 +13,13 @@ import {
     paths,
     loadMetaCFG,
     loadMetaDB,
-    initCache,
     loadBNInfoFromLocal,
     checkHeartbeat,
-    db
+    db,
+    meter_types_store,
+    loadOverview
     // savetoDB
 } from './global.js'
-
 import { api_server, initAPI } from './api.js'
 import { web_server, initWeb } from './web.js'
 import { syncDB } from './db.js'
@@ -32,7 +32,7 @@ const QOS = 2
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096')
 
 function loginWith(uname, pwd) {
-    let correctHash = crypto.createHash('sha512')
+    const correctHash = crypto.createHash('sha512')
     correctHash.update('password')
 
     if (uname == 'admin' && pwd == correctHash.digest('hex')) {
@@ -127,8 +127,15 @@ function createWindow(): void {
 
                     await syncDB()
                     await loadMetaDB()
-                    initCache()
                 }
+                const data = readFile(METER_TYPE_PATH, { encoding: 'utf-8', flag: 'r' })
+                //get meter type name
+                const lines = data.split('\n')
+                for (const line of lines) {
+                    const l = line.split(' : ')
+                    meter_types_store[l[0]] = l[1]?.slice(0, -2)
+                }
+                await loadOverview(false)
             }
         }
     })
@@ -305,8 +312,6 @@ app.whenReady().then(async () => {
 
         writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
         await loadMetaDB()
-        // initCache()
-
         if (cfg.sendack) {
             aedesInst.publish(
                 {
@@ -359,6 +364,7 @@ app.whenReady().then(async () => {
                 let l = line.split(' : ')
                 let obj = { value: l[0], text: line }
                 meter_types.push(obj)
+                meter_types_store[l[0]] = l[1]?.slice(0, -2)
             }
             return { ...blacknode[key], mtypes: meter_types }
         } else {
@@ -379,7 +385,6 @@ app.whenReady().then(async () => {
         loadMetaCFG()
         await syncDB()
         await loadMetaDB()
-        // initCache()
     })
 
     ipcMain.handle('data:setBNFile', (_event, data) => {
@@ -403,7 +408,6 @@ app.whenReady().then(async () => {
 
         await syncDB()
         await loadMetaDB()
-        // initCache()
     })
 
     ipcMain.handle('data:getAPICFG', (_event) => {
@@ -461,14 +465,6 @@ app.whenReady().then(async () => {
         console.log('Clear messaged.')
     })
 
-    ipcMain.handle('cmd:initCache', (_event) => {
-        initCache().then((data) => {
-            last['message'] = data.msg
-            last['time'] = new Date()
-            last['status'] = data.status
-        })
-    })
-
     // Default open or close DevTools by F12 in development
     // and ignore CommandOrControl + R in production.
     // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
@@ -504,10 +500,6 @@ app.on('before-quit', async function () {
     clearInterval(minuteInterval)
     clearInterval(gettimeInterval)
     clearInterval(heartbeatInterval)
-    clearInterval(cacheRefreshInterval)
-    // clearInterval(dbSaveInterval)
-
-    // await savetoDB()
 
     if (gettimeTimeout) {
         clearTimeout(gettimeTimeout)
@@ -548,7 +540,6 @@ ipcMain.on('authenticate', async (_event, args) => {
 
             await syncDB()
             await loadMetaDB()
-            initCache()
         }
     } else {
         authenticated = false
@@ -651,28 +642,6 @@ let heartbeatInterval = setInterval(() => {
         }
     }
 }, 10 * 1000)
-
-let cacheRefreshInterval = setInterval(() => {
-    // sendtime every minute on the 0-9th second
-    if (authenticated) {
-        let now = new Date();
-
-        if(now.getHours() == 23 && now.getMinutes() >= 45)
-        {
-            let target = new Date();
-            target.setDate(target.getDate() + 1)
-            target.setHours(0)
-            target.setMinutes(7)
-
-            console.log("Setting timeout in ", target.getTime() - now.getTime(), "ms")
-
-            setTimeout(() => {
-                initCache()
-            }, target.getTime() - now.getTime())
-        }
-        
-    }
-}, 15*60 * 1000)
 
 // let dbSaveInterval = setInterval(() => {
 //     if (authenticated) {

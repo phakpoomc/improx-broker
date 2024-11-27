@@ -82,13 +82,7 @@ function getIconClasses(status) {
     }
 }
 
-function initCache() {
-    if(window.confirm('Initializing cache may take time'))
-    {
-        window.mainprocess.initCache();
-    }
-    
-}
+
 </script>
 
 <template>
@@ -256,13 +250,6 @@ function initCache() {
                 type="button"
                 class="btn btn-outline-secondary float-end mt-3"
                 >Edit Connection</router-link
-            >
-
-            <button
-                type="button"
-                @click="initCache()"
-                class="btn btn-outline-secondary float-end mx-3 mt-3"
-                >Initialize Cache</button
             >
         </template>
 

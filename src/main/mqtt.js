@@ -10,15 +10,12 @@ import {
     lastUpdateTime,
     lastUpdateData,
     db,
-    cached,
-    initCache,
-    qLock,
-    setCacheDirty,
-    isOnPeak,
-    meta_cfg
+    loadOverview,
+    meta_cfg,
+    overview_store
     // addQueue
 } from './global.js'
-
+import * as path from 'path'
 export var aedesInst
 export var httpServer
 
@@ -344,10 +341,6 @@ async function start(BN_CFG_PATH) {
                             
                             const lastDbDate = new Date(blacknode[sn].meter_list[modbusid].last_db);
                             if(lastDbDate.getTime() < dt.getTime())
-
-                            let lastDB = new Date(blacknode[sn].meter_list[modbusid].last_db)
-
-                            if(lastDB.getTime() < dt.getTime())
                             {
                                 const nextThreeMonth = new Date(lastDbDate);
                                 let roundedMinutes = (Math.round(nextThreeMonth.getMinutes() / 15)) * 15;
@@ -406,135 +399,39 @@ async function start(BN_CFG_PATH) {
 
                                     checkOverRange(obj)
 
-                                db.energy.create(obj, {raw: true}).then(() => {
-                                    aedesInst.publish(
+                                    db.energy.create(obj, {raw: true}).then(() => {
+                                        aedesInst.publish(
+                                            {
+                                                cmd: 'publish',
+                                                qos: QOS,
+                                                dup: false,
+                                                retain: false,
+                                                topic:
+                                                    'LOG/DATABASE/' +
+                                                    sn +
+                                                    '/' +
+                                                    siteid +
+                                                    '/' +
+                                                    nodeid +
+                                                    '/' +
+                                                    String(modbusid + 1).padStart(2, '0'),
+                                                payload: 'OK'
+                                            },
+                                            function () {}
+                                        )
+                                        let energy = 0;
+
+                                        if(meta_cfg.useImport.value)
                                         {
-                                            cmd: 'publish',
-                                            qos: QOS,
-                                            dup: false,
-                                            retain: false,
-                                            topic:
-                                                'LOG/DATABASE/' +
-                                                sn +
-                                                '/' +
-                                                siteid +
-                                                '/' +
-                                                nodeid +
-                                                '/' +
-                                                String(modbusid + 1).padStart(2, '0'),
-                                            payload: 'OK'
-                                        },
-                                        function () {}
-                                    )
-
-                                    let snmk = siteid + '%' + nodeid + '%' + String(modbusid + 1);
-                                    let adjustedTime = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate(), dt.getUTCHours(), dt.getUTCMinutes()))
-                                    // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes() - 1)
-                                    let tKey = adjustedTime.getUTCFullYear() + '-' + (adjustedTime.getUTCMonth()+1) + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
-
-                                    let energy = 0;
-
-                                    if(meta_cfg.useImport.value)
-                                    {
-                                        energy = obj.Import_kWh
-                                    }
-                                    else
-                                    {
-                                        energy = obj.TotalkWh
-                                    }
-
-                                    if(!cached.hasOwnProperty(snmk))
-                                    {
-                                        cached[snmk] = {
-                                            energyLastMonth: 0,
-                                            energyThisMonth: 0,
-                                            energyYesterday: 0,
-                                            energyToday: 0,
-                                            maxDemandLastMonth: {},
-                                            maxDemandThisMonth: {},
-                                            maxDemandYesterday: {},
-                                            maxDemandToday: {},
-                                            prevEnergy: energy,
-                                            prevTime: dt
-                                        }
-                                    }
-                                    else
-                                    {
-                                        if(!qLock)
-                                        {
-                                            let now = new Date();
-
-                                            let tLastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0))
-                                            let tThisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0))
-                                            let tYesterday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0))
-                                            let tToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0))
-                                            let tTomorrow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0))
-
-                                            let gap = ((obj.DateTimeUpdate - cached[snmk].prevTime)/60/1000)/60
-                                            let absEnergy = energy - cached[snmk].prevEnergy
-                                            let d = absEnergy/gap;
-
-                                            if (dt >= tLastMonth && dt <= tThisMonth) {
-                                                // Last month
-                                                if(cached[snmk].prevTime >= tLastMonth && cached[snmk].prevTime <= tThisMonth)
-                                                {
-                                                    cached[snmk].energyLastMonth += absEnergy
-                                    
-                                                    if (isOnPeak(dt)) {
-                                                        cached[snmk].maxDemandLastMonth[tKey] = d;
-                                                    }
-                                                }
-                                            } else {
-                                                // This month
-                                                if(cached[snmk].prevTime >= tThisMonth && cached[snmk].prevTime <= tTomorrow)
-                                                {
-                                                    cached[snmk].energyThisMonth += absEnergy
-                                    
-                                                    if (isOnPeak(dt)) {
-                                                        if(d > cached[snmk].maxDemandThisMonth)
-                                                        {
-                                                            cached[snmk].maxDemandThisMonth[tKey] = d;
-                                                        }
-                                                    }
-                                    
-                                                    if (dt >= tYesterday && dt <= tToday) {
-                                                        // Yesterday
-                                                        if(cached[snmk].prevTime >= tYesterday && cached[snmk].prevTime <= tTomorrow)
-                                                        {
-                                                            cached[snmk].energyYesterday += absEnergy
-                                    
-                                                            if (isOnPeak(dt)) {
-                                                                if(d > cached[snmk].maxDemandYesterday)
-                                                                {
-                                                                    cached[snmk].maxDemandYesterday[tKey] = d;
-                                                                }
-                                                            }
-                                                        }
-                                                        
-                                                    } else if (dt >= tToday && cached[snmk].prevTime <= tTomorrow) {
-                                                        cached[snmk].energyToday += absEnergy
-                                    
-                                                        if (isOnPeak(dt)) {
-                                                            if(d > cached[snmk].maxDemandToday)
-                                                            {
-                                                                cached[snmk].maxDemandToday[tKey] = d;
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            cached[snmk].prevTime = dt;
-                                            cached[snmk].prevEnergy = energy;
+                                            energy = obj.Import_kWh
                                         }
                                         else
                                         {
-                                            setCacheDirty();
-                                            initCache();
+                                            energy = obj.TotalkWh
                                         }
-                                    }
 
-                                })
+                                    })
+                                }
                             }
                             else
                             {
@@ -731,6 +628,55 @@ async function start(BN_CFG_PATH) {
                                 kWdemand: (parseFloat(e[0]) - lastFifteenData) * 4,
                                 lastFifteenTime: lastFifteenTime,
                                 lastFifteenData: lastFifteenData
+                            }
+                            try{
+                                const overviewPath = path.join(process.cwd(), 'overview_data.cfg');
+                                const now_date = new Date()
+                                  //clear 24 hour data
+                                if(now_date.getHours()==0 && now_date.getMinutes()==0 && !overview_store.clear){
+                                    for (const k in overview_store) {
+                                        if(Array.isArray(overview_store[k])) overview_store[k].length = 0;
+                                    }
+                                    overview_store.clear = true;
+                                }
+                                if(now_date.getMinutes()==1)overview_store.clear = false;
+                                if(overview_store[obj.SerialNo+"%"+obj.ModbusID]){
+                                    overview_store[obj.SerialNo+"%"+obj.ModbusID].push({utc:now_date.toISOString(),value:{
+                                        P_Sum:obj.P_Sum,
+                                        kWdemand:obj.kWdemand,
+                                        Import_kWh:obj.Import_kWh,
+                                        TotalkWh:obj.TotalkWh,
+                                    }});
+                                   
+                                }
+                                const snmKey = obj.SiteID + '%' + obj.NodeID + '%' + String(parseInt(obj.ModbusID)+1);
+                                //new month reset value
+                                if(overview_store.currMonth != now_date.getMonth()){
+                                    for (const k in overview_store.monthly_kwh){
+                                        overview_store.monthly_kwh[k].prevValue = 0;
+                                        overview_store.monthly_kwh[k].value = 0;
+                                    }
+                                    overview_store.currMonth = now_date.getMonth();
+                                }
+                                
+                                for (const k in overview_store.monthly_kwh) {
+                                    if (obj.Import_kWh < 0) {
+                                        continue
+                                    }
+                                    if (overview_store.monthly_kwh[k].keys.includes(snmKey)){
+                                        if(overview_store.monthly_kwh[k].prevValue == 0){
+                                            overview_store.monthly_kwh[k].prevValue = obj.Import_kWh;
+                                            continue;
+                                        }
+                                        
+                                        const kwh = (obj.Import_kWh - overview_store.monthly_kwh[k].prevValue )* overview_store['multiplier'][snmKey];
+                                        overview_store.monthly_kwh[k].value += kwh;
+                                    }
+                                    
+                                    }
+                                writeFile(overviewPath, JSON.stringify(overview_store, null, 2), { flag: 'w' });
+                            }catch(err){
+                                
                             }
 
                             checkOverRange(obj, true)

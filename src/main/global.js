@@ -1,5 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { Sequelize, Op } from 'sequelize';
+const fs = require('fs')
+import * as path from 'path'
 
 export var last = {
     message: '',
@@ -16,6 +18,8 @@ export var db = {}
 // Configuration from files
 export var meta_cfg = {};
 export var blacknode = {}
+export var meter_types_store = {}
+export var overview_store = {clear:false,monthly_kwh:{},currMonth:new Date().getMonth(),multiplier:{},column:{}}
 
 // Configuration from DB
 export var lastAlarm = {}
@@ -35,14 +39,8 @@ const MINIMUM_REALERT = 61 * 60 * 1000
 // var dbQueue = [];
 // var aedesQueue = [];
 
-export var qLock = false;
-export var cacheDirty = false;
-
-// Cache
-export var cached = {}
-
 export function isOnPeak(dt) {
-    let dayinweek = dt.getUTCDay()
+    const dayinweek = dt.getUTCDay()
 
     // Saturday or Sunday
     if (dayinweek == 0 || dayinweek == 6) {
@@ -50,15 +48,15 @@ export function isOnPeak(dt) {
     }
 
     // In case of holidays...
-    let k = String(dt.getUTCFullYear()) + '-' + String(parseInt(dt.getUTCMonth()) + 1) + '-' + String(dt.getUTCDate())
+    const k = String(dt.getUTCFullYear()) + '-' + String(parseInt(dt.getUTCMonth()) + 1) + '-' + String(dt.getUTCDate())
 
     if (holidays[k]) {
         return false
     }
 
     // Mon - Fri
-    let hours = dt.getUTCHours()
-    let min = dt.getUTCMinutes()
+    const hours = dt.getUTCHours()
+    const min = dt.getUTCMinutes()
 
     if (hours < 9 || hours > 22) {
         return false
@@ -71,449 +69,8 @@ export function isOnPeak(dt) {
     return true
 }
 
-export function setCacheDirty()
-{
-    cacheDirty = true;
-}
-
-var timeout = null;
-
-export async function initCache() 
-{
-    if(qLock)
-    {
-        if(cacheDirty)
-        {
-            if(!timeout)
-            {
-                setTimeout(initCache, 3*60*1000);
-            }
-            
-            cacheDirty = false;
-        }
-
-        return {msg: 'Lock is busy. Cannot initialize cache', status: 'error'};
-    }
-
-    qLock = true;
-    timeout = null;
-
-    if(!db)
-    {
-        qLock = false;
-        return {msg: 'DB is busy. Cannot initialize cache.', status: 'error'};
-    }
-
-    cached = {};
-
-    // calculate value and return
-    let now = new Date()
-
-    let tLastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0))
-    let tThisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0))
-    let tYesterday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0))
-    let tToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0))
-    let tTomorrow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0))
-
-    let lastTime = new Date(tLastMonth);
-    let currTime = new Date(tLastMonth);
-    currTime.setDate(currTime.getDate() + 1 );
-
-    var tasksDone = 0;
-    var maxTasks = Math.ceil((tTomorrow.getTime() - lastTime.getTime())/(24*60*60*1000));
-    var availableSlots = 1;
-    var maxAvailableSlots = 1;
-
-    var promises = [];
-
-    for(;;)
-    {
-    // while(true) {
-        if(tasksDone >= maxTasks)
-        {
-            break;
-        }
-
-        if(availableSlots > 0)
-        {
-            if(availableSlots == maxAvailableSlots && currTime > tTomorrow)
-            {
-                break;
-            }
-
-            // console.log("Loading ", lastTime);
-            availableSlots--;
 
 
-            var energyData = db.energy.findAll({ 
-                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
-                where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: lastTime,
-                            [Op.lte]: currTime
-                        }
-                    }
-                },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']],
-                raw: true
-            })
-
-            currTime.setDate(currTime.getDate() + 1)
-            lastTime.setDate(lastTime.getDate() + 1)
-
-            promises.push(energyData)
-        } else {
-        
-            await Promise.all(promises).then((data) => {
-                for(let eData of data) {
-
-                    // console.log(eData.length)
-                    promises = [];
-                // energyData.then((eData) => {
-                    let prevEnergy = {}
-                    let prevTime = {}
-
-                    for (let e of eData) {
-                        if(!cached.hasOwnProperty(e.snmKey))
-                        {
-                            cached[e.snmKey] = {
-                                energyLastMonth: 0,
-                                energyThisMonth: 0,
-                                energyYesterday: 0,
-                                energyToday: 0,
-                                maxDemandLastMonth: {}, //Init keys here
-                                maxDemandThisMonth: {},
-                                maxDemandYesterday: {},
-                                maxDemandToday: {},
-                                prevEnergy: 0,
-                                prevTime: null
-                            }
-
-                            let sDate = new Date(tLastMonth)
-                            let eDate = new Date(tToday)
-
-                            for(; sDate <= eDate; sDate.setMinutes(sDate.getMinutes() + 15))
-                            {
-                                let adjustedTime = new Date(Date.UTC(sDate.getUTCFullYear(), sDate.getUTCMonth(), sDate.getUTCDate(), sDate.getUTCHours(), sDate.getUTCMinutes()))
-                                // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes() - 1)
-                                let tKey = adjustedTime.getUTCFullYear() + '-' + (adjustedTime.getUTCMonth()+1) + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
-                                cached[e.snmKey].maxDemandLastMonth[tKey] = 0;
-                                cached[e.snmKey].maxDemandThisMonth[tKey] = 0;
-                                cached[e.snmKey].maxDemandYesterday[tKey] = 0;
-                                cached[e.snmKey].maxDemandToday[tKey] = 0;
-                            }
-                        }
-            
-                        let energy = 0;
-                
-                        if(meta_cfg.useImport.value)
-                        {
-                            energy = e.Import_kWh
-                        }
-                        else
-                        {
-                            energy = e.TotalkWh
-                        }
-                
-                        if (!prevTime[e.snmKey]) {
-                            prevEnergy[e.snmKey] = energy
-                            prevTime[e.snmKey] = e.DateTimeUpdate
-
-                            cached[e.snmKey].prevEnergy = energy;
-                            cached[e.snmKey].prevTime = e.DateTimeUpdate;
-
-                            continue
-                        }
-                
-                        let adjustedTime = new Date(Date.UTC(e.DateTimeUpdate.getUTCFullYear(), e.DateTimeUpdate.getUTCMonth(), e.DateTimeUpdate.getUTCDate(), e.DateTimeUpdate.getUTCHours(), e.DateTimeUpdate.getUTCMinutes()))
-                        // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes() - 1)
-                        let tKey = adjustedTime.getUTCFullYear() + '-' + (adjustedTime.getUTCMonth()+1) + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
-            
-                        let absEnergy = (energy - prevEnergy[e.snmKey])
-                
-                        prevEnergy[e.snmKey] = energy
-            
-
-                        if(e.DateTimeUpdate > cached[e.snmKey].prevTime)
-                        {
-                            cached[e.snmKey].prevEnergy = energy;
-                            cached[e.snmKey].prevTime = e.DateTimeUpdate;
-                        }
-                        
-            
-                        let gap = ((e.DateTimeUpdate - prevTime[e.snmKey])/1000/60)/60
-            
-                        let d = absEnergy/gap;
-                
-                        if (e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate <= tThisMonth) {
-                            // Last month
-                            if(prevTime[e.snmKey] >= tLastMonth && prevTime[e.snmKey] <= tThisMonth)
-                            {
-                                cached[e.snmKey].energyLastMonth += absEnergy
-                
-                                if (isOnPeak(e.DateTimeUpdate)) {
-                                    cached[e.snmKey].maxDemandLastMonth[tKey] = d;
-                                }
-                            }
-                        } else {
-                            // This month
-                            if(prevTime[e.snmKey] >= tThisMonth && prevTime[e.snmKey] <= tTomorrow)
-                            {
-                                cached[e.snmKey].energyThisMonth += absEnergy
-                
-                                if (isOnPeak(e.DateTimeUpdate)) {
-                                    if(d > cached[e.snmKey].maxDemandThisMonth)
-                                    {
-                                        cached[e.snmKey].maxDemandThisMonth[tKey] = d;
-                                    }
-                                }
-                
-                                if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate <= tToday) {
-                                    // Yesterday
-                                    if(prevTime[e.snmKey] >= tYesterday && prevTime[e.snmKey] <= tTomorrow)
-                                    {
-                                        cached[e.snmKey].energyYesterday += absEnergy
-                
-                                        if (isOnPeak(e.DateTimeUpdate)) {
-                                            if(d > cached[e.snmKey].maxDemandYesterday)
-                                            {
-                                                cached[e.snmKey].maxDemandYesterday[tKey] = d;
-                                            }
-                                        }
-                                    }
-                                    
-                                } else if (e.DateTimeUpdate >= tToday && prevTime[e.snmKey] <= tTomorrow) {
-                                    cached[e.snmKey].energyToday += absEnergy
-                
-                                    if (isOnPeak(e.DateTimeUpdate)) {
-                                        if(d > cached[e.snmKey].maxDemandToday)
-                                        {
-                                            cached[e.snmKey].maxDemandToday[tKey] = d;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                
-                        prevTime[e.snmKey] = e.DateTimeUpdate
-                    }
-
-                    tasksDone++;
-                    availableSlots++;
-                }
-            })
-        }
-
-        
-
-        
-    }
-
-    let elapsed = new Date();
-    console.log('Cached initialization done. Took', (elapsed.getTime() - now.getTime())/1000, 'seconds');
-
-    // let keys = Object.keys(cached);
-
-    // for(let k of keys)
-    // {
-    //     let obj = {
-    //         energyLastMonth: cached[k].energyLastMonth,
-    //         energyThisMonth: cached[k].energyThisMonth,
-    //         energyYesterday: cached[k].energyYesterday,
-    //         energyToday: cached[k].energyToday
-    //     }
-
-    //     console.log(k, obj)
-    // }
-    qLock = false;
-
-    return {msg: 'Cached initialization done. Took ' + String((elapsed.getTime() - now.getTime())/1000) + ' seconds', status: 'success'};
-
-    // return promisedData.then((eData) => {
-    //     for (let e of eData) {
-    //         if(!cached.hasOwnProperty(e.snmKey))
-    //         {
-    //             cached[e.snmKey] = {
-    //                 energyLastMonth: 0,
-    //                 energyThisMonth: 0,
-    //                 energyYesterday: 0,
-    //                 energyToday: 0,
-    //                 maxDemandLastMonth: {},
-    //                 maxDemandThisMonth: {},
-    //                 maxDemandYesterday: {},
-    //                 maxDemandToday: {},
-    //                 prevEnergy: 0,
-    //                 prevTime: null
-    //             }
-    //         }
-
-    //         let energy = 0;
-    
-    //         if(meta_cfg.useImport.value)
-    //         {
-    //             energy = e.Import_kWh
-    //         }
-    //         else
-    //         {
-    //             energy = e.TotalkWh
-    //         }
-    
-    //         if (!prevTime[e.snmKey]) {
-    //             prevEnergy[e.snmKey] = energy
-    //             prevTime[e.snmKey] = e.DateTimeUpdate
-    //             continue
-    //         }
-    
-    //         let adjustedTime = new Date(Date.UTC(e.DateTimeUpdate.getUTCFullYear(), e.DateTimeUpdate.getUTCMonth(), e.DateTimeUpdate.getUTCDate(), e.DateTimeUpdate.getUTCHours(), e.DateTimeUpdate.getUTCMinutes()))
-    //         // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes() - 1)
-    //         let tKey = adjustedTime.getUTCFullYear() + '-' + (adjustedTime.getUTCMonth()+1) + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
-
-    //         let absEnergy = (energy - prevEnergy[e.snmKey])
-    
-    //         prevEnergy[e.snmKey] = energy
-
-    //         cached[e.snmKey].prevEnergy = energy;
-    //         cached[e.snmKey].prevTime = e.DateTimeUpdate;
-
-    //         let gap = ((e.DateTimeUpdate - prevTime[e.snmKey])/1000/60)/60
-
-    //         let d = absEnergy/gap;
-    
-    //         if (e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate <= tThisMonth) {
-    //             // Last month
-    //             if(prevTime[e.snmKey] >= tLastMonth && prevTime[e.snmKey] <= tThisMonth)
-    //             {
-    //                 cached[e.snmKey].energyLastMonth += absEnergy
-    
-    //                 if (isOnPeak(e.DateTimeUpdate)) {
-    //                     cached[e.snmKey].maxDemandLastMonth[tKey] = d;
-    //                 }
-    //             }
-    //         } else {
-    //             // This month
-    //             if(prevTime[e.snmKey] >= tThisMonth && prevTime[e.snmKey] <= tTomorrow)
-    //             {
-    //                 cached[e.snmKey].energyThisMonth += absEnergy
-    
-    //                 if (isOnPeak(e.DateTimeUpdate)) {
-    //                     if(d > cached[e.snmKey].maxDemandThisMonth)
-    //                     {
-    //                         cached[e.snmKey].maxDemandThisMonth[tKey] = d;
-    //                     }
-    //                 }
-    
-    //                 if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate <= tToday) {
-    //                     // Yesterday
-    //                     if(prevTime[e.snmKey] >= tYesterday && prevTime[e.snmKey] <= tTomorrow)
-    //                     {
-    //                         cached[e.snmKey].energyYesterday += absEnergy
-    
-    //                         if (isOnPeak(e.DateTimeUpdate)) {
-    //                             if(d > cached[e.snmKey].maxDemandYesterday)
-    //                             {
-    //                                 cached[e.snmKey].maxDemandYesterday[tKey] = d;
-    //                             }
-    //                         }
-    //                     }
-                        
-    //                 } else if (e.DateTimeUpdate >= tToday && prevTime[e.snmKey] <= tTomorrow) {
-    //                     cached[e.snmKey].energyToday += absEnergy
-    
-    //                     if (isOnPeak(e.DateTimeUpdate)) {
-    //                         if(d > cached[e.snmKey].maxDemandToday)
-    //                         {
-    //                             cached[e.snmKey].maxDemandToday[tKey] = d;
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-    
-    //         prevTime[e.snmKey] = e.DateTimeUpdate
-    //     }
-
-    //     let elapsed = new Date();
-    //     console.log('Cached initialization done. Took', (elapsed.getTime() - now.getTime())/1000, 'seconds');
-
-    //     // let keys = Object.keys(cached);
-
-    //     // for(let k of keys)
-    //     // {
-    //     //     let obj = {
-    //     //         energyLastMonth: cached[k].energyLastMonth,
-    //     //         energyThisMonth: cached[k].energyThisMonth,
-    //     //         energyYesterday: cached[k].energyYesterday,
-    //     //         energyToday: cached[k].energyToday
-    //     //     }
-
-    //     //     console.log(k, obj)
-    //     // }
-    //     qLock = false;
-
-    //     return {msg: 'Cached initialization done. Took ' + String((elapsed.getTime() - now.getTime())/1000) + ' seconds', status: 'success'};
-    // })
-}
-// export async function addQueue(obj, aedObj)
-// {
-//     if(!qLock)
-//     {
-//         qLock = true;
-
-//         dbQueue.push(obj);
-//         aedesQueue.push(aedObj);
-
-//         qLock = false;
-//     }
-    
-// }    
-
-// export async function savetoDB()
-// {
-//     if(!qLock)
-//     {
-//         qLock = true;
-
-//         if(dbQueue.length > 0 && aedesQueue.length == dbQueue.length && db && db.energy)
-//         {
-//             try {
-//                 await db.energy.bulkCreate(dbQueue)
-
-//                 for(let i=0; i<dbQueue.length; i++)
-//                 {
-//                     checkOverRange(dbQueue[i], false)
-
-//                     if (aedesInst && !aedesInst.closed) {
-//                         await aedesInst.publish(aedesQueue[i])
-//                     }
-                    
-//                 }
-
-//                 console.log("Bulk of energy data is saved. Total: ", dbQueue.length);
-
-//                 dbQueue.length = 0;
-//                 aedesQueue.length = 0;
-
-//             } catch(err) {
-//                 last['message'] = 'Cannot insert database in bulk.'
-//                 last['time'] = new Date()
-//                 last['status'] = 'error'
-//                 qLock = false;
-
-//                 for(let i=0; i<dbQueue.length; i++)
-//                 {
-//                     if (aedesInst && !aedesInst.closed) {
-//                         aedesQueue[i].payload = 'ERROR: database'
-
-//                         await aedesInst.publish(aedesQueue[i])
-//                     }
-//                 }
-//             }
-//         }
-
-//         qLock = false;
-//     }
-// }
 
 export function loadMetaCFG()
 {
@@ -566,7 +123,7 @@ export function loadBNInfoFromLocal(BN_CFG_PATH) {
 
     blacknode = JSON.parse(data)
 
-    for (let sn of Object.keys(blacknode)) {
+    for (const sn of Object.keys(blacknode)) {
         if (blacknode[sn].status != 'setup') {
             blacknode[sn].status = 'off'
 
@@ -579,6 +136,138 @@ export function loadBNInfoFromLocal(BN_CFG_PATH) {
             }
         }
     }
+}
+
+export async function loadOverview(isClear){
+    //create overview to store data
+    const overviewPath = path.join(process.cwd(), 'overview_data.cfg')
+
+    if (!fs.existsSync(overviewPath)) {
+        fs.writeFileSync(overviewPath, '', 'utf8')
+    }   
+    
+    if(isClear){
+        overview_store = {};
+        overview_store = {clear:false,monthly_kwh:{},currMonth:new Date().getMonth(),multiplier:{},column:{}}
+        writeFile(overviewPath, JSON.stringify(overview_store, null, 2), { flag: 'w' })
+    }
+
+
+    const group = await db.group.findAll({
+        where: {
+            type:{
+                 [Op.like]: 'overview-%'
+            },
+        },
+    });
+
+    let ov_json = null
+    try {
+        const ov_data = fs.readFileSync(overviewPath, 'utf8')
+        ov_json = JSON.parse(ov_data)
+    } catch (error) {
+        console.error('Error reading or parsing the file:', error)
+    }
+    const newMonth = new Date()
+    const fetch_keys = []
+    const multiplier = {}
+    for (const g of group) {
+        if (group !== null) {
+            const members = await db.gmember.findAll({
+                where: { GroupID: g.id }
+            })
+            if(g.type.startsWith('overview-kWh') || g.type == 'overview-incomming'){
+                overview_store['monthly_kwh'][g.type] = {
+                    keys: [],
+                    value: 0,
+                    prevValue: 0
+                }
+            }
+
+            if(g.type.startsWith('overview-mold') || g.type.startsWith('overview-furnace') ||g.type.startsWith('overview-air-comp')){
+                overview_store['column'][g.type] = [];
+            }
+            if (members !== null) {
+                for (const m of members) {
+                    const key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
+
+                    if(g.type.startsWith('overview-mold') || g.type.startsWith('overview-furnace') ||g.type.startsWith('overview-air-comp')){
+                        overview_store['column'][g.type].push({
+                            key:m.SerialNo+ "%" + String(m.ModbusID-1),
+                            multiplier:m.multiplier
+                        });
+                    }
+                    if (g.type == 'overview-incomming') {
+                        if (
+                            ov_json &&
+                            ov_json[m.SerialNo + '%' + String(m.ModbusID - 1)]
+                        )
+                            overview_store[m.SerialNo + '%' + String(m.ModbusID - 1)] =
+                                ov_json[m.SerialNo + '%' + String(m.ModbusID - 1)]
+                        else
+                            overview_store[m.SerialNo + '%' + String(m.ModbusID - 1)] =
+                                []
+                        overview_store.monthly_kwh[g.type].keys.push(key)
+                        fetch_keys.push(key)
+                    }
+                    if(g.type.startsWith('overview-kWh')){
+                        overview_store.monthly_kwh[g.type].keys.push(key)
+                        fetch_keys.push(key)
+                    }
+                    multiplier[key] = m.multiplier
+                }
+            }
+        }
+    }
+    overview_store['multiplier'] = multiplier
+
+    const startTime = new Date(
+        Date.UTC(newMonth.getFullYear(), newMonth.getMonth(), 1, 0, 0, 0)
+    )
+    const endTime = new Date(
+        Date.UTC(
+            newMonth.getFullYear(),
+            newMonth.getMonth(),
+            newMonth.getDate(),
+            newMonth.getHours(),
+            newMonth.getMinutes(),
+            0
+        )
+    )
+
+    const eData = await db.energy.findAll({
+        where: {
+            DateTimeUpdate: {
+                [Op.and]: {
+                    [Op.gte]: startTime,
+                    [Op.lte]: endTime
+                }
+            },
+            snmKey: fetch_keys
+        },
+        order: [
+            ['DateTimeUpdate', 'ASC'],
+            ['id', 'asc']
+        ]
+    })
+    const prevValue = {}
+    for (const e of eData) {
+        if (e.Import_kWh < 0) {
+            continue
+        }
+        if (!prevValue[e.snmKey]) {
+            prevValue[e.snmKey] = e.Import_kWh
+            continue
+        }
+        const kwh = (e.Import_kWh - prevValue[e.snmKey]) * multiplier[e.snmKey]
+        for (const k in overview_store.monthly_kwh) {
+            if (overview_store.monthly_kwh[k].keys.includes(e.snmKey))
+                overview_store.monthly_kwh[k].value += kwh
+        }
+        prevValue[e.snmKey] = e.Import_kWh
+    }
+
+    writeFile(overviewPath, JSON.stringify(overview_store, null, 2), { flag: 'w' })
 }
 
 export async function loadMetaDB()
