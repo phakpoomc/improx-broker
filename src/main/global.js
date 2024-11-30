@@ -19,7 +19,7 @@ export var db = {}
 export var meta_cfg = {};
 export var blacknode = {}
 export var meter_types_store = {}
-export var overview_store = {clear:false,monthly_kwh:{},currMonth:new Date().getMonth(),multiplier:{},column:{}}
+export var overview_store = {clear:false,monthly_kwh:{},currMonth:new Date().getMonth(),multiplier:{},column:{},graph:{}}
 
 // Configuration from DB
 export var lastAlarm = {}
@@ -148,56 +148,93 @@ export async function loadOverview(isClear){
     
     if(isClear){
         overview_store = {};
-        overview_store = {clear:false,monthly_kwh:{},currMonth:new Date().getMonth(),multiplier:{},column:{}}
+        overview_store = {clear:false,monthly_kwh:{},currMonth:new Date().getMonth(),multiplier:{},column:{},graph:{}}
         writeFile(overviewPath, JSON.stringify(overview_store, null, 2), { flag: 'w' })
     }
 
 
     const group = await db.group.findAll({
         where: {
-            type:{
-                 [Op.like]: 'overview-%'
-            },
-        },
+            type: {
+                [Op.or]: [
+                    { [Op.like]: 'overview-%' },
+                    { [Op.like]: 'go-%' }
+                ]
+            }
+        }
     });
 
     let ov_json = null
     try {
         const ov_data = fs.readFileSync(overviewPath, 'utf8')
         ov_json = JSON.parse(ov_data)
-    } catch (error) {
-        console.error('Error reading or parsing the file:', error)
+    } catch (err) {
     }
     const newMonth = new Date()
     const fetch_keys = []
-    const multiplier = {}
     for (const g of group) {
         if (group !== null) {
             const members = await db.gmember.findAll({
                 where: { GroupID: g.id }
             })
-            if(g.type.startsWith('overview-kWh') || g.type == 'overview-incomming'){
+            if(g.type.startsWith('overview-kWh') || g.type == 'overview-incomming' || g.type?.startsWith('go-value')){
                 overview_store['monthly_kwh'][g.type] = {
                     keys: [],
-                    value: 0,
-                    prevValue: 0
+                    value: {},
+                    prevValue: {}
                 }
             }
 
-            if(g.type.startsWith('overview-mold') || g.type.startsWith('overview-furnace') ||g.type.startsWith('overview-air-comp')){
+            if(g.type.startsWith('go-graph-extend')){
+                overview_store['monthly_kwh'][g.type+g.name] = {
+                    keys: [],
+                    value: {},
+                    prevValue: {}
+                }
+                overview_store['graph'][g.type+g.name] = [];
+            }else if(g.type.startsWith('go-graph')){
+                overview_store['monthly_kwh'][g.type] = {
+                    keys: [],
+                    value: {},
+                    prevValue: {}
+                }
+                overview_store['graph'][g.type] = [];
+            }
+
+            if(g.type.startsWith('overview-mold') || g.type.startsWith('overview-furnace') || g.type.startsWith('overview-air-comp')){
                 overview_store['column'][g.type] = [];
             }
+
             if (members !== null) {
                 for (const m of members) {
                     const key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
 
-                    if(g.type.startsWith('overview-mold') || g.type.startsWith('overview-furnace') ||g.type.startsWith('overview-air-comp')){
+                    if(g.type.startsWith('overview-mold') || g.type.startsWith('overview-furnace') || g.type.startsWith('overview-air-comp')){
                         overview_store['column'][g.type].push({
-                            key:m.SerialNo+ "%" + String(m.ModbusID-1),
-                            multiplier:m.multiplier
+                            snKey:m.SerialNo+ "%" + String(m.ModbusID-1),
+                            snmKey:key,
                         });
                     }
-                    if (g.type == 'overview-incomming') {
+                    if(g.type.startsWith('go-graph-extend')){
+                        overview_store['graph'][g.type+g.name].push({
+                            snKey:m.SerialNo+ "%" + String(m.ModbusID-1),
+                            snmKey:key
+                        })
+                        overview_store.monthly_kwh[g.type+g.name].keys.push(key)
+                        overview_store.monthly_kwh[g.type+g.name].value[key] = 0;
+                        overview_store.monthly_kwh[g.type+g.name].prevValue[key] = 0;
+                        fetch_keys.push(key)
+                    }else if(g.type.startsWith('go-graph')){
+                        overview_store['graph'][g.type].push({
+                            snKey:m.SerialNo+ "%" + String(m.ModbusID-1),
+                            snmKey:key
+                        });
+                        overview_store.monthly_kwh[g.type].keys.push(key)
+                        overview_store.monthly_kwh[g.type].value[key] = 0;
+                        overview_store.monthly_kwh[g.type].prevValue[key] = 0;
+                        fetch_keys.push(key)
+                    }
+                    if (g.type == 'overview-incomming' || g.type?.startsWith('go-value')) {
                         if (
                             ov_json &&
                             ov_json[m.SerialNo + '%' + String(m.ModbusID - 1)]
@@ -208,18 +245,23 @@ export async function loadOverview(isClear){
                             overview_store[m.SerialNo + '%' + String(m.ModbusID - 1)] =
                                 []
                         overview_store.monthly_kwh[g.type].keys.push(key)
+                        overview_store.monthly_kwh[g.type].value[key] = 0;
+                        overview_store.monthly_kwh[g.type].prevValue[key] = 0;
                         fetch_keys.push(key)
                     }
                     if(g.type.startsWith('overview-kWh')){
                         overview_store.monthly_kwh[g.type].keys.push(key)
+                        overview_store.monthly_kwh[g.type].value[key] = 0;
+                        overview_store.monthly_kwh[g.type].prevValue[key] = 0;
                         fetch_keys.push(key)
                     }
-                    multiplier[key] = m.multiplier
+                    if(g.type.startsWith('go-graph-extend')) overview_store['multiplier'][g.type+g.name+'-'+key] = m.multiplier
+                    else overview_store['multiplier'][g.type+'-'+key] = m.multiplier
+                   
                 }
             }
         }
     }
-    overview_store['multiplier'] = multiplier
 
     const startTime = new Date(
         Date.UTC(newMonth.getFullYear(), newMonth.getMonth(), 1, 0, 0, 0)
@@ -252,17 +294,17 @@ export async function loadOverview(isClear){
     })
     const prevValue = {}
     for (const e of eData) {
-        if (e.Import_kWh < 0) {
+        if (e.Import_kWh <= 0) {
             continue
         }
         if (!prevValue[e.snmKey]) {
             prevValue[e.snmKey] = e.Import_kWh
             continue
         }
-        const kwh = (e.Import_kWh - prevValue[e.snmKey]) * multiplier[e.snmKey]
         for (const k in overview_store.monthly_kwh) {
+            const kwh = (e.Import_kWh - prevValue[e.snmKey]) * overview_store['multiplier'][k+"-"+e.snmKey]
             if (overview_store.monthly_kwh[k].keys.includes(e.snmKey))
-                overview_store.monthly_kwh[k].value += kwh
+                overview_store.monthly_kwh[k].value[e.snmKey] += kwh
         }
         prevValue[e.snmKey] = e.Import_kWh
     }

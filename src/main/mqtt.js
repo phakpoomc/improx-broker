@@ -632,6 +632,7 @@ async function start(BN_CFG_PATH) {
                             try{
                                 const overviewPath = path.join(process.cwd(), 'overview_data.cfg');
                                 const now_date = new Date()
+                                const snmKey = obj.SiteID + '%' + obj.NodeID + '%' + String(parseInt(obj.ModbusID)+1);
                                   //clear 24 hour data
                                 if(now_date.getHours()==0 && now_date.getMinutes()==0 && !overview_store.clear){
                                     for (const k in overview_store) {
@@ -642,6 +643,7 @@ async function start(BN_CFG_PATH) {
                                 if(now_date.getMinutes()==1)overview_store.clear = false;
                                 if(overview_store[obj.SerialNo+"%"+obj.ModbusID]){
                                     overview_store[obj.SerialNo+"%"+obj.ModbusID].push({utc:now_date.toISOString(),value:{
+                                        snmKey:snmKey,
                                         P_Sum:obj.P_Sum,
                                         kWdemand:obj.kWdemand,
                                         Import_kWh:obj.Import_kWh,
@@ -649,7 +651,7 @@ async function start(BN_CFG_PATH) {
                                     }});
                                    
                                 }
-                                const snmKey = obj.SiteID + '%' + obj.NodeID + '%' + String(parseInt(obj.ModbusID)+1);
+
                                 //new month reset value
                                 if(overview_store.currMonth != now_date.getMonth()){
                                     for (const k in overview_store.monthly_kwh){
@@ -660,20 +662,21 @@ async function start(BN_CFG_PATH) {
                                 }
                                 
                                 for (const k in overview_store.monthly_kwh) {
-                                    if (obj.Import_kWh < 0) {
+                                    if (obj.Import_kWh <= 0) {
                                         continue
                                     }
                                     if (overview_store.monthly_kwh[k].keys.includes(snmKey)){
-                                        if(overview_store.monthly_kwh[k].prevValue == 0){
-                                            overview_store.monthly_kwh[k].prevValue = obj.Import_kWh;
+                                        if(overview_store.monthly_kwh[k].prevValue[snmKey] == 0){
+                                            overview_store.monthly_kwh[k].prevValue[snmKey] = obj.Import_kWh;
                                             continue;
                                         }
                                         
-                                        const kwh = (obj.Import_kWh - overview_store.monthly_kwh[k].prevValue )* overview_store['multiplier'][snmKey];
-                                        overview_store.monthly_kwh[k].value += kwh;
+                                        const kwh = (obj.Import_kWh - overview_store.monthly_kwh[k].prevValue[snmKey] ) * overview_store['multiplier'][k+"-"+snmKey];
+                                        overview_store.monthly_kwh[k].value[snmKey] += kwh;
+                                        overview_store.monthly_kwh[k].prevValue[snmKey] = obj.Import_kWh;
                                     }
                                     
-                                    }
+                                }
                                 writeFile(overviewPath, JSON.stringify(overview_store, null, 2), { flag: 'w' });
                             }catch(err){
                                 

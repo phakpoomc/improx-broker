@@ -468,6 +468,7 @@ const routes = {
     'dashboard_group': ['owner', 'user', 'admin', 'test'],
     'demand_manage': ['owner', 'admin', 'test'],
     'overview': ['owner', 'user', 'admin', 'test'],
+    'overview_group': ['owner', 'user', 'admin', 'test'],
 }
 
 const apis = {
@@ -496,6 +497,7 @@ const apis = {
     'demand': ['owner', 'user', 'admin', 'test'],
     'demand_manage': ['owner', 'admin', 'test'],
     'overview': ['owner', 'user', 'admin', 'test'],
+    'overview_group': ['owner', 'user', 'admin', 'test'],
     'overview-reloaded': ['owner', 'admin']
 }
 
@@ -5214,7 +5216,7 @@ export function initAPI() {
 
 
 
-    api.get('/overview-group', async (req, res) => {
+    api.get('/overview-group/:type', async (req, res) => {
         const ret = {}
 
         if(await apiguard(req, 'overview', '') == false)
@@ -5222,26 +5224,43 @@ export function initAPI() {
             res.json(ret)
             return
         }
-
+        const like = req.params.type == 'go' ? 'go-%' :'overview-%'
         const group = await db.group.findAll({
             where: {
                 type:{
-                     [Op.like]: 'overview-%'
+                     [Op.like]: like
                 },
             },
         });
 
         if(!group) res.json(ret)
-       
+        ret['graph-extend']= {};
+        ret['graph'] = {};
         for (const g of group) {
-            ret[g.type] = [];
-            if (group !== null) {
-                const members = await db.gmember.findAll({
-                    where: { GroupID: g.id }
-                })
-    
-                if (members !== null) {
-                    for (const m of members) {
+            if(g.type.startsWith('go-graph-extend')){
+                if(!ret['graph-extend'][g.type]) ret['graph-extend'][g.type] = [];
+                ret['graph-extend'][g.type].push({
+                    key:g.type+g.name,
+                    name:g.name,
+                });
+            }else if(g.type.startsWith('go-graph')){
+                ret['graph'][g.type] = [];
+            }
+            else{
+                ret[g.type] =[];
+            }
+            const members = await db.gmember.findAll({
+                where: { GroupID: g.id }
+            })
+            if (members !== null) {
+                for (const m of members) {
+                    if(g.type.startsWith('go-graph') && !g.type.startsWith('go-graph-extend')){
+                        ret['graph'][g.type].push({
+                            key:m.SerialNo+ "%" + String(m.ModbusID-1),  
+                            snmKey: m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID),  
+                            name:m.line
+                        });
+                    }else if(g.type.startsWith('overview') || g.type.startsWith('go-value')){
                         ret[g.type].push({
                             snKey:m.SerialNo+ "%" + String(m.ModbusID-1),  
                             multiplier:m.multiplier,
@@ -5250,7 +5269,6 @@ export function initAPI() {
                 }
             }
         }
-
         res.json(ret)
     })
 
@@ -5272,18 +5290,32 @@ export function initAPI() {
             }else{
                 if(snidIncomming){
                     ret['overview-incomming'] = overview_store[snidIncomming];
+                }else{
+                    ret['overview-incomming'] = {
+                        "utc": new Date().toISOString(),
+                        "value": {
+                            "P_Sum": 0,
+                            "kWdemand": 0,
+                            "Import_kWh": 0,
+                            "TotalkWh": 0
+                        }
+                    };
                 }
             }
             ret['monthly'] = {}
             for (const k in overview_store.monthly_kwh) {
-                ret['monthly'][k] =  overview_store.monthly_kwh[k].value;
+                ret['monthly'][k] = 0;
+                for (const snmKey in overview_store.monthly_kwh[k].value) {
+                    ret['monthly'][k] +=  overview_store.monthly_kwh[k].value[snmKey];   
+                }
+
             }
 
             for (const k in overview_store['column']) {
                 ret[k] = 0;
                 for (const sn of overview_store['column'][k]) {
-                    if(lastUpdateData[sn.key]?.P_Sum)
-                    ret[k] += lastUpdateData[sn.key].P_Sum * sn.multiplier;
+                    if(lastUpdateData[sn.snKey]?.P_Sum)
+                    ret[k] += lastUpdateData[sn.snKey].P_Sum * overview_store['multiplier'][k+'-'+sn.snmKey];
                 }
             }
             res.json(ret)
@@ -5292,6 +5324,155 @@ export function initAPI() {
         }
 
     })
+
+    api.post('/group-overview/:init', async (req, res) => {
+        const ret = {}
+
+        if(await apiguard(req, 'overview_group', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+        try{
+            const init = req.params.init;
+            let snKeys = req.body['groupKeys'];
+            const gKey = req.body['key'];
+            const graphKeys = req.body['graphKeys'];
+            const graphGroupKey = req.body['graphGroupKey'];
+
+            if(!snKeys || !gKey) res.json(ret)
+            ret['main'] = [];
+            ret['month'] = 0;
+            ret['rt_graph'] = [];
+            ret['month_graph'] = [];
+            if(init != 'init'){
+                if(snKeys?.length > 0){
+                    const data = {
+                        value:0,
+                        date:overview_store[snKeys[0]][overview_store[snKeys[0]].length - 1].utc
+                    };
+                    for (const k of snKeys) {
+                        const ov = overview_store[k][overview_store[k].length - 1]; 
+                        if(ov && ov.value?.P_Sum)
+                            data.value += ov.value.P_Sum * overview_store['multiplier'][gKey+'-'+ov.value.snmKey]
+                    }
+                    ret['main'].push(data);
+                }
+
+            }else{
+                if(snKeys?.length > 0){
+                    const firstKey = snKeys[0];
+                    snKeys = snKeys.filter(k => k !== firstKey); 
+                    for (let index = 0; index < overview_store[firstKey].length ; index++) {
+                        const ov = overview_store[firstKey][index]
+                        const data = {
+                            value:0,
+                            date:null
+                        };
+                        if(ov && ov.value?.P_Sum){
+                            data.value += ov.value.P_Sum * overview_store['multiplier'][gKey+'-'+ov.value.snmKey]
+                            data.date = ov.utc 
+                        }   
+                        for (const k of snKeys) {
+                            const ov2 = overview_store[k][index];
+                            if(ov2 && ov2.value?.P_Sum)
+                                data.value += ov2.value.P_Sum  * overview_store['multiplier'][gKey+'-'+ov2.value.snmKey]
+                        }
+                        ret['main'].push(data);
+                    }
+                }
+            }
+
+            for (const  snmKey in overview_store['monthly_kwh'][gKey]?.value) {
+                const d = overview_store['monthly_kwh'][gKey].value[snmKey];
+                if(d) ret['month'] += d *  overview_store['multiplier'][gKey+'-'+snmKey];
+            }
+
+            if(graphKeys && graphGroupKey && graphKeys['length'] > 0){
+                for (const gk of graphKeys) {
+                    if(gk.type == 'extend'){
+                        const rt_data = {
+                            name:gk.name,
+                            value:0
+                        }
+                        const m_data = {
+                            name:gk.name,
+                            value:0
+                        }
+
+                        for (const  k of overview_store['graph'][gk.key]) {
+                            if(lastUpdateData[k.snKey]?.P_Sum) rt_data.value += lastUpdateData[k.snKey].P_Sum *  overview_store['multiplier'][gk.key+'-'+k.snmKey];
+                            const d = overview_store.monthly_kwh[gk.key].value[k.snmKey]
+                            if(d) m_data.value += overview_store.monthly_kwh[gk.key].value[k.snmKey]
+                        }
+                        ret['month_graph'].push(m_data);
+                        ret['rt_graph'].push(rt_data);
+                    }else if(gk.type == 'single'){
+                        const rt_data = {
+                            name:gk.name,
+                            value:0
+                        }
+                        const m_data = {
+                            name:gk.name,
+                            value:0
+                        }
+                        if(lastUpdateData[gk.key]?.P_Sum) rt_data.value += lastUpdateData[gk.key].P_Sum * overview_store['multiplier'][graphGroupKey+'-'+gk.snmKey];
+                        if(overview_store.monthly_kwh[graphGroupKey].value[gk.snmKey]){
+                            m_data.value = overview_store.monthly_kwh[graphGroupKey].value[gk.snmKey]
+                        }   
+                        ret['rt_graph'].push(rt_data);
+                        ret['month_graph'].push(m_data);
+                    }
+                }
+            }
+            res.json(ret)
+        }catch(err){
+            res.status(500).send(err)
+        }
+
+    })
+
+    // api.post('/group-overview-monthly/:month', async (req, res) => {
+    //     const ret = {}
+
+    //     if(await apiguard(req, 'overview_group', '') == false)
+    //     {
+    //         res.json(ret)
+    //         return
+    //     }
+    //     try{
+    //         const newDate = new Date();
+    //         const month = req.body['month'];
+    //         const graphKeys = req.body['graphKeys'];
+    //         const graphGroupKey = req.body['graphGroupKey'];
+    //         const start_date = new Date(Date.UTC(newDate.getFullYear(), month, 1));
+    //         const end_date = new Date(Date.UTC(newDate.getFullYear(), month +1, 1));
+
+    //         const snmKeys = [];
+            
+    //         if(graphKeys && graphGroupKey && graphKeys['length'] > 0){
+    //             for (const gk of graphKeys) {
+    //                 if(gk.type == 'extend'){
+    //                     for (const  k of overview_store['graph'][gk.key]) {
+    //                         snmKeys.push(k.snmKey)
+    //                     }
+    //                 }else if(gk.type == 'single'){
+    //                     const data = {
+    //                         name:gk.name,
+    //                         value:0
+    //                     }
+    //                     if(lastUpdateData[gk.key]?.P_Sum) data.value += lastUpdateData[gk.key].P_Sum
+    //                     ret['rt_graph'].push(data);
+    //                 }
+    //             }
+    //         }
+
+    //         res.json(ret)
+    //     }catch(err){
+    //         res.status(500).send(err)
+    //     }
+
+    // })
 
     api.post('/overview-reloaded', async (req, res) => {
         if(await apiguard(req, 'overview', '') == false)
