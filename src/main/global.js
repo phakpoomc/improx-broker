@@ -141,17 +141,22 @@ export function loadBNInfoFromLocal(BN_CFG_PATH) {
 export async function loadOverview(isClear){
     //create overview to store data
     const overviewPath = path.join(process.cwd(), 'overview_data.cfg')
-
     if (!fs.existsSync(overviewPath)) {
         fs.writeFileSync(overviewPath, '', 'utf8')
     }   
-    
+    const rtFolder = path.join(process.cwd(), 'overview_data');
     if(isClear){
+        if (fs.existsSync(rtFolder)) fs.rmSync(rtFolder, { recursive: true, force: true });
         overview_store = {};
         overview_store = {clear:false,monthly_kwh:{},currMonth:new Date().getMonth(),multiplier:{},column:{},graph:{}}
         writeFile(overviewPath, JSON.stringify(overview_store, null, 2), { flag: 'w' })
     }
 
+    // create folder
+    // Check if the folder exists
+    if (!fs.existsSync(rtFolder)) {
+        fs.mkdirSync(rtFolder, { recursive: true });
+    } 
 
     const group = await db.group.findAll({
         where: {
@@ -164,12 +169,6 @@ export async function loadOverview(isClear){
         }
     });
 
-    let ov_json = null
-    try {
-        const ov_data = fs.readFileSync(overviewPath, 'utf8')
-        ov_json = JSON.parse(ov_data)
-    } catch (err) {
-    }
     const newMonth = new Date()
     const fetch_keys = []
     for (const g of group) {
@@ -235,19 +234,31 @@ export async function loadOverview(isClear){
                         fetch_keys.push(key)
                     }
                     if (g.type == 'overview-incomming' || g.type?.startsWith('go-value')) {
-                        if (
-                            ov_json &&
-                            ov_json[m.SerialNo + '%' + String(m.ModbusID - 1)]
-                        )
-                            overview_store[m.SerialNo + '%' + String(m.ModbusID - 1)] =
-                                ov_json[m.SerialNo + '%' + String(m.ModbusID - 1)]
-                        else
-                            overview_store[m.SerialNo + '%' + String(m.ModbusID - 1)] =
-                                []
                         overview_store.monthly_kwh[g.type].keys.push(key)
                         overview_store.monthly_kwh[g.type].value[key] = 0;
                         overview_store.monthly_kwh[g.type].prevValue[key] = 0;
-                        fetch_keys.push(key)
+                        fetch_keys.push(key);
+                        const filePath = path.join(rtFolder, `${m.SerialNo + '%' + String(m.ModbusID - 1)}.dat`);
+                        if (!fs.existsSync(filePath)) {
+                            fs.writeFileSync(filePath, JSON.stringify({data:[]}, null, 2), 'utf8');
+                        }
+                        let ov_json = null;
+                        try {
+                            const ov_data = fs.readFileSync(filePath, 'utf8');
+                            ov_json = JSON.parse(ov_data);
+                        } catch (err) {
+                        }
+                        if (
+                            ov_json &&
+                            ov_json['data'].length > 0
+                        )
+                        {
+                            overview_store[m.SerialNo + '%' + String(m.ModbusID - 1)] = ov_json['data']
+                        }
+                        else{
+                            overview_store[m.SerialNo + '%' + String(m.ModbusID - 1)] =
+                            []
+                        }
                     }
                     if(g.type.startsWith('overview-kWh')){
                         overview_store.monthly_kwh[g.type].keys.push(key)

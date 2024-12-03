@@ -3,3 +3,4 @@ dist
 out
 *.log*
 .env
+overview_data

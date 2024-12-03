@@ -30,7 +30,7 @@ import * as path from 'path'
 import bodyParser from 'body-parser'
 const { QueryTypes } = require('sequelize');
 import session from 'express-session'
-
+const fs = require('fs')
 export var api_server
 import { meter_types_store } from './global.js'
 
@@ -743,13 +743,12 @@ export function initAPI() {
 
         // calculate value and return
         const now = new Date()
-
-        const tLastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 7, 30, 0))
-        const tThisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth()    , 1, 7, 30, 0))
-        const tNextMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1, 7, 30, 0))
-        const tYesterday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1, 7, 30, 0))
-        const tToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()        , 7, 30, 0))
-        const tTomorrow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 1, 7, 30, 0))
+        const tLastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0))
+        const tThisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth()    , 1, 0, 0, 0))
+        const tNextMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0))
+        const tYesterday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0))
+        const tToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()        , 0, 0, 0))
+        const tTomorrow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0))
 
         let energyLastMonth = 0
         let energyThisMonth = 0
@@ -758,23 +757,24 @@ export function initAPI() {
 
         // console.log(tTomorrow)
 
-        let user = await db.user.findOne({
+        const user = await db.user.findOne({
             where: { username: req.session.user }
         })
+        let group;
         if(isNumeric(groupId)){
-            var group = await db.group.findOne({
+            group = await db.group.findOne({
                 where: { id: groupId }
             })
         }
         else if(user && user.dataValues.group)
         {
-            var group = await db.group.findOne({
+            group = await db.group.findOne({
                 where: { id: user.dataValues.group }
             })
         }
         else
         {
-            var group = await db.group.findOne({
+            group = await db.group.findOne({
                 where: { showDashboard: true }
             })
         } 
@@ -785,26 +785,26 @@ export function initAPI() {
         //     where: { showDashboard: true }
         // })
 
-        var eData
+        let eData;
         let all = true
-        var snmKey = []
-        let prevEnergy = {}
-        let prevTime = {}
-        let multmap = {}
-        let maxDemandLastMonth = {}
-        let maxDemandThisMonth = {}
-        let maxDemandYesterday = {}
-        let maxDemandToday = {}
+        const snmKey = []
+        const prevEnergy = {}
+        const prevTime = {}
+        const multmap = {}
+        const maxDemandLastMonth = {}
+        const maxDemandThisMonth = {}
+        const maxDemandYesterday = {}
+        const maxDemandToday = {}
 
         if (group !== null) {
-            let members = await db.gmember.findAll({
+            const members = await db.gmember.findAll({
                 where: { GroupID: group.id },
                 order: [['order_meter', 'ASC']] 
             })
 
             if (members !== null) {
-                for (let m of members) {
-                    let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
+                for (const m of members) {
+                    const key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
 
                     snmKey.push(key)
                     prevEnergy[key] = 0
@@ -843,9 +843,9 @@ export function initAPI() {
             })
         }
 
-        for (let e of eData) {
-            let sn = e.SerialNo
-            let period = blacknode[sn].period * 60 * 1000
+        for (const e of eData) {
+            const sn = e.SerialNo
+            const period = blacknode[sn].period * 60 * 1000
             let energy = 0;
 
             if(meta_cfg.useImport.value)
@@ -861,18 +861,18 @@ export function initAPI() {
                 continue;
             }
 
-            if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
+            if (!prevTime[e.snmKey]) {
                 prevEnergy[e.snmKey] = energy
                 prevTime[e.snmKey] = e.DateTimeUpdate
                 continue
             }
 
-            let adjustedTime = new Date(Date.UTC(e.DateTimeUpdate.getUTCFullYear(), e.DateTimeUpdate.getUTCMonth(), e.DateTimeUpdate.getUTCDate(), e.DateTimeUpdate.getUTCHours(), e.DateTimeUpdate.getUTCMinutes()))
+            const adjustedTime = new Date(Date.UTC(e.DateTimeUpdate.getUTCFullYear(), e.DateTimeUpdate.getUTCMonth(), e.DateTimeUpdate.getUTCDate(), e.DateTimeUpdate.getUTCHours(), e.DateTimeUpdate.getUTCMinutes()))
             adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes() - 1)
-            let tKey = adjustedTime.getUTCFullYear() + '-' + adjustedTime.getUTCMonth() + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
+            const tKey = adjustedTime.getUTCFullYear() + '-' + adjustedTime.getUTCMonth() + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
 
 
-            let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+            const absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
             // if (absEnergy == -1) {
             //     absEnergy = 0
@@ -948,21 +948,21 @@ export function initAPI() {
             prevTime[e.snmKey] = e.DateTimeUpdate
         }
 
-        let todayKeys = Object.keys(maxDemandToday)
-        let yesterdayKeys = Object.keys(maxDemandYesterday)
-        let thisMonthKeys = Object.keys(maxDemandThisMonth)
-        let lastMonthKeys = Object.keys(maxDemandLastMonth)
+        const todayKeys = Object.keys(maxDemandToday)
+        const yesterdayKeys = Object.keys(maxDemandYesterday)
+        const thisMonthKeys = Object.keys(maxDemandThisMonth)
+        const lastMonthKeys = Object.keys(maxDemandLastMonth)
 
         let sumMaxDemandToday = 0
         let sumMaxDemandYesterday = 0
         let sumMaxDemandThisMonth = 0
         let sumMaxDemandLastMonth = 0
         
-        for(let k of todayKeys)
+        for(const k of todayKeys)
         {
             let tmpSum = 0
 
-            for(let snm of snmKey)
+            for(const snm of snmKey)
             {
                 tmpSum += (maxDemandToday[k][snm]) ? maxDemandToday[k][snm] : 0
             }
@@ -973,11 +973,11 @@ export function initAPI() {
             }
         }
 
-        for(let k of yesterdayKeys)
+        for(const k of yesterdayKeys)
         {
             let tmpSum = 0
 
-            for(let snm of snmKey)
+            for(const snm of snmKey)
             {
                 tmpSum += (maxDemandYesterday[k][snm]) ? maxDemandYesterday[k][snm] : 0
             }
@@ -988,11 +988,11 @@ export function initAPI() {
             }
         }
 
-        for(let k of thisMonthKeys)
+        for(const k of thisMonthKeys)
         {
             let tmpSum = 0
 
-            for(let snm of snmKey)
+            for(const snm of snmKey)
             {
                 
                 tmpSum += (maxDemandThisMonth[k][snm]) ? maxDemandThisMonth[k][snm] : 0
@@ -1004,11 +1004,11 @@ export function initAPI() {
             }
         }
 
-        for(let k of lastMonthKeys)
+        for(const k of lastMonthKeys)
             {
                 let tmpSum = 0
     
-                for(let snm of snmKey)
+                for(const snm of snmKey)
                 {
                     tmpSum += (maxDemandLastMonth[k][snm]) ? maxDemandLastMonth[k][snm] : 0
                 }
@@ -5242,6 +5242,7 @@ export function initAPI() {
                 ret['graph-extend'][g.type].push({
                     key:g.type+g.name,
                     name:g.name,
+                    isRight:null
                 });
             }else if(g.type.startsWith('go-graph')){
                 ret['graph'][g.type] = [];
@@ -5254,16 +5255,27 @@ export function initAPI() {
             })
             if (members !== null) {
                 for (const m of members) {
-                    if(g.type.startsWith('go-graph') && !g.type.startsWith('go-graph-extend')){
+                    if(g.type.startsWith('go-graph-extend') && m.is_consumption){
+                        if(!ret['graph-extend'][g.type]) ret['graph-extend'][g.type] = [];
+                        ret['graph-extend'][g.type].pop();
+                        ret['graph-extend'][g.type].push({
+                            key:g.type+g.name,
+                            name:g.name,
+                            isRight:m.is_consumption
+                        });
+                    }
+                    else if(g.type.startsWith('go-graph') && !g.type.startsWith('go-graph-extend')){
                         ret['graph'][g.type].push({
                             key:m.SerialNo+ "%" + String(m.ModbusID-1),  
                             snmKey: m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID),  
-                            name:m.line
+                            name:m.line,
+                            isRight:m.is_consumption
                         });
                     }else if(g.type.startsWith('overview') || g.type.startsWith('go-value')){
                         ret[g.type].push({
                             snKey:m.SerialNo+ "%" + String(m.ModbusID-1),  
                             multiplier:m.multiplier,
+                            isRight:m.is_consumption
                         });
                     }
                 }
@@ -5280,28 +5292,18 @@ export function initAPI() {
             res.json(ret)
             return
         }
+        ret['overview-incomming'] = {
+            "utc": new Date().toISOString(),
+            "value": {
+                "P_Sum": 0,
+                "kWdemand": 0,
+                "Import_kWh": 0,
+                "TotalkWh": 0
+            }
+        };
         try{
             const init = req.params.init;
             const snidIncomming = req.body['overview-incomming'].keys;
-            if(init != 'init'){
-                if(snidIncomming){
-                    ret['overview-incomming'] = overview_store[snidIncomming][overview_store[snidIncomming].length - 1];
-                }
-            }else{
-                if(snidIncomming){
-                    ret['overview-incomming'] = overview_store[snidIncomming];
-                }else{
-                    ret['overview-incomming'] = {
-                        "utc": new Date().toISOString(),
-                        "value": {
-                            "P_Sum": 0,
-                            "kWdemand": 0,
-                            "Import_kWh": 0,
-                            "TotalkWh": 0
-                        }
-                    };
-                }
-            }
             ret['monthly'] = {}
             for (const k in overview_store.monthly_kwh) {
                 ret['monthly'][k] = 0;
@@ -5318,9 +5320,19 @@ export function initAPI() {
                     ret[k] += lastUpdateData[sn.snKey].P_Sum * overview_store['multiplier'][k+'-'+sn.snmKey];
                 }
             }
+            if(init != 'init'){
+                if(snidIncomming){
+                    ret['overview-incomming'] = overview_store[snidIncomming][overview_store[snidIncomming].length - 1];
+                }
+            }else{
+                const filePath = path.join(process.cwd(), `overview_data/${snidIncomming}.dat`); 
+                const ov_data = fs.readFileSync(filePath, 'utf8')
+                const ov_json = JSON.parse(ov_data)
+                ret['overview-incomming'] = ov_json['data'];
+            }
             res.json(ret)
         }catch(err){
-            res.status(500).send(err)
+            res.json(ret)
         }
 
     })
@@ -5343,46 +5355,9 @@ export function initAPI() {
             if(!snKeys || !gKey) res.json(ret)
             ret['main'] = [];
             ret['month'] = 0;
-            ret['rt_graph'] = [];
-            ret['month_graph'] = [];
-            if(init != 'init'){
-                if(snKeys?.length > 0){
-                    const data = {
-                        value:0,
-                        date:overview_store[snKeys[0]][overview_store[snKeys[0]].length - 1].utc
-                    };
-                    for (const k of snKeys) {
-                        const ov = overview_store[k][overview_store[k].length - 1]; 
-                        if(ov && ov.value?.P_Sum)
-                            data.value += ov.value.P_Sum * overview_store['multiplier'][gKey+'-'+ov.value.snmKey]
-                    }
-                    ret['main'].push(data);
-                }
-
-            }else{
-                if(snKeys?.length > 0){
-                    const firstKey = snKeys[0];
-                    snKeys = snKeys.filter(k => k !== firstKey); 
-                    for (let index = 0; index < overview_store[firstKey].length ; index++) {
-                        const ov = overview_store[firstKey][index]
-                        const data = {
-                            value:0,
-                            date:null
-                        };
-                        if(ov && ov.value?.P_Sum){
-                            data.value += ov.value.P_Sum * overview_store['multiplier'][gKey+'-'+ov.value.snmKey]
-                            data.date = ov.utc 
-                        }   
-                        for (const k of snKeys) {
-                            const ov2 = overview_store[k][index];
-                            if(ov2 && ov2.value?.P_Sum)
-                                data.value += ov2.value.P_Sum  * overview_store['multiplier'][gKey+'-'+ov2.value.snmKey]
-                        }
-                        ret['main'].push(data);
-                    }
-                }
-            }
-
+            ret['rt_graph'] = {left:[],right:[]};
+            ret['month_graph'] = {left:[],right:[]};
+            
             for (const  snmKey in overview_store['monthly_kwh'][gKey]?.value) {
                 const d = overview_store['monthly_kwh'][gKey].value[snmKey];
                 if(d) ret['month'] += d *  overview_store['multiplier'][gKey+'-'+snmKey];
@@ -5405,8 +5380,13 @@ export function initAPI() {
                             const d = overview_store.monthly_kwh[gk.key].value[k.snmKey]
                             if(d) m_data.value += overview_store.monthly_kwh[gk.key].value[k.snmKey]
                         }
-                        ret['month_graph'].push(m_data);
-                        ret['rt_graph'].push(rt_data);
+                        if(gk.isRight){
+                            ret['month_graph']['right'].push(m_data);
+                            ret['rt_graph']['right'].push(rt_data);
+                        }else{
+                            ret['month_graph']['left'].push(m_data);
+                            ret['rt_graph']['left'].push(rt_data);
+                        }
                     }else if(gk.type == 'single'){
                         const rt_data = {
                             name:gk.name,
@@ -5420,14 +5400,72 @@ export function initAPI() {
                         if(overview_store.monthly_kwh[graphGroupKey].value[gk.snmKey]){
                             m_data.value = overview_store.monthly_kwh[graphGroupKey].value[gk.snmKey]
                         }   
-                        ret['rt_graph'].push(rt_data);
-                        ret['month_graph'].push(m_data);
+                        if(gk.isRight){
+                            ret['month_graph']['right'].push(m_data);
+                            ret['rt_graph']['right'].push(rt_data);
+                        }else{
+                            ret['month_graph']['left'].push(m_data);
+                            ret['rt_graph']['left'].push(rt_data);
+                        }
                     }
+                }
+            }
+
+            ret['main'] = {
+                "utc": new Date().toISOString(),
+                "value": {
+                    "P_Sum": 0,
+                    "kWdemand": 0,
+                    "Import_kWh": 0,
+                    "TotalkWh": 0
+                }
+            };
+
+            if(init != 'init' && snKeys?.length > 0){
+                ret['main'] = [];
+                const data = {
+                    value:0,
+                    date:overview_store[snKeys[0]][overview_store[snKeys[0]].length - 1].utc
+                };
+                for (const k of snKeys) {
+                    const ov = overview_store[k][overview_store[k].length - 1]; 
+                    if(ov && ov.value?.P_Sum)
+                        data.value += ov.value.P_Sum * overview_store['multiplier'][gKey+'-'+ov.value.snmKey]
+                }
+                ret['main'].push(data);
+            }else if(snKeys?.length > 0){
+                ret['main'] = [];
+                const firstKey = snKeys[0];
+                snKeys = snKeys.filter(k => k !== firstKey); 
+                const filePath = path.join(process.cwd(), `overview_data/${firstKey}.dat`); 
+                const ov_data = fs.readFileSync(filePath, 'utf8')
+                const ov_json = JSON.parse(ov_data);
+                for (let index = 0; index < ov_json['data'].length ; index++) {
+                    const ov = ov_json['data'][index]
+                    const data = {
+                        value:0,
+                        date:null
+                    };
+                    if(ov && ov.value?.P_Sum){
+                        data.value += ov.value.P_Sum * overview_store['multiplier'][gKey+'-'+ov.value.snmKey]
+                        data.date = ov.utc 
+                    }   
+                    for (const k of snKeys) {
+                        const filePath2 = path.join(process.cwd(), `overview_data/${k}.dat`); 
+                        const ov_data = fs.readFileSync(filePath2, 'utf8')
+                        const ov_json = JSON.parse(ov_data);
+                        const ov2 = ov_json['data'][index];
+                        if(ov2 && ov2.value?.P_Sum)
+                            data.value += ov2.value.P_Sum  * overview_store['multiplier'][gKey+'-'+ov2.value.snmKey]
+                    }
+                    ret['main'].push(data);
                 }
             }
             res.json(ret)
         }catch(err){
-            res.status(500).send(err)
+            console.log(err);
+            
+            res.json(ret)
         }
 
     })

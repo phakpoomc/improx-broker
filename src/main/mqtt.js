@@ -18,6 +18,7 @@ import {
 import * as path from 'path'
 export var aedesInst
 export var httpServer
+const fs = require('fs')
 
 const QOS = 2
 
@@ -629,34 +630,31 @@ async function start(BN_CFG_PATH) {
                                 lastFifteenTime: lastFifteenTime,
                                 lastFifteenData: lastFifteenData
                             }
+
                             try{
                                 const overviewPath = path.join(process.cwd(), 'overview_data.cfg');
                                 const now_date = new Date()
                                 const snmKey = obj.SiteID + '%' + obj.NodeID + '%' + String(parseInt(obj.ModbusID)+1);
                                   //clear 24 hour data
                                 if(now_date.getHours()==0 && now_date.getMinutes()==0 && !overview_store.clear){
+                                    overview_store.clear = true;
+                                    const rtFolder = path.join(process.cwd(), 'overview_data');
+                                    if (fs.existsSync(rtFolder)) fs.rmSync(rtFolder, { recursive: true, force: true });
+                                    fs.mkdirSync(rtFolder, { recursive: true });
                                     for (const k in overview_store) {
                                         if(Array.isArray(overview_store[k])) overview_store[k].length = 0;
+                                        const filePath = path.join(rtFolder, `${k}.dat`);
+                                        fs.writeFileSync(filePath, JSON.stringify({data:[]}, null, 2), 'utf8');
                                     }
-                                    overview_store.clear = true;
                                 }
                                 if(now_date.getMinutes()==1)overview_store.clear = false;
-                                if(overview_store[obj.SerialNo+"%"+obj.ModbusID]){
-                                    overview_store[obj.SerialNo+"%"+obj.ModbusID].push({utc:now_date.toISOString(),value:{
-                                        snmKey:snmKey,
-                                        P_Sum:obj.P_Sum,
-                                        kWdemand:obj.kWdemand,
-                                        Import_kWh:obj.Import_kWh,
-                                        TotalkWh:obj.TotalkWh,
-                                    }});
-                                   
-                                }
-
                                 //new month reset value
                                 if(overview_store.currMonth != now_date.getMonth()){
                                     for (const k in overview_store.monthly_kwh){
-                                        overview_store.monthly_kwh[k].prevValue = 0;
-                                        overview_store.monthly_kwh[k].value = 0;
+                                        if (overview_store.monthly_kwh[k].keys.includes(snmKey)){
+                                            overview_store.monthly_kwh[k].prevValue[snmKey] = 0;
+                                            overview_store.monthly_kwh[k].value[snmKey] = 0;
+                                        }
                                     }
                                     overview_store.currMonth = now_date.getMonth();
                                 }
@@ -677,9 +675,43 @@ async function start(BN_CFG_PATH) {
                                     }
                                     
                                 }
+                                let ovStore = overview_store[obj.SerialNo+"%"+obj.ModbusID];
+                                if(ovStore){
+                                    const filePath = path.join(process.cwd(), `overview_data/${obj.SerialNo + '%' + String(obj.ModbusID)}.dat`); 
+                                    let ov_json = null;
+                                    const ov_data = fs.readFileSync(filePath, 'utf8')
+                                    ov_json = JSON.parse(ov_data)
+                                    if (  ov_json &&
+                                        ov_json['data'].length > 0) {
+                                        ovStore = ov_json['data'];
+                                        ovStore.push({utc:now_date.toISOString(),value:{
+                                            snmKey:snmKey,
+                                            P_Sum:obj.P_Sum,
+                                            kWdemand:obj.kWdemand,
+                                            Import_kWh:obj.Import_kWh,
+                                            TotalkWh:obj.TotalkWh,
+                                        }});  
+                                        fs.writeFileSync(filePath, JSON.stringify({ data: ovStore }, null, 2), 'utf8');
+                                        const lastElement =  ovStore[ovStore.length - 1];
+                                        ovStore.length = 0;
+                                        ovStore.push(lastElement);
+                                        overview_store[obj.SerialNo+"%"+obj.ModbusID] = ovStore;
+                                    }else{
+                                        ovStore.push({utc:now_date.toISOString(),value:{
+                                            snmKey:snmKey,
+                                            P_Sum:obj.P_Sum,
+                                            kWdemand:obj.kWdemand,
+                                            Import_kWh:obj.Import_kWh,
+                                            TotalkWh:obj.TotalkWh,
+                                        }});  
+                                        fs.writeFileSync(filePath, JSON.stringify({ data: ovStore }, null, 2), 'utf8');
+                                        overview_store[obj.SerialNo+"%"+obj.ModbusID] =  ovStore;
+                                    }
+                                }
+
+
                                 writeFile(overviewPath, JSON.stringify(overview_store, null, 2), { flag: 'w' });
                             }catch(err){
-                                
                             }
 
                             checkOverRange(obj, true)
