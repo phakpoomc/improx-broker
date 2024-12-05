@@ -86,7 +86,8 @@ export async function initCache()
         {
             if(!timeout)
             {
-                setTimeout(initCache, 3*60*1000);
+                console.log("Schedule initCache again in 3 minutes.");
+                timeout = setTimeout(initCache, 3*60*1000);
             }
             
             cacheDirty = false;
