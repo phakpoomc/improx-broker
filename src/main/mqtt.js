@@ -451,7 +451,7 @@ async function start(BN_CFG_PATH) {
                                     console.log('BlackNode (UTC+7): '+formatDateTime(bnTime));
                                     console.log('Import_kWh: '+obj.Import_kWh+' : '+'V12: '+obj.V12);
                                 }
-                                    catch(err){console.log(err);
+                                    catch(err){
                                 }
                                 aedesInst.publish(
                                     {

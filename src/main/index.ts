@@ -133,7 +133,7 @@ function createWindow(): void {
                 const lines = data.split('\n')
                 for (const line of lines) {
                     const l = line.split(' : ')
-                    meter_types_store[l[0]] = l[1]?.slice(0, -2)
+                    meter_types_store[l[0]] = l[1]
                 }
                 await loadOverview(false)
             }
@@ -364,7 +364,6 @@ app.whenReady().then(async () => {
                 let l = line.split(' : ')
                 let obj = { value: l[0], text: line }
                 meter_types.push(obj)
-                meter_types_store[l[0]] = l[1]?.slice(0, -2)
             }
             return { ...blacknode[key], mtypes: meter_types }
         } else {

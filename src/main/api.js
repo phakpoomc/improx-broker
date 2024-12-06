@@ -1092,12 +1092,12 @@ export function initAPI() {
             endTime = new Date(now)
         }
 
-        let timeList = [];
+        // let timeList = [];
 
-        for(let t = startTime; t<endTime; t.setMinutes(t.getMinutes() + 60))
-        {
-            timeList.push(new Date(t));
-        }
+        // for(let t = startTime; t<endTime; t.setMinutes(t.getMinutes() + 60))
+        // {
+        //     timeList.push(new Date(t));
+        // }
 
         let user = await db.user.findOne({
             where: { username: req.session.user }
@@ -1155,26 +1155,26 @@ export function initAPI() {
             eData = await db.energy.findAll({
                 attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
-                    DateTimeUpdate: timeList
-                    // DateTimeUpdate: {
-                    //     [Op.and]: {
-                    //         [Op.gte]: startTime,
-                    //         [Op.lte]: endTime
-                    //     }
-                    // }
+                    //DateTimeUpdate: timeList
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startTime,
+                            [Op.lte]: endTime
+                        }
+                    }
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
             })
         } else {
             eData = await db.energy.findAll({
                 where: {
-                    // DateTimeUpdate: {
-                    //     [Op.and]: {
-                    //         [Op.gte]: startTime,
-                    //         [Op.lte]: endTime
-                    //     }
-                    // },
-                    DateTimeUpdate: timeList,
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startTime,
+                            [Op.lte]: endTime
+                        }
+                    },
+                    //DateTimeUpdate: timeList,
                     snmKey: snmKey
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
@@ -1257,12 +1257,12 @@ export function initAPI() {
             endTime = new Date(now)
         }
 
-        let timeList = [];
+        // let timeList = [];
 
-        for(let t = startTime; t<endTime; t.setDate(t.getDate() + 1))
-        {
-            timeList.push(new Date(t));
-        }
+        // for(let t = startTime; t<endTime; t.setDate(t.getDate() + 1))
+        // {
+        //     timeList.push(new Date(t));
+        // }
 
         let user = await db.user.findOne({
             where: { username: req.session.user }
@@ -1319,13 +1319,13 @@ export function initAPI() {
             eData = await db.energy.findAll({
                 attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
-                    // DateTimeUpdate: {
-                    //     [Op.and]: {
-                    //         [Op.gte]: startTime,
-                    //         [Op.lte]: endTime
-                    //     }
-                    // }
-                    DateTimeUpdate: timeList
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startTime,
+                            [Op.lte]: endTime
+                        }
+                    }
+                    // DateTimeUpdate: timeList
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
             })
@@ -1333,13 +1333,13 @@ export function initAPI() {
             eData = await db.energy.findAll({
                 attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
-                    // DateTimeUpdate: {
-                    //     [Op.and]: {
-                    //         [Op.gte]: startTime,
-                    //         [Op.lte]: endTime
-                    //     }
-                    // },
-                    DateTimeUpdate: timeList,
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startTime,
+                            [Op.lte]: endTime
+                        }
+                    },
+                    // DateTimeUpdate: timeList,
                     snmKey: snmKey
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
@@ -1418,13 +1418,13 @@ export function initAPI() {
             endTime = new Date(now)
         }
 
-        let timeList = [];
+        // let timeList = [];
 
-        for(let t = startTime; t<endTime; t.setMonth(t.getMonth() + 1))
-        {
+        // for(let t = startTime; t<endTime; t.setMonth(t.getMonth() + 1))
+        // {
 
-            timeList.push(new Date(t));
-        }
+        //     timeList.push(new Date(t));
+        // }
 
         let user = await db.user.findOne({
             where: { username: req.session.user }
@@ -1481,13 +1481,13 @@ export function initAPI() {
             eData = await db.energy.findAll({
                 attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
-                    // DateTimeUpdate: {
-                    //     [Op.and]: {
-                    //         [Op.gte]: startTime,
-                    //         [Op.lte]: endTime
-                    //     }
-                    // }
-                    DateTimeUpdate: timeList
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startTime,
+                            [Op.lte]: endTime
+                        }
+                    }
+                    // DateTimeUpdate: timeList
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
             })
@@ -1495,13 +1495,13 @@ export function initAPI() {
             eData = await db.energy.findAll({
                 attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
-                    // DateTimeUpdate: {
-                    //     [Op.and]: {
-                    //         [Op.gte]: startTime,
-                    //         [Op.lte]: endTime
-                    //     }
-                    // },
-                    DateTimeUpdate: timeList,
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startTime,
+                            [Op.lte]: endTime
+                        }
+                    },
+                    // DateTimeUpdate: timeList,
                     snmKey: snmKey
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
@@ -1570,7 +1570,7 @@ export function initAPI() {
         let startTime = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0))
         let endTime = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds()))
         
-        let timeList = [];
+        // let timeList = [];
 
         for(let t = startTime; t<endTime; t.setMinutes(t.getMinutes() + 60))
         {
@@ -1631,13 +1631,13 @@ export function initAPI() {
             eData = await db.energy.findAll({
                 attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
-                    // DateTimeUpdate: {
-                    //     [Op.and]: {
-                    //         [Op.gte]: startTime,
-                    //         [Op.lte]: endTime
-                    //     }
-                    // }
-                    DateTimeUpdate: timeList
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startTime,
+                            [Op.lte]: endTime
+                        }
+                    }
+                    // DateTimeUpdate: timeList
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
             })
@@ -1645,13 +1645,13 @@ export function initAPI() {
             eData = await db.energy.findAll({
                 attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
-                    // DateTimeUpdate: {
-                    //     [Op.and]: {
-                    //         [Op.gte]: startTime,
-                    //         [Op.lte]: endTime
-                    //     }
-                    // },
-                    DateTimeUpdate: timeList,
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startTime,
+                            [Op.lte]: endTime
+                        }
+                    },
+                    // DateTimeUpdate: timeList,
                     snmKey: snmKey
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
