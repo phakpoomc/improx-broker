@@ -2,6 +2,8 @@ import { app, shell, BrowserWindow, ipcMain, /*autoUpdater, dialog, safeStorage*
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
+import { EventEmitter } from 'events';
+
 import AutoLaunch from 'auto-launch'
 
 import {
@@ -309,6 +311,8 @@ app.whenReady().then(async () => {
         //     }
         //   });
         // }
+
+        EventEmitter.defaultMaxListeners += (curr_max - prev_max)*2
 
         writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
         await loadMetaDB()

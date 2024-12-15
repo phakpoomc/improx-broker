@@ -1,5 +1,7 @@
 import Aedes from 'aedes'
 import { createServer as wsCreateServer } from 'aedes-server-factory'
+import { EventEmitter } from 'events';
+
 import {
     lastAlarm,
     checkOverRange,
@@ -40,10 +42,12 @@ export async function startMQTT(BN_CFG_PATH)
 }
 
 async function start(BN_CFG_PATH) {
-    aedesInst = new Aedes()
+    loadBNInfoFromLocal(BN_CFG_PATH)
+
+    aedesInst = new Aedes({concurrency: Math.max(EventEmitter.defaultMaxListeners, 200)})
     httpServer = wsCreateServer(aedesInst /*, {ws: true}*/)
 
-    loadBNInfoFromLocal(BN_CFG_PATH)
+    
 
     aedesInst.on('clientDisconnect', function (client) {
         for (let sn of Object.keys(blacknode)) {

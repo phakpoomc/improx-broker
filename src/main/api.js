@@ -481,6 +481,10 @@ function isOnPeak(dt) {
     return true
 }
 
+function round(num)
+{
+    return Math.round(num*1000)/1000;
+}
 
 export function initAPI() {
     if(api_server)
@@ -3772,9 +3776,9 @@ export function initAPI() {
 
         if(eData.length == 2)
         {
-            ret.data["Import_kWh"] = eData[1].Import_kWh - eData[0].Import_kWh;
-            ret.data["Export_kWh"] = eData[1].Export_kWh - eData[0].Export_kWh;
-            ret.data["TotalkWh"] = eData[1].TotalkWh - eData[0].TotalkWh;
+            ret.data["Import_kWh"] = round(eData[1].Import_kWh - eData[0].Import_kWh);
+            ret.data["Export_kWh"] = round(eData[1].Export_kWh - eData[0].Export_kWh);
+            ret.data["TotalkWh"] = round(eData[1].TotalkWh - eData[0].TotalkWh);
         }
 
         ret.status = "OK"
@@ -3817,6 +3821,14 @@ export function initAPI() {
             },
             order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
         })
+
+        for(let d of ret.data)
+        {
+            for(let k of pmap)
+            {
+                d[k] = round(d[k])
+            }
+        }
 
         ret.status = "OK"
 
@@ -3880,7 +3892,7 @@ export function initAPI() {
             }
 
             let dval = e.TotalkWh - prev_dval;
-            let demand = dval/4;
+            let demand = round(dval*4);
 
             if(isOnPeak(e.DateTimeUpdate))
             {
@@ -3982,6 +3994,10 @@ export function initAPI() {
             ret.data["TotalkWh"] += diff_total;
         }
 
+        ret.data["Import_kWh"] = round(ret.data["Import_kWh"]);
+        ret.data["Export_kWh"] = round(ret.data["Export_kWh"]);
+        ret.data["TotalkWh"] = round(ret.data["TotalkWh"]);
+
         ret.status = "OK"
 
         res.json(ret)
@@ -4032,8 +4048,8 @@ export function initAPI() {
                 for(let k of keys)
                 {
                     ret.data[k] = {
-                        max: e[k],
-                        min: e[k]
+                        max: round(e[k]),
+                        min: round(e[k])
                     }
 
                     count[k] = 1;
@@ -4047,12 +4063,12 @@ export function initAPI() {
             {
                 if(e[k] > ret.data[k].max)
                 {
-                    ret.data[k].max = e[k];
+                    ret.data[k].max = round(e[k]);
                 }
 
                 if(e[k] < ret.data[k].min)
                 {
-                    ret.data[k].min = e[k];
+                    ret.data[k].min = round(e[k]);
                 }
 
                 count[k]++;
@@ -4062,7 +4078,7 @@ export function initAPI() {
 
         for(let k of keys)
         {
-            ret.data[k].avg = sum[k]/count[k];
+            ret.data[k].avg = round(sum[k]/count[k]);
         }
 
         ret.status = "OK"
