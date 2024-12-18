@@ -199,6 +199,7 @@ app.whenReady().then(async () => {
         blacknode[sn].subnet = cfg.subnet
         blacknode[sn].gateway = cfg.gateway
         blacknode[sn].dns = cfg.dns
+        blacknode[sn].rname = cfg.rname
 
         if (curr_max < prev_max) {
             for (let i = curr_max; i < prev_max; i++) {

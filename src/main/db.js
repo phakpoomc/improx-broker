@@ -8,6 +8,7 @@ async function alterTable(sequelize) {
     // Check if the column exists
     const groupInfo = await queryInterface.describeTable('group');
     const gmemberInfo = await queryInterface.describeTable('gmember');
+    const rmInfo = await queryInterface.describeTable('report_manage');
 
     if (!groupInfo.type) {
         // If the column doesn't exist, add it
@@ -30,7 +31,20 @@ async function alterTable(sequelize) {
     } else {
         console.log("'source' column already exists in 'gmember' table");
     }
+    if (!rmInfo.isSolar) {
+        // If the column doesn't exist, add it
+        await queryInterface.addColumn('report_manage', 'isSolar', {
+            type: DataTypes.BOOLEAN,
+            allowNull: true
+        });
+        console.log("'isSolar' column added to 'report_manage' table");
+    } else {
+        console.log("'isSolar' column already exists in 'report_manage' table");
+    }
+
 }
+
+
 
 
 export async function syncDB() {
@@ -73,6 +87,7 @@ export async function syncDB() {
                 db.userrole = null;
                 db.feedmeter = null;
                 db.report_manage = null;
+                db.demand_limit = null;
 
                 last['message'] = 'Cannot connect to database.'
                 last['time'] = new Date()
@@ -251,9 +266,23 @@ export async function syncDB() {
                 location: { type: DataTypes.STRING, field: 'location' },
                 mv_lv: { type: DataTypes.STRING, field: 'mv_lv' },
                 order: { type: DataTypes.INTEGER, field: 'order'},
+                isSolar: { type: DataTypes.BOOLEAN, field: 'isSolar' ,allowNull:true },
             },
             {
                 tableName: 'report_manage'
+            }
+        )
+
+        db.demand_limit = sequelize.define(
+            'demand_limit',
+            {
+                id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true, field: 'id' },
+                group_id:{ type: DataTypes.INTEGER, field: 'group_id' },
+                datetime: { type: DataTypes.DATE, field: 'datetime' },
+                value: { type: DataTypes.FLOAT, field: 'value' },
+            },
+            {
+                tableName: 'demand_limit'
             }
         )
 
@@ -309,6 +338,7 @@ export async function syncDB() {
             db.userrole = null;
             db.feedmeter = null;
             db.report_manage = null;
+            db.demand_limit = null;
 
             last['message'] = 'Cannot sync database table.'
             last['time'] = new Date()
@@ -327,6 +357,7 @@ export async function syncDB() {
         db.userrole = null;
         db.feedmeter = null;
         db.report_manage = null;
+        db.demand_limit = null;
 
         last['message'] = 'Database is not set up.'
         last['time'] = new Date()
