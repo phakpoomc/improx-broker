@@ -44,12 +44,14 @@ export async function startMQTT(BN_CFG_PATH)
 async function start(BN_CFG_PATH) {
     loadBNInfoFromLocal(BN_CFG_PATH)
 
-    aedesInst = new Aedes({concurrency: Math.max(EventEmitter.defaultMaxListeners, 200)})
+    aedesInst = new Aedes({concurrency: Math.max(EventEmitter.defaultMaxListeners, 400)})
     httpServer = wsCreateServer(aedesInst /*, {ws: true}*/)
 
     
 
     aedesInst.on('clientDisconnect', function (client) {
+        console.log('Disconnect', client.id, new Date());
+
         for (let sn of Object.keys(blacknode)) {
             if (blacknode[sn].clientid == client.id) {
                 blacknode[sn].status = 'off'
@@ -82,9 +84,17 @@ async function start(BN_CFG_PATH) {
         }
 
         writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
+
+        client.close();
     })
 
-    aedesInst.on('clientError', function (client, _err) {
+    aedesInst.on('connectionError', function (client, err) {
+        console.log('connectionError', client.id, new Date(), err);
+    })
+
+    aedesInst.on('clientError', function (client, err) {
+        console.log('clientError', client.id, new Date(), err);
+
         for (let sn of Object.keys(blacknode)) {
             if (blacknode[sn].clientid == client.id) {
                 blacknode[sn].status = 'error'
@@ -117,6 +127,8 @@ async function start(BN_CFG_PATH) {
         }
 
         writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
+
+        client.close();
     })
 
     aedesInst.on('publish', function (pkt, _client) {
