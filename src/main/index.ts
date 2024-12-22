@@ -28,7 +28,7 @@ import { syncDB } from './db.js'
 
 import crypto from 'crypto'
 
-const QOS = 2
+const QOS = 0
 
 function loginWith(uname, pwd)
 {

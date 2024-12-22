@@ -24,7 +24,7 @@ import {
 export var aedesInst
 export var httpServer
 
-const QOS = 2
+const QOS = 0
 
 export async function startMQTT(BN_CFG_PATH)
 {
