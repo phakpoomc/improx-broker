@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { Sequelize } from 'sequelize';
+import { Sequelize, Op } from 'sequelize'
+import { redisClient } from './mqtt'
 // import { aedesInst } from './mqtt.js'
 
 export var last = {
@@ -15,7 +16,7 @@ export var paths = {}
 export var db = {}
 
 // Configuration from files
-export var meta_cfg = {};
+export var meta_cfg = {}
 export var blacknode = {}
 
 // Configuration from DB
@@ -33,10 +34,12 @@ export var MAX_HEARTBEAT = 60 * 60 * 1000
 
 const MINIMUM_REALERT = 61 * 60 * 1000
 
+export var rt_store = { clear: false, group: {} }
+
 // var dbQueue = [];
 // var aedesQueue = [];
 
-var qLock = false;
+var qLock = false
 
 // export async function addQueue(obj, aedObj)
 // {
@@ -49,7 +52,7 @@ var qLock = false;
 
 //         qLock = false;
 //     }
-    
+
 // }
 
 // export async function savetoDB()
@@ -70,7 +73,7 @@ var qLock = false;
 //                     if (aedesInst && !aedesInst.closed) {
 //                         await aedesInst.publish(aedesQueue[i])
 //                     }
-                    
+
 //                 }
 
 //                 console.log("Bulk of energy data is saved. Total: ", dbQueue.length);
@@ -99,44 +102,105 @@ var qLock = false;
 //     }
 // }
 
-export function loadMetaCFG()
-{
+export async function loadOverview(gid) {
+    if (!redisClient) {
+        redisClient
+    }
+    const pong = await redisClient.ping()
+    if (!pong) return
+
+    if (gid) {
+        try {
+            await redisClient.set(`g-${gid}`, JSON.stringify({ data: {}, snid: [] }));
+            const group = await db.group.findOne({
+                where: { id: gid }
+            })
+            if (group !== null) {
+                const members = await db.gmember.findAll({
+                    where: { GroupID: group.id }
+                })
+                rt_store.group[group.id] = { data: {}, snid: [] }
+                if (members !== null) {
+                    for (const m of members) {
+                        const key = m.SerialNo + '%' + String(m.ModbusID - 1)
+                        rt_store.group[group.id].data[key] = []
+                        rt_store.group[group.id].snid.push(key)
+                    }
+                    await redisClient.set(`g-${gid}`, JSON.stringify(rt_store.group[group.id]));
+                }
+            }
+        } catch (err) {}
+
+        return
+    }
+
+    // create folder
+    // Check if the folder exists
+    const group = await db.group.findAll({
+        where: {
+            type: {
+                [Op.or]: [{ [Op.like]: 'Solar%' }]
+            }
+        }
+    })
+
+    for (const g of group) {
+        if (group !== null) {
+            const members = await db.gmember.findAll({
+                where: { GroupID: g.id }
+            })
+
+            const data = await redisClient.get(`g-${g.id}`);
+
+            if (data) {
+                try {
+                    rt_store.group[g.id] = { data: {}, snid: [] }
+                    const tmpData = JSON.parse(data);
+                    rt_store.group[g.id].snid = tmpData.snid;
+                    if (rt_store.group[g.id].snid?.length) continue
+                } catch (err) {}
+            }
+            rt_store.group[g.id] = { data: {}, snid: [] }
+            if (members !== null) {
+                for (const m of members) {
+                    const key = m.SerialNo + '%' + String(m.ModbusID - 1)
+                    rt_store.group[g.id].data[key] = []
+                    rt_store.group[g.id].snid.push(key)
+                }
+                await redisClient.set(`g-${g.id}`, JSON.stringify(rt_store.group[g.id]));
+            }
+        }
+    }
+}
+
+export function loadMetaCFG() {
     // Load DB
     if (paths && paths.META_CFG_PATH) {
         const cfg_data = readFile(paths.META_CFG_PATH, { encoding: 'utf-8', flag: 'r' })
-        meta_cfg = JSON.parse(cfg_data);
+        meta_cfg = JSON.parse(cfg_data)
 
-        if(!meta_cfg.db)
-        {
-            meta_cfg.db = {};
+        if (!meta_cfg.db) {
+            meta_cfg.db = {}
         }
-        if(!meta_cfg.api)
-        {
-            meta_cfg.api = {};
+        if (!meta_cfg.api) {
+            meta_cfg.api = {}
         }
-        if(!meta_cfg.broker)
-            {
-                meta_cfg.broker = {};
-            }
-        if(!meta_cfg.param)
-        {
-            meta_cfg.param = {};
-
+        if (!meta_cfg.broker) {
+            meta_cfg.broker = {}
         }
-        if(!meta_cfg.auth_cred)
-        {
+        if (!meta_cfg.param) {
+            meta_cfg.param = {}
+        }
+        if (!meta_cfg.auth_cred) {
             meta_cfg.auth_cred = {
                 remember: false
-            };
+            }
         }
-        if(!meta_cfg.useImport)
-        {
+        if (!meta_cfg.useImport) {
             meta_cfg.useImport = {
                 value: false
             }
         }
-
-
     } else {
         console.log('Fail to load meta Config.')
         last.message = 'Fail to load meta config.'
@@ -154,10 +218,8 @@ export function loadBNInfoFromLocal(BN_CFG_PATH) {
         if (blacknode[sn].status != 'setup') {
             blacknode[sn].status = 'off'
 
-            if(blacknode[sn].maxmeter > 0)
-            {
-                for(let i=0; i<blacknode[sn].maxmeter; i++)
-                {
+            if (blacknode[sn].maxmeter > 0) {
+                for (let i = 0; i < blacknode[sn].maxmeter; i++) {
                     blacknode[sn].meter_list[i].status = 'off'
                 }
             }
@@ -165,33 +227,35 @@ export function loadBNInfoFromLocal(BN_CFG_PATH) {
     }
 }
 
-export async function loadMetaDB()
-{
-    if(!db)
-    {
-        return;
+export async function loadMetaDB() {
+    if (!db) {
+        return
     }
 
     // Init holiday
     if (db.holiday) {
-        holidays = {};
+        holidays = {}
 
         let h = await db.holiday.findAll()
 
         for (let d of h) {
-            let k = String(d.DateTime.getUTCFullYear()) + '-' + String(d.DateTime.getUTCMonth()+1) + '-' + String(d.DateTime.getUTCDate())
+            let k =
+                String(d.DateTime.getUTCFullYear()) +
+                '-' +
+                String(d.DateTime.getUTCMonth() + 1) +
+                '-' +
+                String(d.DateTime.getUTCDate())
 
             holidays[k] = {
                 name: d.name,
                 date: k,
                 id: d.id
-            };
+            }
         }
     }
 
     // Init feeder meter
-    if(db.feedmeter)
-    {
+    if (db.feedmeter) {
         lastFeedTime = {}
 
         let feedMeters = await db.feedmeter.findAll({
@@ -202,24 +266,20 @@ export async function loadMetaDB()
             group: ['FeederMeterName']
         })
 
-        for(let m of feedMeters)
-        {
+        for (let m of feedMeters) {
             lastFeedTime[m.dataValues.FeederMeterName] = m.dataValues.max
         }
-    
     }
 
     // Init alarm
     if (db.alarm) {
-        lastAlarm = {};
+        lastAlarm = {}
 
         let latest = await db.alarm.findAll({
             where: {
                 status: 'unread'
             }
         })
-
-        
 
         for (let l of latest) {
             lastAlarm[l.snmKey] = l.DateTime
@@ -233,7 +293,13 @@ export async function loadMetaDB()
         let groups = await db.group.findAll()
 
         for (let g of groups) {
-            group[g.id] = { id: g.id, name: g.name, showDashboard: g.showDashboard,type:g?.type ? g.type : 'Monitor', member: [] }
+            group[g.id] = {
+                id: g.id,
+                name: g.name,
+                showDashboard: g.showDashboard,
+                type: g?.type ? g.type : 'Monitor',
+                member: []
+            }
         }
 
         let gmembers = await db.gmember.findAll()
@@ -245,7 +311,7 @@ export async function loadMetaDB()
                 nodeid: g.NodeID,
                 modbusid: g.ModbusID,
                 multiplier: g.multiplier,
-                source:g.source ? g.source :   "null"
+                source: g.source ? g.source : 'null'
             }
 
             group[g.GroupID].member.push(m)
@@ -255,18 +321,23 @@ export async function loadMetaDB()
 
 export async function loadHoliday() {
     if (db && db.holiday) {
-        holidays = {};
+        holidays = {}
 
         let h = await db.holiday.findAll()
 
         for (let d of h) {
-            let k = String(d.DateTime.getUTCFullYear()) + '-' + String(d.DateTime.getUTCMonth()+1) + '-' + String(d.DateTime.getUTCDate())
+            let k =
+                String(d.DateTime.getUTCFullYear()) +
+                '-' +
+                String(d.DateTime.getUTCMonth() + 1) +
+                '-' +
+                String(d.DateTime.getUTCDate())
 
             holidays[k] = {
                 name: d.name,
                 date: k,
                 id: d.id
-            };
+            }
         }
     }
 }
@@ -278,7 +349,13 @@ export async function loadGroup() {
         let groups = await db.group.findAll()
 
         for (let g of groups) {
-            group[g.id] = { id: g.id, name: g.name, showDashboard: g.showDashboard,type:g?.type ? g.type : 'Monitor' , member: [] }
+            group[g.id] = {
+                id: g.id,
+                name: g.name,
+                showDashboard: g.showDashboard,
+                type: g?.type ? g.type : 'Monitor',
+                member: []
+            }
         }
 
         let gmembers = await db.gmember.findAll()
@@ -290,7 +367,7 @@ export async function loadGroup() {
                 nodeid: g.NodeID,
                 modbusid: g.ModbusID,
                 multiplier: g.multiplier,
-                source:g.source ? g.source :   "null"
+                source: g.source ? g.source : 'null'
             }
 
             group[g.GroupID].member.push(m)
@@ -305,7 +382,7 @@ export async function loadGroup() {
 
 export async function loadAlarm() {
     if (db && db.alarm) {
-        lastAlarm = {};
+        lastAlarm = {}
 
         let latest = await db.alarm.findAll({
             where: {
@@ -353,20 +430,17 @@ export function checkHeartbeat() {
 }
 
 export function checkOverRange(obj, shift) {
-    if(shift)
-    {
-        obj['ModbusID'] = parseInt(obj['ModbusID']) + 1;
+    if (shift) {
+        obj['ModbusID'] = parseInt(obj['ModbusID']) + 1
     }
 
     let smKey = obj['SerialNo'] + ':' + String(obj['ModbusID'])
 
-    if(!meta_cfg.param.hasOwnProperty(smKey))
-    {
+    if (!meta_cfg.param.hasOwnProperty(smKey)) {
         return
     }
 
-    if(!meta_cfg.param[smKey].enable)
-    {
+    if (!meta_cfg.param[smKey].enable) {
         return
     }
 

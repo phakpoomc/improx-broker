@@ -20,14 +20,16 @@ import {
     loadMetaDB,
     loadMetaCFG,
     lastFeedTime,
-    MAX_HEARTBEAT
+    MAX_HEARTBEAT,
+    loadOverview,
+    rt_store
 } from './global.js'
 import { createReadStream } from 'fs'
 import { syncDB } from './db.js'
 import ExcelJS from 'exceljs'
 import * as path from 'path'
 import bodyParser from 'body-parser'
-
+import { redisClient } from './mqtt.js'
 import session from 'express-session'
 
 export var api_server
@@ -401,7 +403,8 @@ const routes = {
     single_line_diagram: ['owner', 'user', 'admin', 'test'],
     layout: ['owner', 'user', 'admin', 'test'],
     report_manage: ['owner', 'admin', 'test'],
-    report_display: ['owner', 'user', 'admin', 'test']
+    report_display: ['owner', 'user', 'admin', 'test'],
+    solar: ['owner', 'user', 'admin', 'test']
 }
 
 const apis = {
@@ -428,7 +431,8 @@ const apis = {
     report_manage: ['owner', 'admin', 'test'],
     report_display: ['owner', 'user', 'admin', 'test'],
     demand_limit: ['owner', 'user', 'admin', 'test'],
-    demand_limit_graph: ['owner', 'user', 'admin', 'test']
+    demand_limit_graph: ['owner', 'user', 'admin', 'test'],
+    solar: ['owner', 'user', 'admin', 'test']
 }
 
 async function routeguard(req, route) {
@@ -2497,6 +2501,10 @@ export function initAPI() {
         let member = req.body.member
 
         try {
+            const group = await db.group.findOne({
+                where: { id: groupid }
+            })
+
             await db.gmember.destroy({
                 where: { GroupID: groupid }
             })
@@ -2504,6 +2512,9 @@ export function initAPI() {
             await db.gmember.bulkCreate(member)
 
             await loadGroup()
+            if (group && group.type == 'Solar') {
+                await loadOverview(groupid)
+            }
             res.send('SUCCESS')
         } catch (err) {
             res.send('Cannot update group members')
@@ -4186,8 +4197,8 @@ export function initAPI() {
             path.join(process.cwd(), 'Report-Energy_Online_(kWh)_debug.xlsx')
         )
 
-        const savePath = path.join(process.cwd(), 'exports', 'kWhConsumption_export.xlsx');
-        await workbook.xlsx.writeFile(savePath);
+        const savePath = path.join(process.cwd(), 'exports', 'kWhConsumption_export.xlsx')
+        await workbook.xlsx.writeFile(savePath)
         res.attachment(req.params.ttype + '_export.xlsx')
         workbook.xlsx.write(res).then(() => {
             res.end()
@@ -4199,8 +4210,8 @@ export function initAPI() {
         await workbook.xlsx.readFile(
             path.join(process.cwd(), 'Report-Energy_Online_(kWhConsumption)_debug.xlsx')
         )
-        const savePath = path.join(process.cwd(), 'exports', 'kWhConsumption_export.xlsx');
-        await workbook.xlsx.writeFile(savePath);
+        const savePath = path.join(process.cwd(), 'exports', 'kWhConsumption_export.xlsx')
+        await workbook.xlsx.writeFile(savePath)
         res.attachment(req.params.ttype + '_export.xlsx')
         workbook.xlsx.write(res).then(() => {
             res.end()
@@ -4823,7 +4834,8 @@ export function initAPI() {
                                 for (const d of rp_data[snmKey]) {
                                     if (d.solar)
                                         ret[d.order].value =
-                                            Math.abs(group[1].TotalkWh) - Math.abs(group[0].TotalkWh)
+                                            Math.abs(group[1].TotalkWh) -
+                                            Math.abs(group[0].TotalkWh)
                                     else ret[d.order].value = group[1].TotalkWh - group[0].TotalkWh
                                 }
                             }
@@ -4843,7 +4855,7 @@ export function initAPI() {
                                 for (const d of rp_data[name]) {
                                     if (d.solar)
                                         ret[d.order].value =
-                                            Math.abs(group[1].value) -   Math.abs(group[0].value)
+                                            Math.abs(group[1].value) - Math.abs(group[0].value)
                                     else ret[d.order].value = group[1].value - group[0].value
                                 }
                             }
@@ -4921,6 +4933,7 @@ export function initAPI() {
                 }
             }
         })
+
         for (const g of groups) {
             result[g.type] = []
             const members = await db.gmember.findAll({
@@ -4975,7 +4988,7 @@ export function initAPI() {
             })
             for (const m of members) {
                 result[g.name].keys.push({
-                    snid: `${m.SerialNo}%${m.ModbusID}`,
+                    snid: `${m.SerialNo}%${m.ModbusID - 1}`,
                     multiplier: m.multiplier,
                     snmKey: m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
                 })
@@ -5127,6 +5140,346 @@ export function initAPI() {
         } catch (err) {}
 
         res.send(result)
+    })
+
+    api.post('/solar-rt/:gid/:init', async (req, res) => {
+        if ((await apiguard(req, 'solar', '')) == false) {
+            res.json({})
+            return
+        }
+        const keys = req.body.keys
+        const gid = req.params.gid
+        if (!keys || !gid) {
+            res.json({})
+            return
+        }
+
+        const result = { data: [] }
+        if (req.params.init == 'init') {
+            const json = await redisClient.get(`g-${gid}`)
+            try {
+                const tmpRead = JSON.parse(json)
+
+                //find lowest legnth of data
+                let lowestLength = 0
+                for (const key in tmpRead.data) {
+                    const length = tmpRead.data[key].length
+                    if (length > lowestLength) {
+                        lowestLength = length
+                    }
+                }
+
+                if (lowestLength == 0) {
+                    res.json(result)
+                    return
+                }
+                //sum data
+                for (let index = 0; index < lowestLength; index++) {
+                    const obj = {
+                        value: 0,
+                        date: ''
+                    }
+
+                    for (const key of keys) {
+                        try {
+                            obj.value += tmpRead.data[key.snid][index].P_Sum
+                            obj.date = tmpRead.data[key.snid][index].datetime
+                        } catch (err) {}
+                    }
+                    result.data.push(obj)
+                }
+            } catch (err) {
+                res.json(result)
+                return
+            }
+        } else {
+            const obj = {
+                value: 0,
+                date: new Date().toISOString()
+            }
+            for (const key of keys) {
+                try {
+                    obj.value +=
+                        rt_store.group[gid].data[key.snid][
+                            rt_store.group[gid].data[key.snid].length - 1
+                        ].P_Sum
+                    obj.date =
+                        rt_store.group[gid].data[key.snid][
+                            rt_store.group[gid].data[key.snid].length - 1
+                        ].datetime
+                } catch (err) {
+                    res.json(result)
+                    return
+                }
+            }
+            result.data.push(obj)
+        }
+
+        res.json(result)
+    })
+
+    api.post('/solar_card/:gid', async (req, res) => {
+        if ((await apiguard(req, 'solar', '')) == false) {
+            res.json({})
+            return
+        }
+        const gid = req.params.gid
+        const keys = req.body.keys
+        if (!gid || !keys) {
+            res.json({})
+            return
+        }
+        const result = { solarLastMonth: 0, solarThisMonth: 0, peaLastMonth: 0, peaThisMonth: 0 }
+        try {
+            const now = new Date()
+            const lastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0))
+            const thisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0))
+            const nextMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0))
+            const snmKeys = []
+            const multmap = {}
+            for (const k of keys) {
+                snmKeys.push(k.snmKey)
+                multmap[k.snmKey] = k.multiplier
+            }
+
+            const eData = await db.energy.findAll({
+                where: {
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: lastMonth,
+                            [Op.lte]: nextMonth
+                        }
+                    },
+                    snmKey: snmKeys
+                },
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
+            })
+            const prevEnergyPEA = {}
+            const prevEnergySolar = {}
+            for (const e of eData) {
+                const pea = e.Import_kWh
+                const solar = e.Export_kWh
+
+                if (pea <= 0 || solar <= 0) {
+                    continue
+                }
+                if (!prevEnergyPEA[e.snmKey] || !prevEnergySolar[e.snmKey]) {
+                    prevEnergyPEA[e.snmKey] = pea
+                    prevEnergySolar[e.snmKey] = solar
+                    continue
+                }
+
+                const absEnergyPEA = (pea - prevEnergyPEA[e.snmKey]) * multmap[e.snmKey]
+                const absEnergySolar = (solar - prevEnergySolar[e.snmKey]) * multmap[e.snmKey]
+
+                if (new Date(e.DateTimeUpdate).getTime() <= thisMonth.getTime()) {
+                    result.solarLastMonth += absEnergySolar
+                    result.peaLastMonth += absEnergyPEA
+                } else {
+                    result.solarThisMonth += absEnergySolar
+                    result.peaThisMonth += absEnergyPEA
+                }
+                prevEnergyPEA[e.snmKey] = pea
+                prevEnergySolar[e.snmKey] = solar
+            }
+            res.json(result)
+        } catch (err) {
+            res.json(result)
+            return
+        }
+    })
+
+    api.post('/solar_rp/:year/:month/:day/:type', async (req, res) => {
+        if ((await apiguard(req, 'solar', '')) == false) {
+            res.json({})
+            return
+        }
+        const keys = req.body.keys
+        const year = req.params.year
+        const month = req.params.month
+        const day = req.params.day
+        const type = req.params.type
+        if (!keys || !year || !month || !day || !type) {
+            res.json({})
+            return
+        }
+        const result = {}
+        try {
+            let startDate
+            let endDate
+            if (type == 'year') {
+                startDate = new Date(Date.UTC(year, 0, 1, 0, 0, 0))
+                endDate = new Date(Date.UTC(parseInt(year) + 1, 0, 1, 0, 0, 0))
+                for (let index = 0; index < 12; index++) {
+                    result[index + 1] = {
+                        category: index + 1,
+                        value: 0
+                    }
+                }
+            } else if (type == 'month') {
+                startDate = new Date(Date.UTC(year, month, 1, 0, 0, 0))
+                endDate = new Date(Date.UTC(year, parseInt(month) + 1, 1, 0, 0, 0))
+                const lastDate = new Date(endDate)
+                lastDate.setDate(lastDate.getDate() - 1)
+
+                for (let index = 0; index < lastDate.getDate(); index++) {
+                    result[index + 1] = {
+                        category: index + 1,
+                        value: 0
+                    }
+                }
+            } else {
+                startDate = new Date(Date.UTC(year, month, day, 0, 0, 0))
+                endDate = new Date(Date.UTC(year, month, parseInt(day) + 1, 0, 0, 0))
+                for (let index = 0; index < 24; index++) {
+                    result[index + 1] = {
+                        category: index + 1,
+                        value: 0
+                    }
+                }
+            }
+
+            const snmKeys = []
+            const multmap = {}
+            for (const k of keys) {
+                snmKeys.push(k.snmKey)
+                multmap[k.snmKey] = k.multiplier
+            }
+
+            const eData = await db.energy.findAll({
+                where: {
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startDate,
+                            [Op.lte]: endDate
+                        }
+                    },
+                    snmKey: snmKeys
+                },
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
+            })
+            const prevTime = {}
+            for (const e of eData) {
+                let power
+                if (e.P_Sum < 0) {
+                    power = Math.abs(e.P_Sum)
+                } else {
+                    power = e.P_Sum * -1
+                }
+                const date = new Date(e.DateTimeUpdate)
+                if (type == 'year') {
+                    if (result[date.getMonth() + 1]) {
+                        result[date.getMonth()].value += power
+                    }
+                } else if (type == 'month') {
+                    if (result[date.getDate()]) {
+                        result[date.getDate()].value += power
+                    }
+                } else {
+                    if (result[date.getHours()]) {
+                        result[date.getHours()].value += power
+                    }
+                }
+                prevTime[e.snmKey] = date
+            }
+            res.json(result)
+        } catch (err) {
+            res.json(result)
+            return
+        }
+    })
+
+    api.post('/solar_kWh/:year/:month', async (req, res) => {
+        if ((await apiguard(req, 'solar', '')) == false) {
+            res.json({})
+            return
+        }
+        const keys = req.body.keys
+        const year = req.params.year
+        const month = req.params.month
+        if (!keys || !year || !month) {
+            res.json({})
+            return
+        }
+        const result = {}
+        try {
+            const startDate = new Date(Date.UTC(year, month, 1, 0, 0, 0))
+            const endDate = new Date(Date.UTC(year, parseInt(month) + 1, 1, 0, 0, 0))
+            const lastDate = new Date(endDate)
+            lastDate.setDate(lastDate.getDate() - 1)
+
+            for (let index = 0; index < lastDate.getDate(); index++) {
+                result[index + 1] = {
+                    solar: {
+                        category: index + 1,
+                        value: 0
+                    },
+                    pea: {
+                        category: index + 1,
+                        value: 0
+                    }
+                }
+            }
+
+            const snmKeys = []
+            const multmap = {}
+            for (const k of keys) {
+                snmKeys.push(k.snmKey)
+                multmap[k.snmKey] = k.multiplier
+            }
+
+            const eData = await db.energy.findAll({
+                where: {
+                    DateTimeUpdate: {
+                        [Op.and]: {
+                            [Op.gte]: startDate,
+                            [Op.lte]: endDate
+                        }
+                    },
+                    snmKey: snmKeys
+                },
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
+            })
+            const prevEnergyPEA = {}
+            const prevEnergySolar = {}
+            for (const e of eData) {
+                const pea = e.Import_kWh
+                const solar = e.Export_kWh
+                const date = new Date(e.DateTimeUpdate)
+                if (pea <= 0 || solar <= 0) {
+                    continue
+                }
+                if (!prevEnergyPEA[e.snmKey] || !prevEnergySolar[e.snmKey]) {
+                    prevEnergyPEA[e.snmKey] = pea
+                    prevEnergySolar[e.snmKey] = solar
+                    continue
+                }
+
+                const absEnergyPEA = (pea - prevEnergyPEA[e.snmKey]) * multmap[e.snmKey]
+                const absEnergySolar = (solar - prevEnergySolar[e.snmKey]) * multmap[e.snmKey]
+
+                if (result[date.getDate()]) {
+                    result[date.getDate()].solar.value += absEnergySolar
+                    result[date.getDate()].pea.value += absEnergyPEA
+                }
+                prevEnergyPEA[e.snmKey] = pea
+                prevEnergySolar[e.snmKey] = solar
+            }
+
+            res.json(result)
+        } catch (err) {
+            res.json(result)
+            return
+        }
     })
 
     api_server = api.listen(meta_cfg.broker.apiport ? meta_cfg.broker.apiport : 8888, () => {

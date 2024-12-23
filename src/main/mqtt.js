@@ -10,36 +10,38 @@ import {
     lastUpdateTime,
     lastUpdateData,
     db,
-    meta_cfg
+    meta_cfg,
+    rt_store
     // addQueue
 } from './global.js'
+const fs = require('fs')
+import * as path from 'path'
+import { createClient } from 'redis'
 
 export var aedesInst
 export var httpServer
+export var redisClient
 
 const QOS = 2
 
 function formatDateTime(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
 
-    return `${year}/${month}/${day} ${hours}:${minutes}`;
+    return `${year}/${month}/${day} ${hours}:${minutes}`
 }
 
-export async function startMQTT(BN_CFG_PATH)
-{
-    if(aedesInst)
-    {
+export async function startMQTT(BN_CFG_PATH) {
+    if (aedesInst) {
         aedesInst.close()
         httpServer.close()
+        redisClient.disconnect()
         aedesInst = null
         start(BN_CFG_PATH)
-    }
-    else
-    {
+    } else {
         start(BN_CFG_PATH)
     }
 }
@@ -47,19 +49,19 @@ export async function startMQTT(BN_CFG_PATH)
 async function start(BN_CFG_PATH) {
     aedesInst = new Aedes()
     httpServer = wsCreateServer(aedesInst /*, {ws: true}*/)
+    redisClient = await createClient()
+        .on('error', (err) => console.log('Redis Client Error', err))
+        .connect()
 
     loadBNInfoFromLocal(BN_CFG_PATH)
-
     aedesInst.on('clientDisconnect', function (client) {
         for (let sn of Object.keys(blacknode)) {
             if (blacknode[sn].clientid == client.id) {
                 blacknode[sn].status = 'off'
                 blacknode[sn].last_update = new Date()
 
-                if(blacknode[sn].maxmeter > 0)
-                {
-                    for(let i=0; i<blacknode[sn].maxmeter; i++)
-                    {
+                if (blacknode[sn].maxmeter > 0) {
+                    for (let i = 0; i < blacknode[sn].maxmeter; i++) {
                         blacknode[sn].meter_list[i].status = 'off'
                     }
                 }
@@ -91,10 +93,8 @@ async function start(BN_CFG_PATH) {
                 blacknode[sn].status = 'error'
                 blacknode[sn].last_update = new Date()
 
-                if(blacknode[sn].maxmeter > 0)
-                {
-                    for(let i=0; i<blacknode[sn].maxmeter; i++)
-                    {
+                if (blacknode[sn].maxmeter > 0) {
+                    for (let i = 0; i < blacknode[sn].maxmeter; i++) {
                         blacknode[sn].meter_list[i].status = 'off'
                     }
                 }
@@ -216,19 +216,18 @@ async function start(BN_CFG_PATH) {
                     blacknode[sn].status = 'on'
                     blacknode[sn].clientid = _client.id
 
-                    if(blacknode[sn].meter_list.length > modbusid)
-                    {
+                    if (blacknode[sn].meter_list.length > modbusid) {
                         blacknode[sn].meter_list[modbusid].last_update = blacknode[sn].last_update
                         blacknode[sn].meter_list[modbusid].status = 'on'
-                    }
-                    else
-                    {
-                        last['message'] = 'Received data from modbus ' + data_m[5] + ' that is out of range. Ignored.'
+                    } else {
+                        last['message'] =
+                            'Received data from modbus ' +
+                            data_m[5] +
+                            ' that is out of range. Ignored.'
                         last['time'] = new Date()
                         last['status'] = 'error'
                         console.log('Received data from a modbusid that is out of range. Ignored.')
                     }
-                    
                 }
             } else {
                 last['message'] =
@@ -326,19 +325,17 @@ async function start(BN_CFG_PATH) {
                                 THD_I1: parseFloat(e[35]),
                                 THD_I2: parseFloat(e[36]),
                                 THD_I3: parseFloat(e[37]),
-                                Frequency: parseFloat(e[38]),
+                                Frequency: parseFloat(e[38])
                                 // kWdemand: parseFloat(e[2]) * 4
                             }
 
                             // Check duplicate
-                            
-                            if(!blacknode[sn].meter_list[modbusid].last_db)
-                            {
+
+                            if (!blacknode[sn].meter_list[modbusid].last_db) {
                                 blacknode[sn].meter_list[modbusid].last_db = new Date(0)
                             }
-                            const lastDbDate = new Date(blacknode[sn].meter_list[modbusid].last_db);
-                            if(lastDbDate.getTime() < dt.getTime())
-                            {
+                            const lastDbDate = new Date(blacknode[sn].meter_list[modbusid].last_db)
+                            if (lastDbDate.getTime() < dt.getTime()) {
                                 blacknode[sn].meter_list[modbusid].last_db = dt
 
                                 checkOverRange(obj)
@@ -364,25 +361,30 @@ async function start(BN_CFG_PATH) {
                                     },
                                     function () {}
                                 )
-                            }
-                            else
-                            {
-                                console.log('\nReceived duplicated packet. Ignored.'+`\nLastDB:${lastDbDate.getTime()}|BNTime:${dt.getTime()}`)
-                                try{
-                                    const currTime = new Date();
-                                    const brokerTime = new Date(blacknode[sn].meter_list[modbusid].last_db);
-                                    const bnTime = new Date(dt);
-                                    console.log(blacknode[sn].meter_list[modbusid].name);
-                                    console.log('Current Time (UTC+7)" '+formatDateTime(currTime));
-                                    console.log('Broker (UTC): '+formatDateTime(brokerTime));
-                                    console.log('BlackNode (UTC): '+formatDateTime(bnTime));
-                                    brokerTime.setHours(brokerTime.getHours()-7);
-                                    bnTime.setHours(bnTime.getHours()-7);
-                                    console.log('Broker (UTC+7): '+formatDateTime(brokerTime));
-                                    console.log('BlackNode (UTC+7): '+formatDateTime(bnTime));
-                                    console.log('Import_kWh: '+obj.Import_kWh+' : '+'V12: '+obj.V12);
-                                }
-                                    catch(err){console.log(err);
+                            } else {
+                                console.log(
+                                    '\nReceived duplicated packet. Ignored.' +
+                                        `\nLastDB:${lastDbDate.getTime()}|BNTime:${dt.getTime()}`
+                                )
+                                try {
+                                    const currTime = new Date()
+                                    const brokerTime = new Date(
+                                        blacknode[sn].meter_list[modbusid].last_db
+                                    )
+                                    const bnTime = new Date(dt)
+                                    console.log(blacknode[sn].meter_list[modbusid].name)
+                                    console.log('Current Time (UTC+7)" ' + formatDateTime(currTime))
+                                    console.log('Broker (UTC): ' + formatDateTime(brokerTime))
+                                    console.log('BlackNode (UTC): ' + formatDateTime(bnTime))
+                                    brokerTime.setHours(brokerTime.getHours() - 7)
+                                    bnTime.setHours(bnTime.getHours() - 7)
+                                    console.log('Broker (UTC+7): ' + formatDateTime(brokerTime))
+                                    console.log('BlackNode (UTC+7): ' + formatDateTime(bnTime))
+                                    console.log(
+                                        'Import_kWh: ' + obj.Import_kWh + ' : ' + 'V12: ' + obj.V12
+                                    )
+                                } catch (err) {
+                                    console.log(err)
                                 }
 
                                 aedesInst.publish(
@@ -405,7 +407,6 @@ async function start(BN_CFG_PATH) {
                                     function () {}
                                 )
                             }
-                            
 
                             // let aQ = {
                             //     cmd: 'publish',
@@ -425,8 +426,6 @@ async function start(BN_CFG_PATH) {
                             // };
 
                             // addQueue(obj, aQ)
-
-                            
                         } catch (err) {
                             aedesInst.publish(
                                 {
@@ -523,12 +522,15 @@ async function start(BN_CFG_PATH) {
                             )
                             lastFifteenTime.setUTCSeconds(0)
                             lastFifteenTime.setUTCMilliseconds(0)
-                            let lastFifteenData = (lastUpdateData[snid].lastFifteenData) ? lastUpdateData[snid].lastFifteenData : parseFloat(e[2])
+                            let lastFifteenData = lastUpdateData[snid].lastFifteenData
+                                ? lastUpdateData[snid].lastFifteenData
+                                : parseFloat(e[2])
 
                             if (
                                 lastUpdateData[snid] &&
                                 lastUpdateData[snid].lastFifteenTime &&
-                                lastUpdateData[snid].lastFifteenTime.getTime() != lastFifteenTime.getTime()
+                                lastUpdateData[snid].lastFifteenTime.getTime() !=
+                                    lastFifteenTime.getTime()
                             ) {
                                 lastFifteenData = parseFloat(e[2])
                             }
@@ -584,7 +586,50 @@ async function start(BN_CFG_PATH) {
                             }
 
                             checkOverRange(obj, true)
+                            try {
+                            } catch (err) {}
+                            //clear at midnight
+                            const now_date = new Date()
 
+                            if (
+                                !rt_store.clear &&
+                                now_date.getHours() == 0 &&
+                                now_date.getMinutes() == 0
+                            ) {
+                                rt_store.clear = true
+                                for (const gid in rt_store.group) {
+                                    try {
+                                        const json = await redisClient.get(`g-${gid}`);
+                                        const tmpRead = JSON.parse(json)
+                                        for (const snid in tmpRead.data) {
+                                            tmpRead.data[snid].length = []
+                                        }
+                                        await redisClient.set(`g-${gid}`,JSON.stringify(tmpRead));
+                                    } catch (err) {}
+                                }
+                            }
+                            if (now_date.getMinutes() == 1) rt_store.clear = false
+
+                            for (const gid in rt_store.group) {
+                                try {
+                                    if (rt_store.group[gid].snid.includes(snid)) {
+                                        const data = await redisClient.get(`g-${gid}`);
+                                        if (data) {
+                                            const tmpRead = JSON.parse(data);
+                                            tmpRead.data[snid].push({
+                                                P_Sum: obj.P_Sum,
+                                                TotalkWh: obj.TotalkWh,
+                                                datetime:now_date.toISOString()
+                                            })
+                                            rt_store.group[gid].data[snid] = [tmpRead.data[snid][tmpRead.data[snid].length - 1]];
+                                            await redisClient.set(`g-${gid}`,JSON.stringify(tmpRead));
+                                        }
+                                    }
+                                } catch (err) {
+                                    console.log(err);
+                                    
+                                }
+                            }
                             Object.assign(lastUpdateData[snid], obj)
                         }
                     }
@@ -593,10 +638,12 @@ async function start(BN_CFG_PATH) {
         } else {
             // Invalid topic
         }
-
     })
 
-    httpServer.listen((meta_cfg.broker.mqttport) ? meta_cfg.broker.mqttport : 8884, function () {
-        console.log('MQTT server is running at ', (meta_cfg.broker.mqttport) ? meta_cfg.broker.mqttport : 8884)
+    httpServer.listen(meta_cfg.broker.mqttport ? meta_cfg.broker.mqttport : 8884, function () {
+        console.log(
+            'MQTT server is running at ',
+            meta_cfg.broker.mqttport ? meta_cfg.broker.mqttport : 8884
+        )
     })
 }

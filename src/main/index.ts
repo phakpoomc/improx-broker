@@ -14,7 +14,8 @@ import {
     loadMetaDB,
     loadBNInfoFromLocal,
     checkHeartbeat,
-    db
+    db,
+    loadOverview
     // savetoDB
 } from './global.js'
 
@@ -119,6 +120,7 @@ function createWindow(): void {
 
                     await syncDB()
                     await loadMetaDB()
+                    await loadOverview()
                 }
             }
         }

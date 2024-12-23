@@ -44,6 +44,7 @@
         "mysql2": "^3.9.2",
         "pg": "^8.11.3",
         "pg-hstore": "^2.3.4",
+        "redis": "^4.7.0",
         "sequelize": "^6.37.1",
         "sqlite3": "^5.1.7",
         "tedious": "^18.1.0",
@@ -53,7 +54,6 @@
     "devDependencies": {
         "@electron-toolkit/tsconfig": "^1.0.1",
         "@rushstack/eslint-patch": "^1.1.4",
-        "@types/node": "16.11.22",
         "@vitejs/plugin-vue": "^4.1.0",
         "@vue/eslint-config-prettier": "^7.0.0",
         "@vue/eslint-config-typescript": "^11.0.0",
