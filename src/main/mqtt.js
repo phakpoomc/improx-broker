@@ -47,7 +47,20 @@ async function start(BN_CFG_PATH) {
     aedesInst = new Aedes({concurrency: Math.max(EventEmitter.defaultMaxListeners, 400)})
     httpServer = wsCreateServer(aedesInst /*, {ws: true}*/)
 
-    
+    aedesInst.authorizeSubscribe = function (client, sub, cb) {
+        console.log('authorizeSubscribe', client.id, new Date(), client.id, sub)
+        cb(null, sub)
+    }
+
+    aedesInst.authorizePublish = function (client, pkt, cb) {
+        console.log('authorizePublish', client.id, new Date(), client.id, pkt.topic)
+        cb(null)
+    }
+
+    aedesInst.authenticate = function (client, username, password, callback) {
+        console.log('authenticate', client.id, new Date())
+        callback(null, true)
+      }
 
     aedesInst.on('clientDisconnect', function (client) {
         console.log('Disconnect', client.id, new Date());
@@ -90,6 +103,22 @@ async function start(BN_CFG_PATH) {
 
     aedesInst.on('connectionError', function (client, err) {
         console.log('connectionError', client.id, new Date(), err);
+    })
+
+    aedesInst.on('subscribe', function (sub, client) {
+        console.log('subscribe', client.id, new Date(), sub);
+    })
+
+    aedesInst.on('client', function (client) {
+        console.log('client connected', client.id, new Date());
+    })
+
+    aedesInst.on('clientReady', function (client) {
+        console.log('client ready', client.id, new Date());
+    })
+
+    aedesInst.on('keepaliveTimeout', function (client) {
+        console.log('timeout', client.id, new Date());
     })
 
     aedesInst.on('clientError', function (client, err) {
