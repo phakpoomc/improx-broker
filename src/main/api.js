@@ -5374,16 +5374,19 @@ export function initAPI() {
                 }
                 const date = new Date(e.DateTimeUpdate)
                 if (type == 'year') {
-                    if (result[date.getMonth() + 1]) {
-                        result[date.getMonth()].value += power
+                    const utcMonth = date.getUTCMonth();
+                    if (result[utcMonth + 1]) {
+                        result[utcMonth].value += power
                     }
                 } else if (type == 'month') {
-                    if (result[date.getDate()]) {
-                        result[date.getDate()].value += power
+                    const utcDate = date.getDate();
+                    if (result[utcDate]) {
+                        result[utcDate].value += power
                     }
                 } else {
-                    if (result[date.getHours()]) {
-                        result[date.getHours()].value += power
+                    const utcHour = date.getUTCHours();
+                    if (result[utcHour]) {
+                        result[utcHour].value += power
                     }
                 }
                 prevTime[e.snmKey] = date
@@ -5466,10 +5469,10 @@ export function initAPI() {
 
                 const absEnergyPEA = (pea - prevEnergyPEA[e.snmKey]) * multmap[e.snmKey]
                 const absEnergySolar = (solar - prevEnergySolar[e.snmKey]) * multmap[e.snmKey]
-
-                if (result[date.getDate()]) {
-                    result[date.getDate()].solar.value += absEnergySolar
-                    result[date.getDate()].pea.value += absEnergyPEA
+                const utcDate = date.getUTCDate();
+                if (result[utcDate]) {
+                    result[utcDate].solar.value += absEnergySolar
+                    result[utcDate].pea.value += absEnergyPEA
                 }
                 prevEnergyPEA[e.snmKey] = pea
                 prevEnergySolar[e.snmKey] = solar
