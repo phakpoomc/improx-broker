@@ -23,13 +23,13 @@ import {
 import { api_server, initAPI } from './api.js'
 import { web_server, initWeb } from './web.js'
 import { syncDB } from './db.js'
-
 import crypto from 'crypto'
 
 const QOS = 2
 
 //add more memory
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=4096')
+//set event emitter
 
 function loginWith(uname, pwd) {
     const correctHash = crypto.createHash('sha512')
@@ -112,19 +112,15 @@ function createWindow(): void {
 
     mainWindow.on('ready-to-show', async () => {
         mainWindow.show()
-
         loadMetaCFG()
-
         if (meta_cfg.auth_cred.remember) {
             if (loginWith(meta_cfg.auth_cred.username, meta_cfg.auth_cred.password)) {
                 authenticated = true
                 username = meta_cfg.auth_cred.username
-
                 if (!aedesInst || aedesInst.closed) {
                     startMQTT(BN_CFG_PATH)
                     initWeb()
                     initAPI()
-
                     await syncDB()
                     await loadMetaDB()
                 }

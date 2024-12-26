@@ -10,7 +10,6 @@ import {
     lastUpdateTime,
     lastUpdateData,
     db,
-    loadOverview,
     meta_cfg,
     overview_store
     // addQueue
@@ -18,56 +17,55 @@ import {
 import * as path from 'path'
 export var aedesInst
 export var httpServer
+export var redisClient
 const fs = require('fs')
-
 const QOS = 2
+import { EventEmitter } from 'events'
+import { createClient } from 'redis'
 
 function formatDateTime(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}/${month}/${day} ${hours}:${minutes}`;
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    return `${year}/${month}/${day} ${hours}:${minutes}`
 }
 
-export async function startMQTT(BN_CFG_PATH)
-{
-    if(aedesInst)
-    {
+export async function startMQTT(BN_CFG_PATH) {
+    if (aedesInst) {
         aedesInst.close()
         httpServer.close()
         aedesInst = null
         start(BN_CFG_PATH)
-    }
-    else
-    {
+    } else {
         start(BN_CFG_PATH)
     }
 }
 
 async function start(BN_CFG_PATH) {
-    aedesInst = new Aedes()
+    aedesInst = new Aedes({concurrency: Math.max(EventEmitter.defaultMaxListeners, 200)})
     httpServer = wsCreateServer(aedesInst /*, {ws: true}*/)
-
     loadBNInfoFromLocal(BN_CFG_PATH)
+    redisClient = await createClient()
+        .on('error', (err) => console.log('Redis Client Error', err))
+        .connect()
 
     aedesInst.on('clientDisconnect', function (client) {
-        for (let sn of Object.keys(blacknode)) {
+        for (const sn of Object.keys(blacknode)) {
             if (blacknode[sn].clientid == client.id) {
+                const now = new Date()
                 blacknode[sn].status = 'off'
                 blacknode[sn].last_update = new Date()
 
-                if(blacknode[sn].maxmeter > 0)
-                {
-                    for(let i=0; i<blacknode[sn].maxmeter; i++)
-                    {
+                if (blacknode[sn].maxmeter > 0) {
+                    for (let i = 0; i < blacknode[sn].maxmeter; i++) {
                         blacknode[sn].meter_list[i].status = 'off'
                     }
                 }
 
                 if (db && db.alert) {
-                    let id = blacknode[sn].SiteID + '%' + blacknode[sn].NodeID + '%0'
+                    const id = blacknode[sn].SiteID + '%' + blacknode[sn].NodeID + '%0'
                     db.alarm.create({
                         SerialNo: blacknode[sn].SerialNo,
                         SiteID: blacknode[sn].SiteID,
@@ -83,26 +81,24 @@ async function start(BN_CFG_PATH) {
                 }
             }
         }
-
         writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
     })
 
     aedesInst.on('clientError', function (client, _err) {
-        for (let sn of Object.keys(blacknode)) {
+        for (const sn of Object.keys(blacknode)) {
             if (blacknode[sn].clientid == client.id) {
+                const now = new Date()
                 blacknode[sn].status = 'error'
                 blacknode[sn].last_update = new Date()
 
-                if(blacknode[sn].maxmeter > 0)
-                {
-                    for(let i=0; i<blacknode[sn].maxmeter; i++)
-                    {
+                if (blacknode[sn].maxmeter > 0) {
+                    for (let i = 0; i < blacknode[sn].maxmeter; i++) {
                         blacknode[sn].meter_list[i].status = 'off'
                     }
                 }
 
                 if (db && db.alert) {
-                    let id = blacknode[sn].SiteID + '%' + blacknode[sn].NodeID + '%0'
+                    const id = blacknode[sn].SiteID + '%' + blacknode[sn].NodeID + '%0'
                     db.alarm.create({
                         SerialNo: blacknode[sn].SerialNo,
                         SiteID: blacknode[sn].SiteID,
@@ -118,17 +114,14 @@ async function start(BN_CFG_PATH) {
                 }
             }
         }
-
         writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
     })
 
-    aedesInst.on('publish', function (pkt, _client) {
+    aedesInst.on('publish', async function (pkt, _client) {
         const data_re = /^(DATABASE|REALTIME)\/(.*?)\/(.*?)\/(.*?)\/(\d*)$/
         const cfg_re = /^CFG\/([^\/]*)$/
-
         let cfg_m = pkt.topic.match(cfg_re)
         let data_m = pkt.topic.match(data_re)
-
         if (cfg_m) {
             // Configuration topic
 
@@ -218,19 +211,18 @@ async function start(BN_CFG_PATH) {
                     blacknode[sn].status = 'on'
                     blacknode[sn].clientid = _client.id
 
-                    if(blacknode[sn].meter_list.length > modbusid)
-                    {
+                    if (blacknode[sn].meter_list.length > modbusid) {
                         blacknode[sn].meter_list[modbusid].last_update = blacknode[sn].last_update
                         blacknode[sn].meter_list[modbusid].status = 'on'
-                    }
-                    else
-                    {
-                        last['message'] = 'Received data from modbus ' + data_m[5] + ' that is out of range. Ignored.'
+                    } else {
+                        last['message'] =
+                            'Received data from modbus ' +
+                            data_m[5] +
+                            ' that is out of range. Ignored.'
                         last['time'] = new Date()
                         last['status'] = 'error'
                         console.log('Received data from a modbusid that is out of range. Ignored.')
                     }
-                    
                 }
             } else {
                 last['message'] =
@@ -328,54 +320,72 @@ async function start(BN_CFG_PATH) {
                                 THD_I1: parseFloat(e[35]),
                                 THD_I2: parseFloat(e[36]),
                                 THD_I3: parseFloat(e[37]),
-                                Frequency: parseFloat(e[38]),
+                                Frequency: parseFloat(e[38])
                                 // kWdemand: parseFloat(e[2]) * 4
                             }
 
                             // Check duplicate
-                            if(!blacknode[sn].meter_list[modbusid].last_db)
-                            {
+                            if (!blacknode[sn].meter_list[modbusid].last_db) {
                                 blacknode[sn].meter_list[modbusid].last_db = new Date(0)
                             }
-    
+
                             //console.log("Before: "+ new Date(blacknode[sn].meter_list[modbusid].last_db));
-                            
-                            const lastDbDate = new Date(blacknode[sn].meter_list[modbusid].last_db);
-                            if(lastDbDate.getTime() < dt.getTime())
-                            {
-                                const nextThreeMonth = new Date(lastDbDate);
-                                let roundedMinutes = (Math.round(nextThreeMonth.getMinutes() / 15)) * 15;
+
+                            const lastDbDate = new Date(blacknode[sn].meter_list[modbusid].last_db)
+                            if (lastDbDate.getTime() < dt.getTime()) {
+                                const nextThreeMonth = new Date(lastDbDate)
+                                let roundedMinutes =
+                                    Math.round(nextThreeMonth.getMinutes() / 15) * 15
                                 if (roundedMinutes === 60) {
-                                    nextThreeMonth.setHours(nextThreeMonth.getHours() + 1);
-                                    roundedMinutes = 0;
+                                    nextThreeMonth.setHours(nextThreeMonth.getHours() + 1)
+                                    roundedMinutes = 0
                                 }
-                                nextThreeMonth.setMinutes(roundedMinutes);
-                                nextThreeMonth.setSeconds(0);
-                                nextThreeMonth.setMilliseconds(0);
+                                nextThreeMonth.setMinutes(roundedMinutes)
+                                nextThreeMonth.setSeconds(0)
+                                nextThreeMonth.setMilliseconds(0)
                                 nextThreeMonth.setMonth(nextThreeMonth.getMonth() + 3)
                                 // check if blacknode time more then three month
-                                if(dt.getTime() > nextThreeMonth.getTime()){
-                                    console.log('\nReceived Over Date packet. Ignored.');
-                                    try{
-                                        const currTime = new Date();
-                                        const brokerTime = new Date(blacknode[sn].meter_list[modbusid].last_db);
-                                        const bnTime = new Date(dt);
-                                        console.log(blacknode[sn].meter_list[modbusid].name);
-                                        console.log('Current Time (UTC+7)" '+formatDateTime(currTime));
-                                        console.log('Broker (UTC): '+formatDateTime(brokerTime));
-                                        console.log('BlackNode (UTC): '+formatDateTime(bnTime));
-                                        brokerTime.setHours(brokerTime.getHours()-7);
-                                        bnTime.setHours(bnTime.getHours()-7);
-                                        console.log('Broker (UTC+7): '+formatDateTime(brokerTime));
-                                        console.log('BlackNode (UTC+7): '+formatDateTime(bnTime));
-                                        console.log('Import_kWh: '+obj.Import_kWh+' : '+'V12: '+obj.V12);
-                                    }
-                                        catch(err){console.log(err);
+                                if (dt.getTime() > nextThreeMonth.getTime()) {
+                                    console.log('\nReceived Over Date packet. Ignored.')
+                                    try {
+                                        const currTime = new Date()
+                                        const brokerTime = new Date(
+                                            blacknode[sn].meter_list[modbusid].last_db
+                                        )
+                                        const bnTime = new Date(dt)
+                                        console.log(blacknode[sn].meter_list[modbusid].name)
+                                        console.log(
+                                            'Current Time (UTC+7)" ' + formatDateTime(currTime)
+                                        )
+                                        console.log('Broker (UTC): ' + formatDateTime(brokerTime))
+                                        console.log('BlackNode (UTC): ' + formatDateTime(bnTime))
+                                        brokerTime.setHours(brokerTime.getHours() - 7)
+                                        bnTime.setHours(bnTime.getHours() - 7)
+                                        console.log('Broker (UTC+7): ' + formatDateTime(brokerTime))
+                                        console.log('BlackNode (UTC+7): ' + formatDateTime(bnTime))
+                                        console.log(
+                                            'Import_kWh: ' +
+                                                obj.Import_kWh +
+                                                ' : ' +
+                                                'V12: ' +
+                                                obj.V12
+                                        )
+                                    } catch (err) {
+                                        console.log(err)
                                     }
                                     //set current date
-                                    const curr = new Date();
-                                    const currDate = new Date(Date.UTC(curr.getFullYear(), curr.getMonth() , curr.getDate(), curr.getHours(), curr.getMinutes(), curr.getSeconds()));
-                                    blacknode[sn].meter_list[modbusid].last_db = currDate;
+                                    const curr = new Date()
+                                    const currDate = new Date(
+                                        Date.UTC(
+                                            curr.getFullYear(),
+                                            curr.getMonth(),
+                                            curr.getDate(),
+                                            curr.getHours(),
+                                            curr.getMinutes(),
+                                            curr.getSeconds()
+                                        )
+                                    )
+                                    blacknode[sn].meter_list[modbusid].last_db = currDate
                                     aedesInst.publish(
                                         {
                                             cmd: 'publish',
@@ -395,64 +405,55 @@ async function start(BN_CFG_PATH) {
                                         },
                                         function () {}
                                     )
-                                }else{           
+                                } else {
                                     blacknode[sn].meter_list[modbusid].last_db = dt
-
                                     checkOverRange(obj)
 
-                                    db.energy.create(obj, {raw: true}).then(() => {
-                                        aedesInst.publish(
-                                            {
-                                                cmd: 'publish',
-                                                qos: QOS,
-                                                dup: false,
-                                                retain: false,
-                                                topic:
-                                                    'LOG/DATABASE/' +
-                                                    sn +
-                                                    '/' +
-                                                    siteid +
-                                                    '/' +
-                                                    nodeid +
-                                                    '/' +
-                                                    String(modbusid + 1).padStart(2, '0'),
-                                                payload: 'OK'
-                                            },
-                                            function () {}
-                                        )
-                                        let energy = 0;
+                                    await db.energy.create(obj)
 
-                                        if(meta_cfg.useImport.value)
+                                    aedesInst.publish(
                                         {
-                                            energy = obj.Import_kWh
-                                        }
-                                        else
-                                        {
-                                            energy = obj.TotalkWh
-                                        }
-
-                                    })
+                                            cmd: 'publish',
+                                            qos: QOS,
+                                            dup: false,
+                                            retain: false,
+                                            topic:
+                                                'LOG/DATABASE/' +
+                                                sn +
+                                                '/' +
+                                                siteid +
+                                                '/' +
+                                                nodeid +
+                                                '/' +
+                                                String(modbusid + 1).padStart(2, '0'),
+                                            payload: 'OK'
+                                        },
+                                        function () {}
+                                    )
                                 }
-                            }
-                            else
-                            {
-                                console.log('\nReceived duplicated packet. Ignored.'+`\nLastDB:${lastDbDate.getTime()}|BNTime:${dt.getTime()}`)
-                                try{
-                                    const currTime = new Date();
-                                    const brokerTime = new Date(blacknode[sn].meter_list[modbusid].last_db);
-                                    const bnTime = new Date(dt);
-                                    console.log(blacknode[sn].meter_list[modbusid].name);
-                                    console.log('Current Time (UTC+7)" '+formatDateTime(currTime));
-                                    console.log('Broker (UTC): '+formatDateTime(brokerTime));
-                                    console.log('BlackNode (UTC): '+formatDateTime(bnTime));
-                                    brokerTime.setHours(brokerTime.getHours()-7);
-                                    bnTime.setHours(bnTime.getHours()-7);
-                                    console.log('Broker (UTC+7): '+formatDateTime(brokerTime));
-                                    console.log('BlackNode (UTC+7): '+formatDateTime(bnTime));
-                                    console.log('Import_kWh: '+obj.Import_kWh+' : '+'V12: '+obj.V12);
-                                }
-                                    catch(err){
-                                }
+                            } else {
+                                console.log(
+                                    '\nReceived duplicated packet. Ignored.' +
+                                        `\nLastDB:${lastDbDate.getTime()}|BNTime:${dt.getTime()}`
+                                )
+                                try {
+                                    const currTime = new Date()
+                                    const brokerTime = new Date(
+                                        blacknode[sn].meter_list[modbusid].last_db
+                                    )
+                                    const bnTime = new Date(dt)
+                                    console.log(blacknode[sn].meter_list[modbusid].name)
+                                    console.log('Current Time (UTC+7)" ' + formatDateTime(currTime))
+                                    console.log('Broker (UTC): ' + formatDateTime(brokerTime))
+                                    console.log('BlackNode (UTC): ' + formatDateTime(bnTime))
+                                    brokerTime.setHours(brokerTime.getHours() - 7)
+                                    bnTime.setHours(bnTime.getHours() - 7)
+                                    console.log('Broker (UTC+7): ' + formatDateTime(brokerTime))
+                                    console.log('BlackNode (UTC+7): ' + formatDateTime(bnTime))
+                                    console.log(
+                                        'Import_kWh: ' + obj.Import_kWh + ' : ' + 'V12: ' + obj.V12
+                                    )
+                                } catch (err) {}
                                 aedesInst.publish(
                                     {
                                         cmd: 'publish',
@@ -473,8 +474,6 @@ async function start(BN_CFG_PATH) {
                                     function () {}
                                 )
                             }
-
-                            
                         } catch (err) {
                             aedesInst.publish(
                                 {
@@ -571,16 +570,19 @@ async function start(BN_CFG_PATH) {
                             )
                             lastFifteenTime.setUTCSeconds(0)
                             lastFifteenTime.setUTCMilliseconds(0)
-                            let lastFifteenData = (lastUpdateData[snid].lastFifteenData) ? lastUpdateData[snid].lastFifteenData : parseFloat(e[0])
+                            let lastFifteenData = lastUpdateData[snid].lastFifteenData
+                                ? lastUpdateData[snid].lastFifteenData
+                                : parseFloat(e[0])
 
                             if (
                                 lastUpdateData[snid] &&
                                 lastUpdateData[snid].lastFifteenTime &&
-                                lastUpdateData[snid].lastFifteenTime.getTime() != lastFifteenTime.getTime()
+                                lastUpdateData[snid].lastFifteenTime.getTime() !=
+                                    lastFifteenTime.getTime()
                             ) {
                                 lastFifteenData = parseFloat(e[0])
                             }
-                            
+
                             let obj = {
                                 SerialNo: sn,
                                 SiteID: siteid,
@@ -631,87 +633,110 @@ async function start(BN_CFG_PATH) {
                                 lastFifteenData: lastFifteenData
                             }
 
-                            try{
-                                const overviewPath = path.join(process.cwd(), 'overview_data.cfg');
+                            try {
+                                const overviewPath = path.join(process.cwd(), 'overview_data.cfg')
                                 const now_date = new Date()
-                                const snmKey = obj.SiteID + '%' + obj.NodeID + '%' + String(parseInt(obj.ModbusID)+1);
-                                  //clear 24 hour data
-                                if(now_date.getHours()==0 && now_date.getMinutes()==0 && !overview_store.clear){
-                                    overview_store.clear = true;
-                                    const rtFolder = path.join(process.cwd(), 'overview_data');
-                                    if (fs.existsSync(rtFolder)) fs.rmSync(rtFolder, { recursive: true, force: true });
-                                    fs.mkdirSync(rtFolder, { recursive: true });
+                                const snmKey =
+                                    obj.SiteID +
+                                    '%' +
+                                    obj.NodeID +
+                                    '%' +
+                                    String(parseInt(obj.ModbusID) + 1)
+                                //clear 24 hour data
+                                if (
+                                    now_date.getHours() == 0 &&
+                                    now_date.getMinutes() == 0 &&
+                                    !overview_store.clear
+                                ) {
+                                    overview_store.clear = true
+                                    await redisClient.flushDb();
                                     for (const k in overview_store) {
-                                        if(Array.isArray(overview_store[k])) overview_store[k].length = 0;
-                                        const filePath = path.join(rtFolder, `${k}.dat`);
-                                        fs.writeFileSync(filePath, JSON.stringify({data:[]}, null, 2), 'utf8');
+                                        if (Array.isArray(overview_store[k]))
+                                            overview_store[k].length = 0
+                                        await redisClient.set( `${k}.dat`,JSON.stringify({ data: [] }));
                                     }
                                 }
-                                if(now_date.getMinutes()==1)overview_store.clear = false;
+                                if (now_date.getMinutes() == 1) overview_store.clear = false
                                 //new month reset value
-                                if(overview_store.currMonth != now_date.getMonth()){
-                                    for (const k in overview_store.monthly_kwh){
-                                        if (overview_store.monthly_kwh[k].keys.includes(snmKey)){
-                                            overview_store.monthly_kwh[k].prevValue[snmKey] = 0;
-                                            overview_store.monthly_kwh[k].value[snmKey] = 0;
+                                if (overview_store.currMonth != now_date.getMonth()) {
+                                    for (const k in overview_store.monthly_kwh) {
+                                        if (overview_store.monthly_kwh[k].keys.includes(snmKey)) {
+                                            overview_store.monthly_kwh[k].prevValue[snmKey] = 0
+                                            overview_store.monthly_kwh[k].value[snmKey] = 0
                                         }
                                     }
-                                    overview_store.currMonth = now_date.getMonth();
+                                    overview_store.currMonth = now_date.getMonth()
                                 }
-                                
+
                                 for (const k in overview_store.monthly_kwh) {
                                     if (obj.Import_kWh <= 0) {
                                         continue
                                     }
-                                    if (overview_store.monthly_kwh[k].keys.includes(snmKey)){
-                                        if(overview_store.monthly_kwh[k].prevValue[snmKey] == 0){
-                                            overview_store.monthly_kwh[k].prevValue[snmKey] = obj.Import_kWh;
-                                            continue;
+                                    if (overview_store.monthly_kwh[k].keys.includes(snmKey)) {
+                                        if (overview_store.monthly_kwh[k].prevValue[snmKey] == 0) {
+                                            overview_store.monthly_kwh[k].prevValue[snmKey] =
+                                                obj.Import_kWh
+                                            continue
                                         }
-                                        
-                                        const kwh = (obj.Import_kWh - overview_store.monthly_kwh[k].prevValue[snmKey] ) * overview_store['multiplier'][k+"-"+snmKey];
-                                        overview_store.monthly_kwh[k].value[snmKey] += kwh;
-                                        overview_store.monthly_kwh[k].prevValue[snmKey] = obj.Import_kWh;
+
+                                        const kwh =
+                                            (obj.Import_kWh -
+                                                overview_store.monthly_kwh[k].prevValue[snmKey]) *
+                                            overview_store['multiplier'][k + '-' + snmKey]
+                                        overview_store.monthly_kwh[k].value[snmKey] += kwh
+                                        overview_store.monthly_kwh[k].prevValue[snmKey] =
+                                            obj.Import_kWh
                                     }
-                                    
                                 }
-                                let ovStore = overview_store[obj.SerialNo+"%"+obj.ModbusID];
-                                if(ovStore){
-                                    const filePath = path.join(process.cwd(), `overview_data/${obj.SerialNo + '%' + String(obj.ModbusID)}.dat`); 
-                                    let ov_json = null;
-                                    const ov_data = fs.readFileSync(filePath, 'utf8')
-                                    ov_json = JSON.parse(ov_data)
-                                    if (  ov_json &&
-                                        ov_json['data'].length > 0) {
-                                        ovStore = ov_json['data'];
-                                        ovStore.push({utc:now_date.toISOString(),value:{
-                                            snmKey:snmKey,
-                                            P_Sum:obj.P_Sum,
-                                            kWdemand:obj.kWdemand,
-                                            Import_kWh:obj.Import_kWh,
-                                            TotalkWh:obj.TotalkWh,
-                                        }});  
-                                        fs.writeFileSync(filePath, JSON.stringify({ data: ovStore }, null, 2), 'utf8');
-                                        const lastElement =  ovStore[ovStore.length - 1];
-                                        ovStore.length = 0;
-                                        ovStore.push(lastElement);
-                                        overview_store[obj.SerialNo+"%"+obj.ModbusID] = ovStore;
-                                    }else{
-                                        ovStore.push({utc:now_date.toISOString(),value:{
-                                            snmKey:snmKey,
-                                            P_Sum:obj.P_Sum,
-                                            kWdemand:obj.kWdemand,
-                                            Import_kWh:obj.Import_kWh,
-                                            TotalkWh:obj.TotalkWh,
-                                        }});  
-                                        fs.writeFileSync(filePath, JSON.stringify({ data: ovStore }, null, 2), 'utf8');
-                                        overview_store[obj.SerialNo+"%"+obj.ModbusID] =  ovStore;
+                                let ovStore = overview_store[obj.SerialNo + '%' + obj.ModbusID]
+                                if (ovStore) {
+                                    const ov_json_tmp = await redisClient.get(
+                                        `${obj.SerialNo + '%' + String(obj.ModbusID)}.dat`
+                                    )
+                                    if (ov_json_tmp) {
+                                        const ov_json = JSON.parse(ov_json_tmp)
+                                        if (ov_json && ov_json['data'].length > 0) {
+                                            const tmpRead = ov_json['data']
+                                            const lastElement = {
+                                                utc: now_date.toISOString(),
+                                                value: {
+                                                    snmKey: snmKey,
+                                                    P_Sum: obj.P_Sum,
+                                                    kWdemand: obj.kWdemand,
+                                                    Import_kWh: obj.Import_kWh,
+                                                    TotalkWh: obj.TotalkWh
+                                                }
+                                            }
+                                            tmpRead.push(lastElement)
+                                            await redisClient.set( `${obj.SerialNo + '%' + String(obj.ModbusID)}.dat`,JSON.stringify({data:tmpRead}));
+                                            ovStore.length = 0
+                                            ovStore.push(lastElement)
+                                            overview_store[obj.SerialNo + '%' + obj.ModbusID] =
+                                                ovStore
+                                        } else {
+                                            const data = {
+                                                utc: now_date.toISOString(),
+                                                value: {
+                                                    snmKey: snmKey,
+                                                    P_Sum: obj.P_Sum,
+                                                    kWdemand: obj.kWdemand,
+                                                    Import_kWh: obj.Import_kWh,
+                                                    TotalkWh: obj.TotalkWh
+                                                }
+                                            }
+                                            ovStore.push(data)
+                                            await redisClient.set( `${obj.SerialNo + '%' + String(obj.ModbusID)}.dat`,JSON.stringify({data:[data]}));
+                                            overview_store[obj.SerialNo + '%' + obj.ModbusID] =
+                                                ovStore
+                                        }
                                     }
                                 }
 
-
-                                writeFile(overviewPath, JSON.stringify(overview_store, null, 2), { flag: 'w' });
-                            }catch(err){
+                                writeFile(overviewPath, JSON.stringify(overview_store, null, 2), {
+                                    flag: 'w'
+                                })
+                            } catch (err) {
+                                
                             }
 
                             checkOverRange(obj, true)
@@ -724,10 +749,22 @@ async function start(BN_CFG_PATH) {
         } else {
             // Invalid topic
         }
-
     })
 
-    httpServer.listen((meta_cfg.broker.mqttport) ? meta_cfg.broker.mqttport : 8884, function () {
-        console.log('MQTT server is running at ', (meta_cfg.broker.mqttport) ? meta_cfg.broker.mqttport : 8884)
+    httpServer.listen(meta_cfg.broker.mqttport ? meta_cfg.broker.mqttport : 8884, function () {
+        console.log(
+            'MQTT server is running at ',
+            meta_cfg.broker.mqttport ? meta_cfg.broker.mqttport : 8884
+        )
     })
+
+    // httpServer.on('connection', (socket) => {
+    //     socket.on('drain', () => {
+    //         const drainListeners = socket.listeners()
+    //         if (drainListeners.length > 100) {
+    //             console.log('socket-remove-listener:'+drainListeners.length);
+    //             socket.removeAllListeners()
+    //         }
+    //     })
+    // })
 }

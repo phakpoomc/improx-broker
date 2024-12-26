@@ -28,349 +28,345 @@ import { syncDB } from './db.js'
 import ExcelJS from 'exceljs'
 import * as path from 'path'
 import bodyParser from 'body-parser'
-const { QueryTypes } = require('sequelize');
+const { QueryTypes } = require('sequelize')
 import session from 'express-session'
-const fs = require('fs')
 export var api_server
 import { meter_types_store } from './global.js'
+import { redisClient } from './mqtt.js'
 
 const MAX_NUMBER = 99999999999
-const TIME_PERIOD = 15*60*1000
-const DEMAND = 60*60*1000/TIME_PERIOD
+const TIME_PERIOD = 15 * 60 * 1000
+const DEMAND = (60 * 60 * 1000) / TIME_PERIOD
 
 // gtype = Group Method, dtype = data storage type (accumulative/instance)
 const cmap = {
-    'Import_kWh': {
+    Import_kWh: {
         name: 'Import_kWh',
         unit: '',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: false,
+        alarm: false
     },
-    'Export_kWh': {
+    Export_kWh: {
         name: 'Export_kWh',
         unit: '',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: false,
+        alarm: false
     },
-    'TotalkWh': {
+    TotalkWh: {
         name: 'TotalkWh',
         unit: '',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: false,
+        alarm: false
     },
-    'Total_kvarh': {
+    Total_kvarh: {
         name: 'Total_kvarh',
         unit: '',
         group: 'sum',
         storage: 'accumulative',
         weight: true,
-        alarm: false,
+        alarm: false
     },
-    'Ind_kvarh': {
+    Ind_kvarh: {
         name: 'Ind_kvarh',
         unit: '',
         group: 'sum',
         storage: 'accumulative',
         weight: true,
-        alarm: false,
+        alarm: false
     },
-    'Cap_kvarh': {
+    Cap_kvarh: {
         name: 'Cap_kvarh',
         unit: '',
         group: 'sum',
         storage: 'accumulative',
         weight: true,
-        alarm: false,
+        alarm: false
     },
-    'kVAh': {
+    kVAh: {
         name: 'kVAh',
         unit: '',
         group: 'sum',
         storage: 'accumulative',
         weight: true,
-        alarm: false,
+        alarm: false
     },
-    'V1': {
+    V1: {
         name: 'V1',
         unit: '(V)',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: true,
+        alarm: true
     },
-    'V2': {
+    V2: {
         name: 'V2',
         unit: '(V)',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: true,
+        alarm: true
     },
-    'V3': {
+    V3: {
         name: 'V3',
         unit: '(V)',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: true,
+        alarm: true
     },
-    'V12': {
+    V12: {
         name: 'V12',
         unit: '(V)',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: true,
+        alarm: true
     },
-    'V23': {
+    V23: {
         name: 'V23',
         unit: '(V)',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: true,
+        alarm: true
     },
-    'V31': {
+    V31: {
         name: 'V31',
         unit: '(V)',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: true,
+        alarm: true
     },
-    'I1': {
+    I1: {
         name: 'I1',
         unit: '(A)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'I2': {
+    I2: {
         name: 'I2',
         unit: '(A)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'I3': {
+    I3: {
         name: 'I3',
         unit: '(A)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'P1': {
+    P1: {
         name: 'P1',
         unit: '(kW)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'P2': {
+    P2: {
         name: 'P2',
         unit: '(kW)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'P3': {
+    P3: {
         name: 'P3',
         unit: '(kW)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'P_Sum': {
+    P_Sum: {
         name: 'P_Sum',
         unit: '(kW)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'Q1': {
+    Q1: {
         name: 'Q1',
         unit: '(kvar)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'Q2': {
+    Q2: {
         name: 'Q2',
         unit: '(kvar)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'Q3': {
+    Q3: {
         name: 'Q3',
         unit: '(kvar)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'Q_Sum': {
+    Q_Sum: {
         name: 'Q_Sum',
         unit: '(kvar)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'S1': {
+    S1: {
         name: 'S1',
         unit: '(kVA)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'S2': {
+    S2: {
         name: 'S2',
         unit: '(kVA)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'S3': {
+    S3: {
         name: 'S3',
         unit: '(kVA)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'S_Sum': {
+    S_Sum: {
         name: 'S_Sum',
         unit: '(kVA)',
         group: 'sum',
         storage: 'instance',
         weight: true,
-        alarm: true,
+        alarm: true
     },
-    'PF1': {
+    PF1: {
         name: 'PF1',
         unit: '',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: true,
+        alarm: true
     },
-    'PF2': {
+    PF2: {
         name: 'PF2',
         unit: '',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: true,
+        alarm: true
     },
-    'PF3': {
+    PF3: {
         name: 'PF3',
         unit: '',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: true,
+        alarm: true
     },
-    'PF_Sum': {
+    PF_Sum: {
         name: 'PF_Sum',
         unit: '',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: true,
+        alarm: true
     },
-    'THD_U1': {
+    THD_U1: {
         name: 'THD_U1',
         unit: '(%)',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: false,
+        alarm: false
     },
-    'THD_U2': {
+    THD_U2: {
         name: 'THD_U2',
         unit: '(%)',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: false,
+        alarm: false
     },
-    'THD_U3': {
+    THD_U3: {
         name: 'THD_U3',
         unit: '(%)',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: false,
+        alarm: false
     },
-    'THD_I1': {
+    THD_I1: {
         name: 'THD_I1',
         unit: '(%)',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: false,
+        alarm: false
     },
-    'THD_I2': {
+    THD_I2: {
         name: 'THD_I2',
         unit: '(%)',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: false,
+        alarm: false
     },
-    'THD_I3': {
+    THD_I3: {
         name: 'THD_I3',
         unit: '(%)',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: false,
+        alarm: false
     },
-    'Frequency': {
+    Frequency: {
         name: 'Frequency',
         unit: '(Hz)',
         group: 'avg',
         storage: 'instance',
         weight: false,
-        alarm: true,
+        alarm: true
     },
-    'kWdemand': {
+    kWdemand: {
         name: 'kWdemand',
         unit: '',
         group: 'sum',
         storage: 'accumulative',
         weight: false,
-        alarm: false,
-    },
+        alarm: false
+    }
 }
 
 const pmap = Object.keys(cmap)
 
-
-function checkRoles(givenRoles, allowedRoles)
-{
-    for(let r of givenRoles)
-    {
-        if(allowedRoles.includes(r))
-        {
+function checkRoles(givenRoles, allowedRoles) {
+    for (let r of givenRoles) {
+        if (allowedRoles.includes(r)) {
             return true
         }
     }
@@ -378,137 +374,134 @@ function checkRoles(givenRoles, allowedRoles)
     return false
 }
 
-const compareDateTime = (date1,date2) => {
-    const d1 = new Date(date1);
+const compareDateTime = (date1, date2) => {
+    const d1 = new Date(date1)
     const d2 = new Date(date2)
-    if(d1.getDate() == d2.getDate() && d1.getMonth() == d2.getMonth() && d1.getFullYear() == d2.getFullYear() 
-        && d1.getHours() == d2.getHours() && d1.getMinutes() == d2.getMinutes())
-    {
-        return true;
-    }else{
-        return false;
+    if (
+        d1.getDate() == d2.getDate() &&
+        d1.getMonth() == d2.getMonth() &&
+        d1.getFullYear() == d2.getFullYear() &&
+        d1.getHours() == d2.getHours() &&
+        d1.getMinutes() == d2.getMinutes()
+    ) {
+        return true
+    } else {
+        return false
     }
 }
-
 
 const formatDateTime = (date_string) => {
     const date = new Date(date_string)
-    return `${date.getDate().toString().padStart('2','0')}/${(date.getMonth() + 1).toString().padStart('2','0')}/${date.getFullYear()} ${date.getHours().toString().padStart('2','0')}:${date.getMinutes().toString().padStart('2','0')}`
+    return `${date.getDate().toString().padStart('2', '0')}/${(date.getMonth() + 1)
+        .toString()
+        .padStart('2', '0')}/${date.getFullYear()} ${date
+        .getHours()
+        .toString()
+        .padStart('2', '0')}:${date.getMinutes().toString().padStart('2', '0')}`
 }
 
-const getGroupValueByParam = (group_id,param_meter) =>{
-    const gid = parseInt(group_id);
-    const param = param_meter;
-    let total = 0;
-    let count = 0;
-    for(const m of group[gid].member)
-    {
-        const sn = m.serial;
-        const modbusid = parseInt(m.modbusid) - 1;
-        const snid = sn + "%" + String(modbusid);
+const getGroupValueByParam = (group_id, param_meter) => {
+    const gid = parseInt(group_id)
+    const param = param_meter
+    let total = 0
+    let count = 0
+    for (const m of group[gid].member) {
+        const sn = m.serial
+        const modbusid = parseInt(m.modbusid) - 1
+        const snid = sn + '%' + String(modbusid)
 
-        count += 1;
+        count += 1
 
-        if(lastUpdateData[snid] && lastUpdateTime[snid])
-        {
-            total += lastUpdateData[snid][param] * m.multiplier;
+        if (lastUpdateData[snid] && lastUpdateTime[snid]) {
+            total += lastUpdateData[snid][param] * m.multiplier
         }
     }
-    if(cmap[param].group == 'avg')
-    {
-        return total/count;
-    }
-    else if(cmap[param].group == 'sum')
-    {
-        return total;
-    }
-    else
-    {
-        console.log("Invalid parameter");
-        return 0;
+    if (cmap[param].group == 'avg') {
+        return total / count
+    } else if (cmap[param].group == 'sum') {
+        return total
+    } else {
+        console.log('Invalid parameter')
+        return 0
     }
 }
 
 function getRandomHexColor() {
-    let r, g, b;
+    let r, g, b
     do {
-        r = Math.floor(Math.random() * 256);
-        g = Math.floor(Math.random() * 256);
-        b = Math.floor(Math.random() * 256);
-    } while (r === 255 && g === 255 && b === 255); // Exclude white
+        r = Math.floor(Math.random() * 256)
+        g = Math.floor(Math.random() * 256)
+        b = Math.floor(Math.random() * 256)
+    } while (r === 255 && g === 255 && b === 255) // Exclude white
 
     // Convert the RGB values to a hexadecimal string
-    let hexColor = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
-    return hexColor;
+    let hexColor = '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()
+    return hexColor
 }
 
 const routes = {
-    'index': ['owner', 'user', 'admin', 'test'],
-    'alarm': ['owner', 'user', 'admin', 'test'],
-    'backupbn': ['owner', 'admin', 'test'],
-    'backupimpro': ['owner', 'admin', 'test'],
-    'groupmanage': ['owner', 'admin', 'test'],
-    'holidaymanage': ['owner', 'admin', 'test'],
-    'management': ['owner', 'admin', 'test'],
-    'meterdata': ['owner', 'user', 'admin', 'test'],
-    'metermonitor': ['owner', 'user', 'admin', 'test'],
-    'nodemonitor': ['owner', 'user', 'admin', 'test'],
-    'parametermanage': ['owner', 'admin', 'test'],
-    'phasor': ['owner', 'user', 'admin', 'test'],
-    'air_comp_monitor': ['owner', 'user', 'admin', 'test'],
-    'group_monitor': ['owner', 'user', 'admin', 'test'],
-    'report': ['owner', 'user', 'admin', 'test'],
-    'usermanage': ['owner', 'admin', 'test'],
-    'product': ['owner', 'user', 'admin', 'test'],
-    'support': ['owner', 'user', 'admin', 'test'],
-    'other': ['owner', 'user', 'admin', 'test'],
-    'pf': ['owner', 'user', 'admin', 'test'],
-    'target': ['owner', 'admin', 'test'],
-    'total_kWh_22kV': ['owner', 'user', 'admin', 'test'],
-    'dashboard_group': ['owner', 'user', 'admin', 'test'],
-    'demand_manage': ['owner', 'admin', 'test'],
-    'overview': ['owner', 'user', 'admin', 'test'],
-    'overview_group': ['owner', 'user', 'admin', 'test'],
+    index: ['owner', 'user', 'admin', 'test'],
+    alarm: ['owner', 'user', 'admin', 'test'],
+    backupbn: ['owner', 'admin', 'test'],
+    backupimpro: ['owner', 'admin', 'test'],
+    groupmanage: ['owner', 'admin', 'test'],
+    holidaymanage: ['owner', 'admin', 'test'],
+    management: ['owner', 'admin', 'test'],
+    meterdata: ['owner', 'user', 'admin', 'test'],
+    metermonitor: ['owner', 'user', 'admin', 'test'],
+    nodemonitor: ['owner', 'user', 'admin', 'test'],
+    parametermanage: ['owner', 'admin', 'test'],
+    phasor: ['owner', 'user', 'admin', 'test'],
+    air_comp_monitor: ['owner', 'user', 'admin', 'test'],
+    group_monitor: ['owner', 'user', 'admin', 'test'],
+    report: ['owner', 'user', 'admin', 'test'],
+    usermanage: ['owner', 'admin', 'test'],
+    product: ['owner', 'user', 'admin', 'test'],
+    support: ['owner', 'user', 'admin', 'test'],
+    other: ['owner', 'user', 'admin', 'test'],
+    pf: ['owner', 'user', 'admin', 'test'],
+    target: ['owner', 'admin', 'test'],
+    total_kWh_22kV: ['owner', 'user', 'admin', 'test'],
+    dashboard_group: ['owner', 'user', 'admin', 'test'],
+    demand_manage: ['owner', 'admin', 'test'],
+    overview: ['owner', 'user', 'admin', 'test'],
+    overview_group: ['owner', 'user', 'admin', 'test']
 }
 
 const apis = {
-    'group_type': ['owner', 'user', 'admin', 'test'],
-    'dashboard': ['owner', 'user', 'admin', 'test'],
-    'group_meter_info': ['owner', 'user', 'admin', 'test'],
-    'rt_chart': ['owner', 'user', 'admin', 'test'],
-    'meter_data_table': ['owner', 'user', 'admin', 'test'],
-    'node_monitor': ['owner', 'user', 'admin', 'test'],
-    'meter_list': ['owner', 'user', 'admin', 'test'],
-    'phasor': ['owner', 'user', 'admin', 'test'],
-    'backup': ['owner', 'admin', 'test'],
-    'getmeter': ['owner', 'user', 'admin', 'test'],
-    'getgroup': ['owner', 'user', 'admin', 'test'],
-    'management': ['owner', 'admin', 'test'],
-    'alarm': ['owner', 'user', 'admin', 'test'],
-    'getparameter': ['owner', 'user', 'admin', 'test'],
-    'getholiday': ['owner', 'user', 'admin', 'test'],
-    'getuser': ['owner', 'user', 'admin', 'test'],
-    'rp_chart': ['owner', 'user', 'admin', 'test'],
-    'dashboard_meters': ['owner', 'user', 'admin', 'test'],
-    'group_pf_monitor': ['owner', 'user', 'admin', 'test'],
-    'air_comp_monitor': ['owner', 'user', 'admin', 'test'],
-    'target': ['owner', 'admin', 'test'],
-    'group_monitor': ['owner', 'user', 'admin', 'test'],
-    'demand': ['owner', 'user', 'admin', 'test'],
-    'demand_manage': ['owner', 'admin', 'test'],
-    'overview': ['owner', 'user', 'admin', 'test'],
-    'overview_group': ['owner', 'user', 'admin', 'test'],
+    group_type: ['owner', 'user', 'admin', 'test'],
+    dashboard: ['owner', 'user', 'admin', 'test'],
+    group_meter_info: ['owner', 'user', 'admin', 'test'],
+    rt_chart: ['owner', 'user', 'admin', 'test'],
+    meter_data_table: ['owner', 'user', 'admin', 'test'],
+    node_monitor: ['owner', 'user', 'admin', 'test'],
+    meter_list: ['owner', 'user', 'admin', 'test'],
+    phasor: ['owner', 'user', 'admin', 'test'],
+    backup: ['owner', 'admin', 'test'],
+    getmeter: ['owner', 'user', 'admin', 'test'],
+    getgroup: ['owner', 'user', 'admin', 'test'],
+    management: ['owner', 'admin', 'test'],
+    alarm: ['owner', 'user', 'admin', 'test'],
+    getparameter: ['owner', 'user', 'admin', 'test'],
+    getholiday: ['owner', 'user', 'admin', 'test'],
+    getuser: ['owner', 'user', 'admin', 'test'],
+    rp_chart: ['owner', 'user', 'admin', 'test'],
+    dashboard_meters: ['owner', 'user', 'admin', 'test'],
+    group_pf_monitor: ['owner', 'user', 'admin', 'test'],
+    air_comp_monitor: ['owner', 'user', 'admin', 'test'],
+    target: ['owner', 'admin', 'test'],
+    group_monitor: ['owner', 'user', 'admin', 'test'],
+    demand: ['owner', 'user', 'admin', 'test'],
+    demand_manage: ['owner', 'admin', 'test'],
+    overview: ['owner', 'user', 'admin', 'test'],
+    overview_group: ['owner', 'user', 'admin', 'test'],
     'overview-reloaded': ['owner', 'admin']
 }
 
-async function routeguard(req, route)
-{
-    if(routes.hasOwnProperty(route))
-    {
-        if(req.session && (req.session.user != null || req.session.user != undefined))
-        {
-            if(checkRoles(req.session.role, routes[route]))
-            {
+async function routeguard(req, route) {
+    if (routes.hasOwnProperty(route)) {
+        if (req.session && (req.session.user != null || req.session.user != undefined)) {
+            if (checkRoles(req.session.role, routes[route])) {
                 return true
             }
         }
@@ -517,19 +510,13 @@ async function routeguard(req, route)
     return false
 }
 
-async function apiguard(req, route, token)
-{
-    if(apis.hasOwnProperty(route))
-    {
-        if(req.session && (req.session.user != null || req.session.user != undefined))
-        {
-            if(checkRoles(req.session.role, apis[route]))
-            {
+async function apiguard(req, route, token) {
+    if (apis.hasOwnProperty(route)) {
+        if (req.session && (req.session.user != null || req.session.user != undefined)) {
+            if (checkRoles(req.session.role, apis[route])) {
                 return true
             }
-        }
-        else if(meta_cfg.api.key != "" && meta_cfg.api.key == token)
-        {
+        } else if (meta_cfg.api.key != '' && meta_cfg.api.key == token) {
             return true
         }
         // else if(token is valid)
@@ -540,7 +527,7 @@ async function apiguard(req, route, token)
 }
 
 function isNumeric(value) {
-    return /^\d+$/.test(value);
+    return /^\d+$/.test(value)
 }
 
 function isOnPeak(dt) {
@@ -552,7 +539,12 @@ function isOnPeak(dt) {
     }
 
     // In case of holidays...
-    let k = String(dt.getUTCFullYear()) + '-' + String(parseInt(dt.getUTCMonth()) + 1) + '-' + String(dt.getUTCDate())
+    let k =
+        String(dt.getUTCFullYear()) +
+        '-' +
+        String(parseInt(dt.getUTCMonth()) + 1) +
+        '-' +
+        String(dt.getUTCDate())
 
     if (holidays[k]) {
         return false
@@ -575,16 +567,21 @@ function isOnPeak(dt) {
 
 function isOnPeakTOD(dt) {
     // In case of holidays...
-    const k = String(dt.getUTCFullYear()) + '-' + String(parseInt(dt.getUTCMonth()) + 1) + '-' + String(dt.getUTCDate())
+    const k =
+        String(dt.getUTCFullYear()) +
+        '-' +
+        String(parseInt(dt.getUTCMonth()) + 1) +
+        '-' +
+        String(dt.getUTCDate())
     if (holidays[k]) {
         return false
     }
 
     // Mon - Fri
-    const hours = dt.getUTCHours();
-    const min = dt.getUTCMinutes();
-    const calTime = (hours*60) + min;
-    // 18.30 - 21.30 
+    const hours = dt.getUTCHours()
+    const min = dt.getUTCMinutes()
+    const calTime = hours * 60 + min
+    // 18.30 - 21.30
     //call time = (hour x 60) + min
     if (calTime < 1110 || calTime > 1290) {
         return false
@@ -593,53 +590,51 @@ function isOnPeakTOD(dt) {
     return true
 }
 
-
 export function initAPI() {
-    if(api_server)
-    {
+    if (api_server) {
         api_server.close()
     }
 
     let origin = '*'
 
-    if(meta_cfg && meta_cfg.broker && meta_cfg.broker.cors && meta_cfg.broker.cors.length > 0)
-    {
+    if (meta_cfg && meta_cfg.broker && meta_cfg.broker.cors && meta_cfg.broker.cors.length > 0) {
         origin = meta_cfg.broker.cors
     }
 
     console.log('CORS: ', origin)
-    
+
     const api = express()
-    api.use(cors({
-        credentials: true,
-        methods: ["POST", "PUT", "GET", "OPTIONS", "HEAD"],
-        origin:  origin
-    }))
+    api.use(
+        cors({
+            credentials: true,
+            methods: ['POST', 'PUT', 'GET', 'OPTIONS', 'HEAD'],
+            origin: origin
+        })
+    )
     api.use(express.json())
     api.use(bodyParser.urlencoded({ extended: false }))
     api.use(bodyParser.json())
     api.use(fileUpload())
-    api.use(session({
-        secret: 'improx',
-        resave: false,
-        saveUninitialized: true,
-        cookie: {
-            httpOnly: true,
-            maxAge: 86400*1000*7,
-            secure: false
-        },
-        rolling: true
-    }))
+    api.use(
+        session({
+            secret: 'improx',
+            resave: false,
+            saveUninitialized: true,
+            cookie: {
+                httpOnly: true,
+                maxAge: 86400 * 1000 * 7,
+                secure: false
+            },
+            rolling: true
+        })
+    )
 
     api.get('/routeguard/:route', async (req, res) => {
         let allowed = await routeguard(req, req.params.route)
 
-        if(allowed)
-        {
+        if (allowed) {
             res.send('OK')
-        }
-        else
-        {
+        } else {
             res.send('ERR')
         }
     })
@@ -648,69 +643,53 @@ export function initAPI() {
         let uname = req.body.username
         let passwd = req.body.password
 
-        if(db && db.user && db.userrole)
-        {
+        if (db && db.user && db.userrole) {
             let found = await db.user.findOne({
                 where: {
-                    username: uname,
+                    username: uname
                 }
             })
 
-            if(found)
-            {
+            if (found) {
                 let match = await bcrypt.compare(passwd, found.password)
 
-                if(match)
-                {
+                if (match) {
                     let rs = await db.userrole.findAll({
                         attributes: ['role'],
                         where: {
                             userid: found.id
                         }
                     })
-    
+
                     let roles = []
-    
-                    for(let r of rs)
-                    {
+
+                    for (let r of rs) {
                         roles.push(r.role)
                     }
-    
+
                     req.session.regenerate((err) => {
-                        if(!err)
-                        {
+                        if (!err) {
                             req.session.user = uname
                             req.session.role = roles
-    
+
                             req.session.save((err) => {
-                                if(!err)
-                                {
+                                if (!err) {
                                     res.send(uname)
-                                }
-                                else
-                                {
+                                } else {
                                     res.send('a')
                                 }
                             })
-                        }
-                        else
-                        {
+                        } else {
                             res.send('b')
                         }
                     })
-                }
-                else
-                {
+                } else {
                     res.send('c')
                 }
-            }
-            else
-            {
+            } else {
                 res.send('d')
             }
-        }
-        else
-        {
+        } else {
             res.send('e')
         }
     })
@@ -724,9 +703,8 @@ export function initAPI() {
 
     api.get('/dashboard_card/:groupId', async (req, res) => {
         let ret = {}
-        const groupId =  req.params.groupId;
-        if(await apiguard(req, 'dashboard', '') == false)
-        {
+        const groupId = req.params.groupId
+        if ((await apiguard(req, 'dashboard', '')) == false) {
             ret = {
                 t_last_month: 0,
                 t_this_month: 0,
@@ -744,11 +722,15 @@ export function initAPI() {
         // calculate value and return
         const now = new Date()
         const tLastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0))
-        const tThisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth()    , 1, 0, 0, 0))
+        const tThisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0))
         const tNextMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0))
-        const tYesterday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0))
-        const tToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()        , 0, 0, 0))
-        const tTomorrow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0))
+        const tYesterday = new Date(
+            Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0)
+        )
+        const tToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0))
+        const tTomorrow = new Date(
+            Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0)
+        )
 
         let energyLastMonth = 0
         let energyThisMonth = 0
@@ -760,32 +742,28 @@ export function initAPI() {
         const user = await db.user.findOne({
             where: { username: req.session.user }
         })
-        let group;
-        if(isNumeric(groupId)){
+        let group
+        if (isNumeric(groupId)) {
             group = await db.group.findOne({
                 where: { id: groupId }
             })
-        }
-        else if(user && user.dataValues.group)
-        {
+        } else if (user && user.dataValues.group) {
             group = await db.group.findOne({
                 where: { id: user.dataValues.group }
             })
-        }
-        else
-        {
+        } else {
             group = await db.group.findOne({
                 where: { showDashboard: true }
             })
-        } 
+        }
 
-        group = group.dataValues;
-       
+        group = group.dataValues
+
         // var group = await db.group.findOne({
         //     where: { showDashboard: true }
         // })
 
-        let eData;
+        let eData
         let all = true
         const snmKey = []
         const prevEnergy = {}
@@ -799,7 +777,7 @@ export function initAPI() {
         if (group !== null) {
             const members = await db.gmember.findAll({
                 where: { GroupID: group.id },
-                order: [['order_meter', 'ASC']] 
+                order: [['order_meter', 'ASC']]
             })
 
             if (members !== null) {
@@ -826,7 +804,10 @@ export function initAPI() {
                         }
                     }
                 },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
             })
         } else {
             eData = await db.energy.findAll({
@@ -839,26 +820,26 @@ export function initAPI() {
                     },
                     snmKey: snmKey
                 },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
             })
         }
 
         for (const e of eData) {
             const sn = e.SerialNo
             const period = blacknode[sn].period * 60 * 1000
-            let energy = 0;
+            let energy = 0
 
-            if(meta_cfg.useImport.value)
-            {
+            if (meta_cfg.useImport.value) {
                 energy = e.Import_kWh
-            }
-            else
-            {
+            } else {
                 energy = e.TotalkWh
             }
 
-            if(energy <= 0){
-                continue;
+            if (energy <= 0) {
+                continue
             }
 
             if (!prevTime[e.snmKey]) {
@@ -867,10 +848,26 @@ export function initAPI() {
                 continue
             }
 
-            const adjustedTime = new Date(Date.UTC(e.DateTimeUpdate.getUTCFullYear(), e.DateTimeUpdate.getUTCMonth(), e.DateTimeUpdate.getUTCDate(), e.DateTimeUpdate.getUTCHours(), e.DateTimeUpdate.getUTCMinutes()))
+            const adjustedTime = new Date(
+                Date.UTC(
+                    e.DateTimeUpdate.getUTCFullYear(),
+                    e.DateTimeUpdate.getUTCMonth(),
+                    e.DateTimeUpdate.getUTCDate(),
+                    e.DateTimeUpdate.getUTCHours(),
+                    e.DateTimeUpdate.getUTCMinutes()
+                )
+            )
             adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes() - 1)
-            const tKey = adjustedTime.getUTCFullYear() + '-' + adjustedTime.getUTCMonth() + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
-
+            const tKey =
+                adjustedTime.getUTCFullYear() +
+                '-' +
+                adjustedTime.getUTCMonth() +
+                '-' +
+                adjustedTime.getUTCDate() +
+                '-' +
+                adjustedTime.getUTCHours() +
+                '-' +
+                adjustedTime.getUTCMinutes()
 
             const absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
@@ -881,60 +878,49 @@ export function initAPI() {
             prevEnergy[e.snmKey] = energy
 
             if (e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate <= tThisMonth) {
-                // Last month    
-                if(prevTime[e.snmKey] >= tLastMonth && prevTime[e.snmKey] <= tThisMonth)
-                {
+                // Last month
+                if (prevTime[e.snmKey] >= tLastMonth && prevTime[e.snmKey] <= tThisMonth) {
                     energyLastMonth += absEnergy
 
                     if (isOnPeakTOD(e.DateTimeUpdate)) {
-                        if(!(tKey in maxDemandLastMonth))
-                        {
+                        if (!(tKey in maxDemandLastMonth)) {
                             maxDemandLastMonth[tKey] = {}
                         }
 
                         maxDemandLastMonth[tKey][e.snmKey] = absEnergy * DEMAND
                     }
                 }
-                
             } else {
                 // This month
-                if(prevTime[e.snmKey] >= tThisMonth && prevTime[e.snmKey] <= tNextMonth)
-                {
-                  
-                    
+                if (prevTime[e.snmKey] >= tThisMonth && prevTime[e.snmKey] <= tNextMonth) {
                     energyThisMonth += absEnergy
 
                     if (isOnPeakTOD(e.DateTimeUpdate)) {
-                        if(!(tKey in maxDemandThisMonth))
-                        {
+                        if (!(tKey in maxDemandThisMonth)) {
                             maxDemandThisMonth[tKey] = {}
                         }
 
                         maxDemandThisMonth[tKey][e.snmKey] = absEnergy * DEMAND
                     }
-           
+
                     if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate <= tToday) {
                         // Yesterday
-                       
-                        if(prevTime[e.snmKey] >= tYesterday && prevTime[e.snmKey] <= tTomorrow)
-                        {
+
+                        if (prevTime[e.snmKey] >= tYesterday && prevTime[e.snmKey] <= tTomorrow) {
                             energyYesterday += absEnergy
 
                             if (isOnPeakTOD(e.DateTimeUpdate)) {
-                                if(!(tKey in maxDemandYesterday))
-                                {
+                                if (!(tKey in maxDemandYesterday)) {
                                     maxDemandYesterday[tKey] = {}
                                 }
 
                                 maxDemandYesterday[tKey][e.snmKey] = absEnergy * DEMAND
                             }
                         }
-                        
                     } else if (e.DateTimeUpdate >= tToday && prevTime[e.snmKey] < tTomorrow) {
                         energyToday += absEnergy
                         if (isOnPeakTOD(e.DateTimeUpdate)) {
-                            if(!(tKey in maxDemandToday))
-                            {
+                            if (!(tKey in maxDemandToday)) {
                                 maxDemandToday[tKey] = {}
                             }
 
@@ -942,7 +928,6 @@ export function initAPI() {
                         }
                     }
                 }
-                
             }
 
             prevTime[e.snmKey] = e.DateTimeUpdate
@@ -957,70 +942,57 @@ export function initAPI() {
         let sumMaxDemandYesterday = 0
         let sumMaxDemandThisMonth = 0
         let sumMaxDemandLastMonth = 0
-        
-        for(const k of todayKeys)
-        {
+
+        for (const k of todayKeys) {
             let tmpSum = 0
 
-            for(const snm of snmKey)
-            {
-                tmpSum += (maxDemandToday[k][snm]) ? maxDemandToday[k][snm] : 0
+            for (const snm of snmKey) {
+                tmpSum += maxDemandToday[k][snm] ? maxDemandToday[k][snm] : 0
             }
 
-            if(tmpSum > sumMaxDemandToday)
-            {
+            if (tmpSum > sumMaxDemandToday) {
                 sumMaxDemandToday = tmpSum
             }
         }
 
-        for(const k of yesterdayKeys)
-        {
+        for (const k of yesterdayKeys) {
             let tmpSum = 0
 
-            for(const snm of snmKey)
-            {
-                tmpSum += (maxDemandYesterday[k][snm]) ? maxDemandYesterday[k][snm] : 0
+            for (const snm of snmKey) {
+                tmpSum += maxDemandYesterday[k][snm] ? maxDemandYesterday[k][snm] : 0
             }
 
-            if(tmpSum > sumMaxDemandYesterday)
-            {
+            if (tmpSum > sumMaxDemandYesterday) {
                 sumMaxDemandYesterday = tmpSum
             }
         }
 
-        for(const k of thisMonthKeys)
-        {
+        for (const k of thisMonthKeys) {
             let tmpSum = 0
 
-            for(const snm of snmKey)
-            {
-                
-                tmpSum += (maxDemandThisMonth[k][snm]) ? maxDemandThisMonth[k][snm] : 0
+            for (const snm of snmKey) {
+                tmpSum += maxDemandThisMonth[k][snm] ? maxDemandThisMonth[k][snm] : 0
             }
 
-            if(tmpSum > sumMaxDemandThisMonth)
-            {
+            if (tmpSum > sumMaxDemandThisMonth) {
                 sumMaxDemandThisMonth = tmpSum
             }
         }
 
-        for(const k of lastMonthKeys)
-            {
-                let tmpSum = 0
-    
-                for(const snm of snmKey)
-                {
-                    tmpSum += (maxDemandLastMonth[k][snm]) ? maxDemandLastMonth[k][snm] : 0
-                }
-    
-                if(tmpSum > sumMaxDemandLastMonth)
-                {
-                    sumMaxDemandLastMonth = tmpSum
-                }
+        for (const k of lastMonthKeys) {
+            let tmpSum = 0
+
+            for (const snm of snmKey) {
+                tmpSum += maxDemandLastMonth[k][snm] ? maxDemandLastMonth[k][snm] : 0
             }
 
+            if (tmpSum > sumMaxDemandLastMonth) {
+                sumMaxDemandLastMonth = tmpSum
+            }
+        }
+
         ret = {
-            g_name:group.name,
+            g_name: group.name,
             t_last_month: energyLastMonth,
             t_this_month: energyThisMonth,
             t_yesterday: energyYesterday,
@@ -1035,10 +1007,9 @@ export function initAPI() {
     })
 
     api.get('/group_name/:groupId', async (req, res) => {
-        let ret = { g_name:'undefine'}
-        const groupId =  req.params.groupId;
-        if(await apiguard(req, 'dashboard', '') == false)
-        {
+        let ret = { g_name: 'undefine' }
+        const groupId = req.params.groupId
+        if ((await apiguard(req, 'dashboard', '')) == false) {
             res.json(ret)
             return
         }
@@ -1047,13 +1018,13 @@ export function initAPI() {
             where: { id: groupId }
         })
 
-        if(!group_name){
+        if (!group_name) {
             res.json(ret)
             return
         }
 
         ret = {
-            g_name:group_name.name,
+            g_name: group_name.name
         }
 
         res.json(ret)
@@ -1062,8 +1033,7 @@ export function initAPI() {
     api.get('/dashboard/:year/:month/:day/:groupId', async (req, res) => {
         let ret = []
 
-        if(await apiguard(req, 'dashboard', '') == false)
-        {
+        if ((await apiguard(req, 'dashboard', '')) == false) {
             res.json(ret)
             return
         }
@@ -1076,7 +1046,7 @@ export function initAPI() {
             }
         }
 
-        const groupId = req.params.groupId;
+        const groupId = req.params.groupId
         let year = req.params.year
         let month = parseInt(req.params.month) - 1
         let day = parseInt(req.params.day)
@@ -1085,10 +1055,16 @@ export function initAPI() {
         let endTime = new Date(Date.UTC(year, month, day + 1, 0, 0, 0))
 
         let now = new Date()
-        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
+        now = Date.UTC(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            now.getHours(),
+            now.getMinutes(),
+            0
+        )
 
-        if(now < endTime)
-        {
+        if (now < endTime) {
             endTime = new Date(now)
         }
 
@@ -1103,27 +1079,23 @@ export function initAPI() {
             where: { username: req.session.user }
         })
 
-       if(isNumeric(groupId)){
+        if (isNumeric(groupId)) {
             {
                 var group = await db.group.findOne({
                     where: { id: groupId }
-            })
-        }
-        }
-        else if(user && user.dataValues.group)
-        {
+                })
+            }
+        } else if (user && user.dataValues.group) {
             var group = await db.group.findOne({
                 where: { id: user.dataValues.group }
             })
-        }
-        else
-        {
+        } else {
             var group = await db.group.findOne({
                 where: { showDashboard: true }
             })
-        } 
+        }
 
-        group = group.dataValues;
+        group = group.dataValues
 
         var eData
         let all = true
@@ -1163,7 +1135,10 @@ export function initAPI() {
                         }
                     }
                 },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
             })
         } else {
             eData = await db.energy.findAll({
@@ -1177,21 +1152,21 @@ export function initAPI() {
                     //DateTimeUpdate: timeList,
                     snmKey: snmKey
                 },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
             })
         }
 
         for (let e of eData) {
             // let sn = e.SerialNo
             // let period = blacknode[sn].period * 60 * 1000
-            let energy = 0;
+            let energy = 0
 
-            if(meta_cfg.useImport.value)
-            {
+            if (meta_cfg.useImport.value) {
                 energy = e.Import_kWh
-            }
-            else
-            {
+            } else {
                 energy = e.TotalkWh
             }
 
@@ -1217,7 +1192,6 @@ export function initAPI() {
             ret[hour].value1 += absEnergy
 
             prevTime[e.snmKey] = e.DateTimeUpdate
-
         }
 
         res.json(ret)
@@ -1226,12 +1200,11 @@ export function initAPI() {
     api.get('/dashboard/:year/:month/:groupId', async (req, res) => {
         let ret = []
 
-        if(await apiguard(req, 'dashboard', '') == false)
-        {
+        if ((await apiguard(req, 'dashboard', '')) == false) {
             res.json(ret)
             return
         }
-        const groupId = req.params.groupId;
+        const groupId = req.params.groupId
         let year = req.params.year
         let month = parseInt(req.params.month) - 1
 
@@ -1250,10 +1223,16 @@ export function initAPI() {
         let endTime = new Date(Date.UTC(year, month + 1, 1, 0, 0, 0))
 
         let now = new Date()
-        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
+        now = Date.UTC(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            now.getHours(),
+            now.getMinutes(),
+            0
+        )
 
-        if(now < endTime)
-        {
+        if (now < endTime) {
             endTime = new Date(now)
         }
 
@@ -1268,26 +1247,21 @@ export function initAPI() {
             where: { username: req.session.user }
         })
 
-        if(isNumeric(groupId)){
+        if (isNumeric(groupId)) {
             var group = await db.group.findOne({
-                where: { id:groupId }
+                where: { id: groupId }
             })
-        }
-
-       else if(user && user.dataValues.group)
-        {
+        } else if (user && user.dataValues.group) {
             var group = await db.group.findOne({
                 where: { id: user.dataValues.group }
             })
-        }
-        else
-        {
+        } else {
             var group = await db.group.findOne({
                 where: { showDashboard: true }
             })
-        } 
+        }
 
-        group = group.dataValues;
+        group = group.dataValues
 
         var eData
         let all = true
@@ -1327,7 +1301,10 @@ export function initAPI() {
                     }
                     // DateTimeUpdate: timeList
                 },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
             })
         } else {
             eData = await db.energy.findAll({
@@ -1342,21 +1319,21 @@ export function initAPI() {
                     // DateTimeUpdate: timeList,
                     snmKey: snmKey
                 },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
             })
         }
 
         for (let e of eData) {
             // let sn = e.SerialNo
             // let period = blacknode[sn].period * 60 * 1000
-            let energy = 0;
+            let energy = 0
 
-            if(meta_cfg.useImport.value)
-            {
+            if (meta_cfg.useImport.value) {
                 energy = e.Import_kWh
-            }
-            else
-            {
+            } else {
                 energy = e.TotalkWh
             }
 
@@ -1391,14 +1368,13 @@ export function initAPI() {
     api.get('/dashboard/:year/:groupId', async (req, res) => {
         let ret = []
 
-        if(await apiguard(req, 'dashboard', '') == false)
-        {
+        if ((await apiguard(req, 'dashboard', '')) == false) {
             res.json(ret)
             return
         }
 
         let year = parseInt(req.params.year)
-        const groupId = req.params.groupId;
+        const groupId = req.params.groupId
         // calculate value and return
         for (let i = 0; i < 12; i++) {
             ret[i] = {
@@ -1411,10 +1387,16 @@ export function initAPI() {
         let endTime = new Date(Date.UTC(year + 1, 0, 1, 0, 0, 0))
 
         let now = new Date()
-        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
+        now = Date.UTC(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            now.getHours(),
+            now.getMinutes(),
+            0
+        )
 
-        if(now < endTime)
-        {
+        if (now < endTime) {
             endTime = new Date(now)
         }
 
@@ -1430,26 +1412,21 @@ export function initAPI() {
             where: { username: req.session.user }
         })
 
-        if(isNumeric(groupId)){
+        if (isNumeric(groupId)) {
             var group = await db.group.findOne({
                 where: { id: groupId }
             })
-        }
-
-        else if(user && user.dataValues.group)
-        {
+        } else if (user && user.dataValues.group) {
             var group = await db.group.findOne({
                 where: { id: user.dataValues.group }
             })
-        }
-        else
-        {
+        } else {
             var group = await db.group.findOne({
                 where: { showDashboard: true }
             })
-        }  
+        }
 
-        group = group.dataValues;
+        group = group.dataValues
 
         var eData
         let all = true
@@ -1489,7 +1466,10 @@ export function initAPI() {
                     }
                     // DateTimeUpdate: timeList
                 },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
             })
         } else {
             eData = await db.energy.findAll({
@@ -1504,21 +1484,21 @@ export function initAPI() {
                     // DateTimeUpdate: timeList,
                     snmKey: snmKey
                 },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
             })
         }
 
         for (let e of eData) {
             // let sn = e.SerialNo
             // let period = blacknode[sn].period * 60 * 1000
-            let energy = 0;
+            let energy = 0
 
-            if(meta_cfg.useImport.value)
-            {
+            if (meta_cfg.useImport.value) {
                 energy = e.Import_kWh
-            }
-            else
-            {
+            } else {
                 energy = e.TotalkWh
             }
 
@@ -1550,9 +1530,8 @@ export function initAPI() {
 
     api.get('/dashboard/:groupId', async (req, res) => {
         let ret = []
-        const groupId = req.params.groupId;
-        if(await apiguard(req, 'dashboard', '') == false)
-        {
+        const groupId = req.params.groupId
+        if ((await apiguard(req, 'dashboard', '')) == false) {
             res.json(ret)
             return
         }
@@ -1567,38 +1546,45 @@ export function initAPI() {
             }
         }
 
-        let startTime = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0))
-        let endTime = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds()))
-        
+        let startTime = new Date(
+            Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+        )
+        let endTime = new Date(
+            Date.UTC(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+                now.getHours(),
+                now.getMinutes(),
+                now.getSeconds()
+            )
+        )
+
         // let timeList = [];
 
-        for(let t = startTime; t<endTime; t.setMinutes(t.getMinutes() + 60))
-        {
-            timeList.push(new Date(t));
+        for (let t = startTime; t < endTime; t.setMinutes(t.getMinutes() + 60)) {
+            timeList.push(new Date(t))
         }
 
         let user = await db.user.findOne({
             where: { username: req.session.user }
         })
-        if(isNumeric(groupId)){
+        if (isNumeric(groupId)) {
             var group = await db.group.findOne({
                 where: { id: groupId }
             })
         }
-        if(user && user.dataValues.group)
-        {
+        if (user && user.dataValues.group) {
             var group = await db.group.findOne({
                 where: { id: user.dataValues.group }
             })
-        }
-        else
-        {
+        } else {
             var group = await db.group.findOne({
                 where: { showDashboard: true }
             })
-        } 
+        }
 
-        group = group.dataValues;
+        group = group.dataValues
 
         var eData
         let all = true
@@ -1610,7 +1596,7 @@ export function initAPI() {
         if (group !== null) {
             let members = await db.gmember.findAll({
                 where: { GroupID: group.id },
-                order: [['order_meter', 'ASC']] 
+                order: [['order_meter', 'ASC']]
             })
 
             if (members !== null) {
@@ -1639,7 +1625,10 @@ export function initAPI() {
                     }
                     // DateTimeUpdate: timeList
                 },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
             })
         } else {
             eData = await db.energy.findAll({
@@ -1654,21 +1643,21 @@ export function initAPI() {
                     // DateTimeUpdate: timeList,
                     snmKey: snmKey
                 },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
             })
         }
 
         for (let e of eData) {
             // let sn = e.SerialNo
             // let period = blacknode[sn].period * 60 * 1000
-            let energy = 0;
+            let energy = 0
 
-            if(meta_cfg.useImport.value)
-            {
+            if (meta_cfg.useImport.value) {
                 energy = e.Import_kWh
-            }
-            else
-            {
+            } else {
                 energy = e.TotalkWh
             }
 
@@ -1698,172 +1687,176 @@ export function initAPI() {
         res.json(ret)
     })
 
-    api.get('/dashboard_meters/:year/:month/:day/:groupId/:eyear/:emonth/:eday', async (req, res) => {
-        let ret = []
+    api.get(
+        '/dashboard_meters/:year/:month/:day/:groupId/:eyear/:emonth/:eday',
+        async (req, res) => {
+            let ret = []
 
-        if(await apiguard(req, 'dashboard_meters', '') == false)
-        {
-            res.json(ret)
-            return
-        }
-
-        // calculate value and return
-        // for (let i = 0; i < 24; i++) {
-        //     ret[i] = {
-        //         category: String(i),
-        //         value1: 0
-        //     }
-        // }
-        const groupId = req.params.groupId;
-        let year = req.params.year
-        let month = parseInt(req.params.month) - 1
-        let day = parseInt(req.params.day)
-
-        let eyear = req.params.eyear
-        let emonth = parseInt(req.params.emonth) - 1
-        let eday = parseInt(req.params.eday)
-
-        if(eyear == year && emonth == month && eday == day){
-            eday = eday+1;
-        }
-
-        let startTime = new Date(Date.UTC(year, month, day, 7, 30, 0))
-        let endTime = new Date(Date.UTC(eyear, emonth, eday, 7, 30, 0))
-
-        if(startTime > endTime){
-            res.json(ret)
-            return
-        }
-
-
-        let now = new Date()
-        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
-
-        if(now < endTime)
-        {
-            endTime = new Date(now)
-        }
-
-        let user = await db.user.findOne({
-            where: { username: req.session.user }
-        })
-
-        if(isNumeric(groupId)){
-            
-            var group = await db.group.findOne({
-                where: { id: groupId }
-            })
-            
-        }
-        else if(user && user.dataValues.group)
-        {
-            var group = await db.group.findOne({
-                where: { id: user.dataValues.group }
-            })
-        }
-        else
-        {
-            var group = await db.group.findOne({
-                where: { showDashboard: true }
-            })
-        } 
-
-        group = group.dataValues;
-        
-        var eData
-        let all = true
-        var snmKey = []
-        let prevEnergy = {}
-        let prevTime = {}
-        let multmap = {}
-        let prevSnmKey = {};
-
-        if (group !== null) {
-            let members = await db.gmember.findAll({
-                where: { GroupID: group.id },
-                order: [['order_meter', 'ASC']] 
-            })
-
-            if (members !== null) {
-                for (let m of members) {
-                    let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
-                    ret.push( {
-                        snmKey:m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID),
-                        category: blacknode[m.SerialNo].meter_list[m.ModbusID-1].name+`${m.line ? ' '+m.line : ''}`,
-                        value1: 0
-                    });
-                    snmKey.push(key)
-                    prevSnmKey[key] = key;
-                    prevEnergy[key] = 0
-                    prevTime[key] = null
-                    multmap[key] = parseFloat(m.multiplier)
-                }
-
-                all = false
+            if ((await apiguard(req, 'dashboard_meters', '')) == false) {
+                res.json(ret)
+                return
             }
-        }
 
-        if (all) {
-            eData = await db.energy.findAll({
-                where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    }
-                },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+            // calculate value and return
+            // for (let i = 0; i < 24; i++) {
+            //     ret[i] = {
+            //         category: String(i),
+            //         value1: 0
+            //     }
+            // }
+            const groupId = req.params.groupId
+            let year = req.params.year
+            let month = parseInt(req.params.month) - 1
+            let day = parseInt(req.params.day)
+
+            let eyear = req.params.eyear
+            let emonth = parseInt(req.params.emonth) - 1
+            let eday = parseInt(req.params.eday)
+
+            if (eyear == year && emonth == month && eday == day) {
+                eday = eday + 1
+            }
+
+            let startTime = new Date(Date.UTC(year, month, day, 7, 30, 0))
+            let endTime = new Date(Date.UTC(eyear, emonth, eday, 7, 30, 0))
+
+            if (startTime > endTime) {
+                res.json(ret)
+                return
+            }
+
+            let now = new Date()
+            now = Date.UTC(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+                now.getHours(),
+                now.getMinutes(),
+                0
+            )
+
+            if (now < endTime) {
+                endTime = new Date(now)
+            }
+
+            let user = await db.user.findOne({
+                where: { username: req.session.user }
             })
-        } else {
-            eData = await db.energy.findAll({
-                where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
+
+            if (isNumeric(groupId)) {
+                var group = await db.group.findOne({
+                    where: { id: groupId }
+                })
+            } else if (user && user.dataValues.group) {
+                var group = await db.group.findOne({
+                    where: { id: user.dataValues.group }
+                })
+            } else {
+                var group = await db.group.findOne({
+                    where: { showDashboard: true }
+                })
+            }
+
+            group = group.dataValues
+
+            var eData
+            let all = true
+            var snmKey = []
+            let prevEnergy = {}
+            let prevTime = {}
+            let multmap = {}
+            let prevSnmKey = {}
+
+            if (group !== null) {
+                let members = await db.gmember.findAll({
+                    where: { GroupID: group.id },
+                    order: [['order_meter', 'ASC']]
+                })
+
+                if (members !== null) {
+                    for (let m of members) {
+                        let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
+                        ret.push({
+                            snmKey: m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID),
+                            category:
+                                blacknode[m.SerialNo].meter_list[m.ModbusID - 1].name +
+                                `${m.line ? ' ' + m.line : ''}`,
+                            value1: 0
+                        })
+                        snmKey.push(key)
+                        prevSnmKey[key] = key
+                        prevEnergy[key] = 0
+                        prevTime[key] = null
+                        multmap[key] = parseFloat(m.multiplier)
+                    }
+
+                    all = false
+                }
+            }
+
+            if (all) {
+                eData = await db.energy.findAll({
+                    where: {
+                        DateTimeUpdate: {
+                            [Op.and]: {
+                                [Op.gte]: startTime,
+                                [Op.lte]: endTime
+                            }
                         }
                     },
-                    snmKey: snmKey
-                },
-                order: [['DateTimeUpdate', 'ASC'],['snmKey','ASC'], ['id', 'asc']]
-            })
-        }
-        //blacknode[g.SerialNo].meter_list[g.ModbusID-1].name
+                    order: [
+                        ['DateTimeUpdate', 'ASC'],
+                        ['id', 'asc']
+                    ]
+                })
+            } else {
+                eData = await db.energy.findAll({
+                    where: {
+                        DateTimeUpdate: {
+                            [Op.and]: {
+                                [Op.gte]: startTime,
+                                [Op.lte]: endTime
+                            }
+                        },
+                        snmKey: snmKey
+                    },
+                    order: [
+                        ['DateTimeUpdate', 'ASC'],
+                        ['snmKey', 'ASC'],
+                        ['id', 'asc']
+                    ]
+                })
+            }
+            //blacknode[g.SerialNo].meter_list[g.ModbusID-1].name
 
-        for (let e of eData) {
-            let energy = 0;
-            if(meta_cfg.useImport.value)
-            {
-                energy = e.Import_kWh
+            for (let e of eData) {
+                let energy = 0
+                if (meta_cfg.useImport.value) {
+                    energy = e.Import_kWh
+                } else {
+                    energy = e.TotalkWh
+                }
+
+                const findMeter = ret.findIndex((r) => r.snmKey == e.snmKey)
+                if (findMeter > -1 && prevEnergy[e.snmKey] > 0 && energy > 0) {
+                    ret[findMeter].value1 += (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+                }
+                prevEnergy[e.snmKey] = energy
             }
-            else
-            {
-                energy = e.TotalkWh
-            }
-            
-            const findMeter = ret.findIndex(r=>r.snmKey == e.snmKey);
-            if(findMeter > - 1 && prevEnergy[e.snmKey] > 0 && energy > 0){    
-                ret[findMeter].value1 += (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
-            }
-            prevEnergy[e.snmKey] = energy;
+
+            res.json(ret)
         }
-    
-        res.json(ret)
-    })
+    )
 
     api.get('/dashboard-consumption/:year/:month/:day/:groupId', async (req, res) => {
-        let ret = [];
+        let ret = []
 
-        if(await apiguard(req, 'dashboard', '') == false)
-        {
+        if ((await apiguard(req, 'dashboard', '')) == false) {
             res.json(ret)
             return
         }
 
-
-
-        const groupId = req.params.groupId;
+        const groupId = req.params.groupId
         const year = req.params.year
         const month = parseInt(req.params.month) - 1
         const day = parseInt(req.params.day)
@@ -1871,26 +1864,31 @@ export function initAPI() {
         // calculate value and return
         const date_category = new Date(year, month, day, 7, 15, 0)
         for (let i = 0; i < 96; i++) {
-            date_category.setMinutes(date_category.getMinutes() + 15);
+            date_category.setMinutes(date_category.getMinutes() + 15)
             ret[i] = {
                 category: formatDateTime(date_category),
                 value1: 0
             }
         }
 
-
         const startTime = new Date(Date.UTC(year, month, day, 7, 30, 0))
         let endTime = new Date(Date.UTC(year, month, day + 1, 7, 30, 0))
 
         let now = new Date()
-        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
+        now = Date.UTC(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            now.getHours(),
+            now.getMinutes(),
+            0
+        )
 
-        if(now < endTime)
-        {
+        if (now < endTime) {
             endTime = new Date(now)
         }
 
-        if(!isNumeric(groupId)){
+        if (!isNumeric(groupId)) {
             res.json(ret)
             return
         }
@@ -1899,29 +1897,27 @@ export function initAPI() {
             where: { id: groupId }
         })
 
-        group = group.dataValues;
+        group = group.dataValues
         var snmKey = []
         let prevEnergy = {}
         let prevTime = {}
         let multmap = {}
 
-
-        if(!group){
+        if (!group) {
             res.json(ret)
             return
         }
 
         if (group !== null) {
             const members = await db.gmember.findAll({
-                where: { GroupID: group.id,is_consumption: 'TRUE' },
-                order: [['order_meter', 'ASC']] 
+                where: { GroupID: group.id, is_consumption: 'TRUE' },
+                order: [['order_meter', 'ASC']]
             })
-            if(!members){
+            if (!members) {
                 res.json(ret)
                 return
             }
 
- 
             for (let m of members) {
                 let key = m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID)
                 snmKey.push(key)
@@ -1929,9 +1925,8 @@ export function initAPI() {
                 prevTime[key] = null
                 multmap[key] = parseFloat(m.multiplier)
             }
-
         }
-        
+
         const eData = await db.energy.findAll({
             where: {
                 DateTimeUpdate: {
@@ -1939,57 +1934,58 @@ export function initAPI() {
                 },
                 snmKey: snmKey
             },
-            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+            order: [
+                ['DateTimeUpdate', 'ASC'],
+                ['id', 'asc']
+            ]
         })
-        
+
         for (const e of eData) {
-            let energy = 0;
-            if(meta_cfg.useImport.value)
-            {
+            let energy = 0
+            if (meta_cfg.useImport.value) {
                 energy = e.Import_kWh
-            }
-            else
-            {
+            } else {
                 energy = e.TotalkWh
             }
-            let absEnergy = 0;
+            let absEnergy = 0
 
-            if(prevEnergy[e.snmKey] > 0 && energy > 0 && energy > prevEnergy[e.snmKey]){
+            if (prevEnergy[e.snmKey] > 0 && energy > 0 && energy > prevEnergy[e.snmKey]) {
                 absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
             }
-            
-            prevEnergy[e.snmKey] = energy;
+
+            prevEnergy[e.snmKey] = energy
 
             const dt = new Date(e.DateTimeUpdate)
-            dt.setHours(dt.getHours()-7)
-            dt.setMinutes(dt.getMinutes()-15)
+            dt.setHours(dt.getHours() - 7)
+            dt.setMinutes(dt.getMinutes() - 15)
             // if(e.snmKey == 'TEP%N09%9'){
             //     console.log(e.DateTimeUpdate);
             //     console.log(energy,prevEnergy[e.snmKey],absEnergy);
             // }
-         
 
-            const findArray = ret.findIndex(r=>r.category == formatDateTime(dt))
-            
+            const findArray = ret.findIndex((r) => r.category == formatDateTime(dt))
+
             // if(dt.getMinutes() %15 != 0){
             //     console.log('not 15 min : '+dt);
             // }
 
-            if(findArray > -1){
-                ret[findArray].value1 += absEnergy;
+            if (findArray > -1) {
+                ret[findArray].value1 += absEnergy
             }
         }
 
         const date_category2 = new Date(year, month, day, 7, 15, 0)
         for (let i = 0; i < 96; i++) {
-            date_category2.setMinutes(date_category2.getMinutes() + 15);
-            ret[i].category = `${date_category2.getHours().toString().padStart(2,'0')}:${date_category2.getMinutes().toString().padStart(2,'0')}`
-            
+            date_category2.setMinutes(date_category2.getMinutes() + 15)
+            ret[i].category = `${date_category2
+                .getHours()
+                .toString()
+                .padStart(2, '0')}:${date_category2.getMinutes().toString().padStart(2, '0')}`
         }
 
-        let start_date_time = new Date(year, month, day, 7, 30, 0);
+        let start_date_time = new Date(year, month, day, 7, 30, 0)
         ret[0].category = formatDateTime(start_date_time)
-        start_date_time = new Date(year, month, day+1, 0, 0, 0);
+        start_date_time = new Date(year, month, day + 1, 0, 0, 0)
         ret[66].category = formatDateTime(start_date_time)
 
         res.json(ret)
@@ -2002,8 +1998,7 @@ export function initAPI() {
             meter: []
         }
 
-        if(await apiguard(req, 'group_meter_info', '') == false)
-        {
+        if ((await apiguard(req, 'group_meter_info', '')) == false) {
             res.json(ret)
             return
         }
@@ -2012,24 +2007,24 @@ export function initAPI() {
         let groups = {}
 
         if (db.gmember) {
-            let groupInfo = null;
+            let groupInfo = null
             //get only type monitor group
             try {
-                groupInfo = await db.sequelize.query(`SELECT * FROM gmember as gm LEFT JOIN "group" as g on gm."GroupID" = g.id where g.type = 'monitor'`, {
-                    model: db.gmember,
-                    mapToModel: true, 
-                });
-    
-            }catch (error) {
-                console.error('Error executing query:', error);
+                groupInfo = await db.sequelize.query(
+                    `SELECT * FROM gmember as gm LEFT JOIN "group" as g on gm."GroupID" = g.id where g.type = 'monitor'`,
+                    {
+                        model: db.gmember,
+                        mapToModel: true
+                    }
+                )
+            } catch (error) {
+                console.error('Error executing query:', error)
             }
-            
-
 
             if (groupInfo !== null) {
                 for (let g of groupInfo) {
                     try {
-                        if (!(initGroup.includes(g.GroupID))) {
+                        if (!initGroup.includes(g.GroupID)) {
                             groups[g.GroupID] = {
                                 id: g.GroupID,
                                 name: group[g.GroupID].name,
@@ -2037,9 +2032,9 @@ export function initAPI() {
                                 parameter: [],
                                 member: []
                             }
-    
+
                             initGroup.push(g.GroupID)
-    
+
                             for (let i = 0; i < pmap.length; i++) {
                                 groups[g.GroupID].parameter.push({
                                     name: cmap[pmap[i]].name + ' ' + cmap[pmap[i]].unit,
@@ -2049,24 +2044,23 @@ export function initAPI() {
                                         cmap[pmap[i]].name +
                                         ' ' +
                                         cmap[pmap[i]].unit,
-                                    selectedSeries: 'G@' + String(g.GroupID) + '%' + cmap[pmap[i]].name
+                                    selectedSeries:
+                                        'G@' + String(g.GroupID) + '%' + cmap[pmap[i]].name
                                 })
                             }
                         }
-    
+
                         groups[g.GroupID].member.push({
-                            name: blacknode[g.SerialNo].meter_list[g.ModbusID-1].name,
+                            name: blacknode[g.SerialNo].meter_list[g.ModbusID - 1].name,
                             SerialNo: g.SerialNo,
-                            SiteID:g.SiteID,
-                            NodeID:g.NodeID,
-                            ModbusID:parseInt(g.ModbusID) - 1,
+                            SiteID: g.SiteID,
+                            NodeID: g.NodeID,
+                            ModbusID: parseInt(g.ModbusID) - 1
                         })
-                    }catch(err){
-                        console.log(g.SerialNo,g.ModbusID);
-                        console.log(err);
-                        
+                    } catch (err) {
+                        console.log(g.SerialNo, g.ModbusID)
+                        console.log(err)
                     }
-                    
                 }
             }
         }
@@ -2123,27 +2117,26 @@ export function initAPI() {
     api.get('/group_pf_monitor/:id', async (req, res) => {
         let ret = null
 
-        if(await apiguard(req, 'group_pf_monitor', '') == false)
-        {
+        if ((await apiguard(req, 'group_pf_monitor', '')) == false) {
             res.json(ret)
             return
         }
-        const id = req.params.id;
+        const id = req.params.id
 
         let initGroup = []
         let groups = {}
-        
+
         if (db.gmember) {
             let groupInfo = await db.gmember.findAll({
-                where:{
-                    GroupID:id
+                where: {
+                    GroupID: id
                 },
-                order: [['order_meter', 'ASC']] 
+                order: [['order_meter', 'ASC']]
             })
 
             if (groupInfo !== null) {
                 for (let g of groupInfo) {
-                    if (!(initGroup.includes(g.GroupID))) {
+                    if (!initGroup.includes(g.GroupID)) {
                         groups[g.GroupID] = {
                             id: g.GroupID,
                             name: group[g.GroupID].name,
@@ -2162,23 +2155,22 @@ export function initAPI() {
                                     cmap[pmap[i]].name +
                                     ' ' +
                                     cmap[pmap[i]].unit,
-                                selectedSeries: 'G@' + String(g.GroupID) + '%' + cmap[pmap[i]].name,
+                                selectedSeries: 'G@' + String(g.GroupID) + '%' + cmap[pmap[i]].name
                             })
                         }
                     }
-                    
+
                     groups[g.GroupID].member.push({
-                        name: blacknode[g.SerialNo].meter_list[g.ModbusID-1].name,
+                        name: blacknode[g.SerialNo].meter_list[g.ModbusID - 1].name,
                         SerialNo: g.SerialNo,
-                        SiteID:g.SiteID,
-                        NodeID:g.NodeID,
-                        ModbusID:parseInt(g.ModbusID) - 1,
-                        color:getRandomHexColor()
+                        SiteID: g.SiteID,
+                        NodeID: g.NodeID,
+                        ModbusID: parseInt(g.ModbusID) - 1,
+                        color: getRandomHexColor()
                     })
                 }
             }
         }
-
 
         let gKey = Object.keys(groups)
         for (let k of gKey) {
@@ -2189,11 +2181,10 @@ export function initAPI() {
 
     api.get('/group_meter_report/:type', async (req, res) => {
         let ret = {
-            group: [],
+            group: []
         }
 
-        if(await apiguard(req, 'group_meter_info', '') == false)
-        {
+        if ((await apiguard(req, 'group_meter_info', '')) == false) {
             res.json(ret)
             return
         }
@@ -2202,24 +2193,24 @@ export function initAPI() {
         let groups = {}
 
         if (db.gmember) {
-            let groupInfo = null;
+            let groupInfo = null
             //get only type monitor group
-            const sql = req.params.type == 'month' ? `= 'monthly_report'`   : `LIKE 'report_%'`
+            const sql = req.params.type == 'month' ? `= 'monthly_report'` : `LIKE 'report_%'`
             try {
-                groupInfo = await db.sequelize.query(`SELECT * FROM gmember as gm LEFT JOIN "group" as g on gm."GroupID" = g.id where g.type ${sql}`, {
-                    model: db.gmember,
-                    mapToModel: true, 
-                });
-    
-            }catch (error) {
-                console.error('Error executing query:', error);
+                groupInfo = await db.sequelize.query(
+                    `SELECT * FROM gmember as gm LEFT JOIN "group" as g on gm."GroupID" = g.id where g.type ${sql}`,
+                    {
+                        model: db.gmember,
+                        mapToModel: true
+                    }
+                )
+            } catch (error) {
+                console.error('Error executing query:', error)
             }
-            
-
 
             if (groupInfo !== null) {
                 for (let g of groupInfo) {
-                    if (!(initGroup.includes(g.GroupID))) {
+                    if (!initGroup.includes(g.GroupID)) {
                         groups[g.GroupID] = {
                             id: g.GroupID,
                             name: group[g.GroupID].name,
@@ -2245,11 +2236,11 @@ export function initAPI() {
                     }
 
                     groups[g.GroupID].member.push({
-                        name: blacknode[g.SerialNo].meter_list[g.ModbusID-1].name,
+                        name: blacknode[g.SerialNo].meter_list[g.ModbusID - 1].name,
                         SerialNo: g.SerialNo,
-                        SiteID:g.SiteID,
-                        NodeID:g.NodeID,
-                        ModbusID:parseInt(g.ModbusID) - 1,
+                        SiteID: g.SiteID,
+                        NodeID: g.NodeID,
+                        ModbusID: parseInt(g.ModbusID) - 1
                     })
                 }
             }
@@ -2267,8 +2258,7 @@ export function initAPI() {
     api.post('/rt_chart', async (req, res) => {
         let ret = {}
 
-        if(await apiguard(req, 'rt_chart', '') == false)
-        {
+        if ((await apiguard(req, 'rt_chart', '')) == false) {
             res.json(ret)
             return
         }
@@ -2277,84 +2267,68 @@ export function initAPI() {
 
         for (let k of p) {
             // Get data and fill
-            let arr = k.split("@");
+            let arr = k.split('@')
 
-            if(arr[0] == 'M')
-            {
-                let sn = arr[1];
+            if (arr[0] == 'M') {
+                let sn = arr[1]
                 // let siteid = arr[2];
                 // let nodeid = arr[3];
 
-                arr = arr[4].split("%");
+                arr = arr[4].split('%')
 
-                let modbusid = arr[0];
-                let param = arr[1];
+                let modbusid = arr[0]
+                let param = arr[1]
 
-                let snid = sn + "%" + modbusid;
+                let snid = sn + '%' + modbusid
 
-                if(lastUpdateData[snid] && lastUpdateTime[snid])
-                {
+                if (lastUpdateData[snid] && lastUpdateTime[snid]) {
                     ret[k] = {
                         time: lastUpdateTime[snid],
                         value: lastUpdateData[snid][param]
-                    };
-                }
-                else
-                {
+                    }
+                } else {
                     ret[k] = {
                         time: new Date(),
                         value: 0
-                    };
+                    }
                 }
+            } else if (arr[0] == 'G') {
+                arr = arr[1].split('%')
 
-            }
-            else if(arr[0] == 'G')
-            {
-                arr = arr[1].split("%");
+                let gid = parseInt(arr[0])
+                let param = arr[1]
 
-                let gid = parseInt(arr[0]);
-                let param = arr[1];
+                let total = 0
+                let count = 0
+                console.log(group[gid])
 
-                let total = 0;
-                let count = 0;
-                console.log(group[gid]);
-                
-                for(let m of group[gid].member)
-                {
-                    let sn = m.serial;
-                    let modbusid = parseInt(m.modbusid) - 1;
-                    let snid = sn + "%" + String(modbusid);
+                for (let m of group[gid].member) {
+                    let sn = m.serial
+                    let modbusid = parseInt(m.modbusid) - 1
+                    let snid = sn + '%' + String(modbusid)
 
-                    count += 1;
+                    count += 1
 
-                    if(lastUpdateData[snid] && lastUpdateTime[snid])
-                    {
-                        total += lastUpdateData[snid][param] * m.multiplier;
+                    if (lastUpdateData[snid] && lastUpdateTime[snid]) {
+                        total += lastUpdateData[snid][param] * m.multiplier
                     }
                 }
 
-                if(cmap[param].group == 'avg')
-                {
+                if (cmap[param].group == 'avg') {
                     ret[k] = {
                         time: new Date(),
-                        value: total/count
-                    };
-                }
-                else if(cmap[param].group == 'sum')
-                {
+                        value: total / count
+                    }
+                } else if (cmap[param].group == 'sum') {
                     ret[k] = {
                         time: new Date(),
                         value: total
-                    };
+                    }
+                } else {
+                    console.log('Invalid parameter')
                 }
-                else
-                {
-                    console.log("Invalid parameter");
-                }
-            }
-            else
-            {
-                console.log("Received invalid parameter");
+            } else {
+                console.log('Received invalid parameter')
             }
         }
 
@@ -2364,8 +2338,7 @@ export function initAPI() {
     api.get('/meter_data_table', async (req, res) => {
         let ret = []
 
-        if(await apiguard(req, 'meter_data_table', '') == false)
-        {
+        if ((await apiguard(req, 'meter_data_table', '')) == false) {
             res.json(ret)
             return
         }
@@ -2402,12 +2375,11 @@ export function initAPI() {
     api.get('/node_monitor', async (req, res) => {
         let ret = {}
 
-        if(await apiguard(req, 'node_monitor', '') == false)
-        {
+        if ((await apiguard(req, 'node_monitor', '')) == false) {
             res.json(ret)
             return
         }
-    
+
         let status_list = ['on', 'off', 'error', 'setup']
         let keys = Object.keys(blacknode)
 
@@ -2416,14 +2388,14 @@ export function initAPI() {
             let bn = blacknode[k]
 
             //delay  2 min
-            const bn_lastUpdate = new Date(bn.last_update);
-            let bn_status = 'off';
-            if (bn_lastUpdate instanceof Date && !isNaN(bn_lastUpdate)){
-                if((new Date() - bn_lastUpdate)  / (1000 * 60) <= 5){
-                    bn_status = 'on';
+            const bn_lastUpdate = new Date(bn.last_update)
+            let bn_status = 'off'
+            if (bn_lastUpdate instanceof Date && !isNaN(bn_lastUpdate)) {
+                if ((new Date() - bn_lastUpdate) / (1000 * 60) <= 5) {
+                    bn_status = 'on'
                 }
             }
-            
+
             ret[bn.serial] = {
                 id: 'Node ' + String(bn.nodeid),
                 location: bn.name,
@@ -2431,108 +2403,111 @@ export function initAPI() {
                 maxmeter: bn.maxmeter,
                 meter_list: []
             }
-            let isPartial = false;
+            let isPartial = false
             for (let i = 0; i < bn.maxmeter; i++) {
-                const m_lastUpdate = new Date(bn.meter_list[i].last_update);
-                let m_status = 'off';
-                if (m_lastUpdate instanceof Date && !isNaN(m_lastUpdate)){
-                    if((new Date() - m_lastUpdate)  / (1000 * 60) <= 5){
-                        m_status = 'on';
+                const m_lastUpdate = new Date(bn.meter_list[i].last_update)
+                let m_status = 'off'
+                if (m_lastUpdate instanceof Date && !isNaN(m_lastUpdate)) {
+                    if ((new Date() - m_lastUpdate) / (1000 * 60) <= 5) {
+                        m_status = 'on'
                     }
-                }else{
-                    continue;
+                } else {
+                    continue
                 }
 
-                if(m_status === 'off'){
-                    isPartial = true;
+                if (m_status === 'off') {
+                    isPartial = true
                 }
                 ret[bn.serial].meter_list[i] = {
                     id: i + 1,
                     address: bn.meter_list[i].id,
                     name: bn.meter_list[i].name,
                     status: m_status,
-                    meter_type:meter_types_store[bn.meter_list[i].type]
+                    meter_type: meter_types_store[bn.meter_list[i].type]
                 }
             }
-            if(isPartial){
-                ret[bn.serial].status == 'partial';
+            if (isPartial) {
+                ret[bn.serial].status == 'partial'
             }
         }
-        
+
         res.json(ret)
     })
 
     api.get('/air_comp_monitor/:type/:i_value', async (_req, res) => {
-        if(await apiguard(_req, 'air_comp_monitor', '') == false)
-        {
+        if ((await apiguard(_req, 'air_comp_monitor', '')) == false) {
             res.json({})
             return
         }
 
-        const i_value = _req.params.i_value;
-        if(!i_value){
+        const i_value = _req.params.i_value
+        if (!i_value) {
             res.json({})
             return
         }
-        
-        const group = await db.sequelize.query(`SELECT gm."GroupID" as gid,gm.id as mid,g.name ,gm."ModbusID" ,gm."SerialNo" 
-            FROM gmember as gm LEFT JOIN "group" as g on gm."GroupID" = g.id where g.type = '${_req.params.type}'`,{
-            type: QueryTypes.SELECT,
-        });
 
+        const group = await db.sequelize.query(
+            `SELECT gm."GroupID" as gid,gm.id as mid,g.name ,gm."ModbusID" ,gm."SerialNo" 
+            FROM gmember as gm LEFT JOIN "group" as g on gm."GroupID" = g.id where g.type = '${_req.params.type}'`,
+            {
+                type: QueryTypes.SELECT
+            }
+        )
 
-        const resp_data = {};
-        if(group != null){
+        const resp_data = {}
+        if (group != null) {
             for (let i = 0; i < group.length; i++) {
-                const g = group[i];
-                const bn = blacknode[g.SerialNo];
-                const meter = bn.meter_list.find((m)=>m.id == g.ModbusID)
-                if(meter){
+                const g = group[i]
+                const bn = blacknode[g.SerialNo]
+                const meter = bn.meter_list.find((m) => m.id == g.ModbusID)
+                if (meter) {
                     // add deley 1
-                    let load_status = 'off';
-                    const lastUpdate = new Date(meter.last_update);
-                    if (lastUpdate instanceof Date && !isNaN(lastUpdate)){
-                        if((new Date() - lastUpdate)  / (1000 * 60) <= 5){
-                            load_status = 'load';
+                    let load_status = 'off'
+                    const lastUpdate = new Date(meter.last_update)
+                    if (lastUpdate instanceof Date && !isNaN(lastUpdate)) {
+                        if ((new Date() - lastUpdate) / (1000 * 60) <= 5) {
+                            load_status = 'load'
                         }
                     }
 
-                    if(load_status === 'off'){
-                        if(!resp_data[g.gid]){
+                    if (load_status === 'off') {
+                        if (!resp_data[g.gid]) {
                             resp_data[g.gid] = {
-                                id:g.gid,
-                                name:g.name,
-                                status:load_status,
-                                meter:[{meter_name:meter.name,status:meter.status}]
+                                id: g.gid,
+                                name: g.name,
+                                status: load_status,
+                                meter: [{ meter_name: meter.name, status: meter.status }]
                             }
-                        }else{
-                            resp_data[g.gid].meter.push({meter_name:meter.name,status:meter.status})
+                        } else {
+                            resp_data[g.gid].meter.push({
+                                meter_name: meter.name,
+                                status: meter.status
+                            })
                         }
-                        continue;
+                        continue
                     }
 
-                    const I1 =  getGroupValueByParam(g.gid,'I1');
-                    const I2 =  getGroupValueByParam(g.gid,'I2');
-                    const I3 =  getGroupValueByParam(g.gid,'I3');
+                    const I1 = getGroupValueByParam(g.gid, 'I1')
+                    const I2 = getGroupValueByParam(g.gid, 'I2')
+                    const I3 = getGroupValueByParam(g.gid, 'I3')
 
-                    if(I1 < i_value || I2 < i_value  || I3 < i_value){
-                        load_status = 'unload';
+                    if (I1 < i_value || I2 < i_value || I3 < i_value) {
+                        load_status = 'unload'
                     }
 
-                    if(!resp_data[g.gid]){
+                    if (!resp_data[g.gid]) {
                         resp_data[g.gid] = {
-                            id:g.gid,
-                            name:g.name,
-                            status:load_status 
+                            id: g.gid,
+                            name: g.name,
+                            status: load_status
                         }
-                    }else{
-                        resp_data[g.gid].meter.push({meter_name:meter.name,status:load_status})
+                    } else {
+                        resp_data[g.gid].meter.push({ meter_name: meter.name, status: load_status })
                     }
-             
-                }          
-            }          
+                }
+            }
             res.json(resp_data)
-        }else{
+        } else {
             res.json({})
             return
         }
@@ -2541,8 +2516,7 @@ export function initAPI() {
     api.get('/meter_list', async (req, res) => {
         let ret = {}
 
-        if(await apiguard(req, 'meter_list', '') == false)
-        {
+        if ((await apiguard(req, 'meter_list', '')) == false) {
             res.json(ret)
             return
         }
@@ -2567,16 +2541,14 @@ export function initAPI() {
         let snid = sn + '%' + String(modbusid)
         let now = new Date()
 
-        let ret;
+        let ret
 
-        if(await apiguard(req, 'phasor', '') == false)
-        {
+        if ((await apiguard(req, 'phasor', '')) == false) {
             res.json({})
             return
         }
 
-        if(blacknode[sn].meter_list.length > modbusid)
-        {
+        if (blacknode[sn].meter_list.length > modbusid) {
             if (
                 lastUpdateTime &&
                 lastUpdateTime[snid] &&
@@ -2614,7 +2586,7 @@ export function initAPI() {
                     THD_I3: lastUpdateData[snid].THD_I3,
                     i3: (180 / Math.PI) * Math.acos(lastUpdateData[snid].PF3) + 240,
                     lastUpdateTime: lastUpdateTime[snid].toLocaleString()
-                };
+                }
             } else {
                 ret = {
                     sn: sn,
@@ -2648,13 +2620,13 @@ export function initAPI() {
                     THD_I3: 0,
                     i3: (180 / Math.PI) * Math.acos(0) + 240,
                     lastUpdateTime: now.toLocaleString()
-                };
+                }
             }
         } else {
             ret = {
                 sn: sn,
                 modbusid: modbusid,
-                name: "Invalid Modbus ID",
+                name: 'Invalid Modbus ID',
                 V1: 0,
                 I1: 0,
                 P1: 0,
@@ -2683,7 +2655,7 @@ export function initAPI() {
                 THD_I3: 0,
                 i3: (180 / Math.PI) * Math.acos(0) + 240,
                 lastUpdateTime: now.toLocaleString()
-            };
+            }
         }
 
         res.json(ret)
@@ -2691,8 +2663,7 @@ export function initAPI() {
 
     // Management Section
     api.get('/backup_impro', async (req, res) => {
-        if(await apiguard(req, 'backup', '') == false)
-        {
+        if ((await apiguard(req, 'backup', '')) == false) {
             return
         }
 
@@ -2706,8 +2677,7 @@ export function initAPI() {
     })
 
     api.post('/backup_impro', async (req, res) => {
-        if(await apiguard(req, 'backup', '') == false)
-        {
+        if ((await apiguard(req, 'backup', '')) == false) {
             return
         }
 
@@ -2715,10 +2685,10 @@ export function initAPI() {
             try {
                 writeFile(paths['META_CFG_PATH'], req.files.file.data, { flag: 'w' })
 
-                await loadMetaCFG();
+                await loadMetaCFG()
 
-                await syncDB();
-                await loadMetaDB();
+                await syncDB()
+                await loadMetaDB()
 
                 res.send('SUCCESS')
             } catch (e) {
@@ -2730,8 +2700,7 @@ export function initAPI() {
     })
 
     api.get('/backup_bn', async (req, res) => {
-        if(await apiguard(req, 'backup', '') == false)
-        {
+        if ((await apiguard(req, 'backup', '')) == false) {
             return
         }
 
@@ -2745,8 +2714,7 @@ export function initAPI() {
     })
 
     api.post('/backup_bn', async (req, res) => {
-        if(await apiguard(req, 'backup', '') == false)
-        {
+        if ((await apiguard(req, 'backup', '')) == false) {
             return
         }
 
@@ -2766,8 +2734,7 @@ export function initAPI() {
     })
 
     api.get('/group', async (_req, res) => {
-        if(await apiguard(_req, 'getgroup', '') == false)
-        {
+        if ((await apiguard(_req, 'getgroup', '')) == false) {
             res.json({})
             return
         }
@@ -2777,31 +2744,29 @@ export function initAPI() {
 
     //get group by type
     api.get('/group_type/:type', async (_req, res) => {
-        if(await apiguard(_req, 'group_type', '') == false)
-        {
+        if ((await apiguard(_req, 'group_type', '')) == false) {
             res.json({})
             return
         }
 
         const type = _req.params.type
-        
+
         const group = await db.group.findAll({
             where: {
-                type: type,
-            },
-        });
+                type: type
+            }
+        })
 
-        if(group != null){
+        if (group != null) {
             res.json(group)
-        }else{
+        } else {
             res.json({})
             return
         }
     })
 
     api.get('/group_total', async (_req, res) => {
-        if(await apiguard(_req, 'group_type', '') == false)
-        {
+        if ((await apiguard(_req, 'group_type', '')) == false) {
             res.json({})
             return
         }
@@ -2812,38 +2777,35 @@ export function initAPI() {
                     [Op.in]: ['j_01_main', 'j_02_main', 'j_02_sub', 'j_03_main', 'j_03_sub']
                 }
             },
-            order: [
-                ['type', 'ASC']
-            ]
-        });
+            order: [['type', 'ASC']]
+        })
 
-        if(group != null){
+        if (group != null) {
             const groupMap = {
-                j_01_main:null,
-                j_02_main:null,
-                j_03_main:null,
-                j_02_sub:[],
-                j_03_sub:[]
+                j_01_main: null,
+                j_02_main: null,
+                j_03_main: null,
+                j_02_sub: [],
+                j_03_sub: []
             }
             for (const g of group) {
-                const type = g.dataValues.type;
-                if(type == 'j_02_sub' || type == 'j_03_sub'){
-                    groupMap[type].push(g.dataValues);
-                }else{
-                    groupMap[type] = g.dataValues;
+                const type = g.dataValues.type
+                if (type == 'j_02_sub' || type == 'j_03_sub') {
+                    groupMap[type].push(g.dataValues)
+                } else {
+                    groupMap[type] = g.dataValues
                 }
             }
 
             res.json(groupMap)
-        }else{
+        } else {
             res.json({})
             return
         }
     })
 
     api.get('/group_total_pf', async (_req, res) => {
-        if(await apiguard(_req, 'group_pf_monitor', '') == false)
-        {
+        if ((await apiguard(_req, 'group_pf_monitor', '')) == false) {
             res.json({})
             return
         }
@@ -2851,67 +2813,64 @@ export function initAPI() {
         const groupDB = await db.group.findAll({
             where: {
                 type: {
-                    [Op.in]: ['j_01_main_pf', 'j_02_main_pf', 'j_02_sub_pf', 'j_03_main_pf', 'j_03_sub_pf']
+                    [Op.in]: [
+                        'j_01_main_pf',
+                        'j_02_main_pf',
+                        'j_02_sub_pf',
+                        'j_03_main_pf',
+                        'j_03_sub_pf'
+                    ]
                 }
             },
-            order: [
-                ['type', 'ASC']
-            ]
-        });
+            order: [['type', 'ASC']]
+        })
 
-        if(!groupDB){
+        if (!groupDB) {
             res.json({})
             return
         }
 
         const groupMap = {
-            j_01_main_pf:{
-                data:null,
-                value:0
+            j_01_main_pf: {
+                data: null,
+                value: 0
             },
-            j_02_main_pf:{
-                data:null,
-                value:0
+            j_02_main_pf: {
+                data: null,
+                value: 0
             },
-            j_03_main_pf:{
-                data:null,
-                value:0
+            j_03_main_pf: {
+                data: null,
+                value: 0
             },
-            j_02_sub_pf:[],
-            j_03_sub_pf:[]
+            j_02_sub_pf: [],
+            j_03_sub_pf: []
         }
-
 
         try {
             for (const g of groupDB) {
-                const type = g.dataValues.type;
-                const value = getGroupValueByParam(g.dataValues.id,'PF_Sum');
-                if(type == 'j_02_sub_pf' || type == 'j_03_sub_pf'){
-            
-                    groupMap[type].push({data:g.dataValues,value});
-                }else{
-                    groupMap[type].data = g.dataValues;
-                    groupMap[type].value = value;
+                const type = g.dataValues.type
+                const value = getGroupValueByParam(g.dataValues.id, 'PF_Sum')
+                if (type == 'j_02_sub_pf' || type == 'j_03_sub_pf') {
+                    groupMap[type].push({ data: g.dataValues, value })
+                } else {
+                    groupMap[type].data = g.dataValues
+                    groupMap[type].value = value
                 }
             }
-            
         } catch (error) {
-            console.log(error);
+            console.log(error)
             res.json(groupMap)
-            return;
+            return
         }
 
         res.json(groupMap)
     })
 
-
-  
-
     api.get('/meter', async (_req, res) => {
         let ret = []
 
-        if(await apiguard(_req, 'getmeter', '') == false)
-        {
+        if ((await apiguard(_req, 'getmeter', '')) == false) {
             res.json([])
             return
         }
@@ -2934,8 +2893,7 @@ export function initAPI() {
     })
 
     api.post('/update_group', async (req, res) => {
-        if(await apiguard(req, 'management', '') == false)
-        {
+        if ((await apiguard(req, 'management', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
@@ -2948,7 +2906,7 @@ export function initAPI() {
             await db.group.update(
                 {
                     name: name,
-                    type:type
+                    type: type
                 },
                 {
                     where: { id: id }
@@ -2964,14 +2922,13 @@ export function initAPI() {
     })
 
     api.get('/create_group/:name', async (req, res) => {
-        if(await apiguard(req, 'management', '') == false)
-        {
+        if ((await apiguard(req, 'management', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
 
         try {
-            await db.group.create({ name: req.params.name,type:'monitor', showDashboard: false })
+            await db.group.create({ name: req.params.name, type: 'monitor', showDashboard: false })
 
             await loadGroup()
 
@@ -2983,8 +2940,7 @@ export function initAPI() {
     })
 
     api.get('/delete_group/:id', async (req, res) => {
-        if(await apiguard(req, 'management', '') == false)
-        {
+        if ((await apiguard(req, 'management', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
@@ -3007,9 +2963,8 @@ export function initAPI() {
     })
 
     api.get('/getUseImportSetting', async (_req, res) => {
-        if(await apiguard(_req, 'getgroup', '') == false)
-        {
-            res.json({value: false})
+        if ((await apiguard(_req, 'getgroup', '')) == false) {
+            res.json({ value: false })
             return
         }
 
@@ -3017,8 +2972,7 @@ export function initAPI() {
     })
 
     api.post('/setUseImportSetting', async (req, res) => {
-        if(await apiguard(req, 'management', '') == false)
-        {
+        if ((await apiguard(req, 'management', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
@@ -3029,23 +2983,20 @@ export function initAPI() {
             try {
                 meta_cfg.useImport.value = value
 
-                writeFile(paths['META_CFG_PATH'], JSON.stringify(meta_cfg), { flag: 'w' });
-                res.send("SUCCESS");
-            } catch(err) {
-                console.log("Cannot save parameter.");
-                res.send("Cannot save parameter.");
-            }  
-        }
-        else
-        {
-            console.log("Cannot save parameter.");
-            res.send("Cannot save parameter.");
+                writeFile(paths['META_CFG_PATH'], JSON.stringify(meta_cfg), { flag: 'w' })
+                res.send('SUCCESS')
+            } catch (err) {
+                console.log('Cannot save parameter.')
+                res.send('Cannot save parameter.')
+            }
+        } else {
+            console.log('Cannot save parameter.')
+            res.send('Cannot save parameter.')
         }
     })
 
     api.post('/update_member', async (req, res) => {
-        if(await apiguard(req, 'management', '') == false)
-        {
+        if ((await apiguard(req, 'management', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
@@ -3063,15 +3014,14 @@ export function initAPI() {
             await loadGroup()
             res.send('SUCCESS')
         } catch (err) {
-            console.log(err);
-            
+            console.log(err)
+
             res.send('Cannot update group members')
         }
     })
 
     api.get('/set_dashboard/:group', async (req, res) => {
-        if(await apiguard(req, 'management', '') == false)
-        {
+        if ((await apiguard(req, 'management', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
@@ -3108,8 +3058,7 @@ export function initAPI() {
     })
 
     api.get('/unset_dashboard/:group', async (req, res) => {
-        if(await apiguard(req, 'management', '') == false)
-        {
+        if ((await apiguard(req, 'management', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
@@ -3135,8 +3084,7 @@ export function initAPI() {
     })
 
     api.get('/alarm/count', async (req, res) => {
-        if(await apiguard(req, 'alarm', '') == false)
-        {
+        if ((await apiguard(req, 'alarm', '')) == false) {
             res.send('0')
             return
         }
@@ -3155,8 +3103,7 @@ export function initAPI() {
         let limit = 20
         let ret = []
 
-        if(await apiguard(req, 'alarm', '') == false)
-        {
+        if ((await apiguard(req, 'alarm', '')) == false) {
             res.json(ret)
             return
         }
@@ -3178,15 +3125,11 @@ export function initAPI() {
                 let dev = ''
 
                 if (a.ModbusID != 0) {
-                    if(blacknode[a.SerialNo].meter_list.length > a.ModbusID - 1)
-                    {
-                        dev = blacknode[a.SerialNo].meter_list[a.ModbusID-1].name
+                    if (blacknode[a.SerialNo].meter_list.length > a.ModbusID - 1) {
+                        dev = blacknode[a.SerialNo].meter_list[a.ModbusID - 1].name
+                    } else {
+                        dev = 'Invalid Modbus ID'
                     }
-                    else
-                    {
-                        dev = "Invalid Modbus ID"
-                    }
-                    
                 } else {
                     dev = blacknode[a.SerialNo].name
                 }
@@ -3207,8 +3150,7 @@ export function initAPI() {
     })
 
     api.post('/alarm/update/:status', async (req, res) => {
-        if(await apiguard(req, 'alarm', '') == false)
-        {
+        if ((await apiguard(req, 'alarm', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
@@ -3219,7 +3161,7 @@ export function initAPI() {
                     where: { id: req.body }
                 })
 
-                await loadAlarm();
+                await loadAlarm()
                 res.send('SUCCESS')
             } catch (err) {
                 console.log('Cannot delete ', req.body)
@@ -3238,7 +3180,7 @@ export function initAPI() {
                     }
                 )
 
-                await loadAlarm();
+                await loadAlarm()
                 res.send('SUCCESS')
             } catch (err) {
                 console.log('Cannot update status ', req.body)
@@ -3251,18 +3193,16 @@ export function initAPI() {
     })
 
     api.post('/set_parameter', async (req, res) => {
-        if(await apiguard(req, 'management', '') == false)
-        {
+        if ((await apiguard(req, 'management', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
 
         if (paths && paths['META_CFG_PATH']) {
             try {
-                let keys = Object.keys(req.body.params);
+                let keys = Object.keys(req.body.params)
 
-                if(!meta_cfg.param.hasOwnProperty(req.body.meter))
-                {
+                if (!meta_cfg.param.hasOwnProperty(req.body.meter)) {
                     meta_cfg.param[req.body.meter] = {
                         meter: req.body.meter,
                         enable: req.body.enable,
@@ -3270,68 +3210,151 @@ export function initAPI() {
                     }
                 }
 
-                for(let k of keys)
-                {
-                    if(!meta_cfg.param[req.body.meter].mm.hasOwnProperty(k))
-                    {
+                for (let k of keys) {
+                    if (!meta_cfg.param[req.body.meter].mm.hasOwnProperty(k)) {
                         meta_cfg.param[req.body.meter].mm[k] = {
                             min: MAX_NUMBER,
-                            max: (-1) * MAX_NUMBER,
+                            max: -1 * MAX_NUMBER
                         }
                     }
-                    meta_cfg.param[req.body.meter].mm[k].min = req.body.params[k].min;
-                    meta_cfg.param[req.body.meter].mm[k].max = req.body.params[k].max;
+                    meta_cfg.param[req.body.meter].mm[k].min = req.body.params[k].min
+                    meta_cfg.param[req.body.meter].mm[k].max = req.body.params[k].max
                 }
 
                 meta_cfg.param[req.body.meter].meter = req.body.meter
                 meta_cfg.param[req.body.meter].enable = req.body.enable
 
-
-                writeFile(paths['META_CFG_PATH'], JSON.stringify(meta_cfg), { flag: 'w' });
-                res.send("SUCCESS");
-            } catch(err) {
-                console.log("Cannot save parameter.");
-                res.send("Cannot save parameter.");
+                writeFile(paths['META_CFG_PATH'], JSON.stringify(meta_cfg), { flag: 'w' })
+                res.send('SUCCESS')
+            } catch (err) {
+                console.log('Cannot save parameter.')
+                res.send('Cannot save parameter.')
             }
-            
         }
-    });
+    })
 
     api.get('/parameter', async (req, res) => {
-        res.json({"meter": "", "enable": false, "mm": {"V1":{"min":"-99999999999","max":"999999999999"},"V2":{"min":"-99999999999","max":"999999999999"},"V3":{"min":"-99999999999","max":"999999999999"},"V12":{"min":"-99999999999","max":"999999999999"},"V23":{"min":"-99999999999","max":"999999999999"},"V31":{"min":"-99999999999","max":"999999999999"},"I1":{"min":"-99999999999","max":"999999999999"},"I2":{"min":"-99999999999","max":"999999999999"},"I3":{"min":"-99999999999","max":"999999999999"},"P1":{"min":"-99999999999","max":"999999999999"},"P2":{"min":"-99999999999","max":"999999999999"},"P3":{"min":"-99999999999","max":"999999999999"},"P_Sum":{"min":"-99999999999","max":"999999999999"},"Q1":{"min":"-99999999999","max":"999999999999"},"Q2":{"min":"-99999999999","max":"999999999999"},"Q3":{"min":"-99999999999","max":"999999999999"},"Q_Sum":{"min":"-99999999999","max":"999999999999"},"S1":{"min":"-99999999999","max":"999999999999"},"S2":{"min":"-99999999999","max":"999999999999"},"S3":{"min":"-99999999999","max":"999999999999"},"S_Sum":{"min":"-99999999999","max":"999999999999"},"PF1":{"min":"-99999999999","max":"999999999999"},"PF2":{"min":"-99999999999","max":"999999999999"},"PF3":{"min":"-99999999999","max":"999999999999"},"PF_Sum":{"min":"-99999999999","max":"999999999999"},"Frequency":{"min":"-99999999999","max":"999999999999"}}})
+        res.json({
+            meter: '',
+            enable: false,
+            mm: {
+                V1: { min: '-99999999999', max: '999999999999' },
+                V2: { min: '-99999999999', max: '999999999999' },
+                V3: { min: '-99999999999', max: '999999999999' },
+                V12: { min: '-99999999999', max: '999999999999' },
+                V23: { min: '-99999999999', max: '999999999999' },
+                V31: { min: '-99999999999', max: '999999999999' },
+                I1: { min: '-99999999999', max: '999999999999' },
+                I2: { min: '-99999999999', max: '999999999999' },
+                I3: { min: '-99999999999', max: '999999999999' },
+                P1: { min: '-99999999999', max: '999999999999' },
+                P2: { min: '-99999999999', max: '999999999999' },
+                P3: { min: '-99999999999', max: '999999999999' },
+                P_Sum: { min: '-99999999999', max: '999999999999' },
+                Q1: { min: '-99999999999', max: '999999999999' },
+                Q2: { min: '-99999999999', max: '999999999999' },
+                Q3: { min: '-99999999999', max: '999999999999' },
+                Q_Sum: { min: '-99999999999', max: '999999999999' },
+                S1: { min: '-99999999999', max: '999999999999' },
+                S2: { min: '-99999999999', max: '999999999999' },
+                S3: { min: '-99999999999', max: '999999999999' },
+                S_Sum: { min: '-99999999999', max: '999999999999' },
+                PF1: { min: '-99999999999', max: '999999999999' },
+                PF2: { min: '-99999999999', max: '999999999999' },
+                PF3: { min: '-99999999999', max: '999999999999' },
+                PF_Sum: { min: '-99999999999', max: '999999999999' },
+                Frequency: { min: '-99999999999', max: '999999999999' }
+            }
+        })
         // res.json(meta_cfg.param.mm);
-    });
+    })
 
     api.get('/parameter/:meterkey', async (req, res) => {
-        if(await apiguard(req, 'getparameter', '') == false)
-        {
-            res.json({"meter": "", "enable": false, "mm": {"V1":{"min":"-99999999999","max":"999999999999"},"V2":{"min":"-99999999999","max":"999999999999"},"V3":{"min":"-99999999999","max":"999999999999"},"V12":{"min":"-99999999999","max":"999999999999"},"V23":{"min":"-99999999999","max":"999999999999"},"V31":{"min":"-99999999999","max":"999999999999"},"I1":{"min":"-99999999999","max":"999999999999"},"I2":{"min":"-99999999999","max":"999999999999"},"I3":{"min":"-99999999999","max":"999999999999"},"P1":{"min":"-99999999999","max":"999999999999"},"P2":{"min":"-99999999999","max":"999999999999"},"P3":{"min":"-99999999999","max":"999999999999"},"P_Sum":{"min":"-99999999999","max":"999999999999"},"Q1":{"min":"-99999999999","max":"999999999999"},"Q2":{"min":"-99999999999","max":"999999999999"},"Q3":{"min":"-99999999999","max":"999999999999"},"Q_Sum":{"min":"-99999999999","max":"999999999999"},"S1":{"min":"-99999999999","max":"999999999999"},"S2":{"min":"-99999999999","max":"999999999999"},"S3":{"min":"-99999999999","max":"999999999999"},"S_Sum":{"min":"-99999999999","max":"999999999999"},"PF1":{"min":"-99999999999","max":"999999999999"},"PF2":{"min":"-99999999999","max":"999999999999"},"PF3":{"min":"-99999999999","max":"999999999999"},"PF_Sum":{"min":"-99999999999","max":"999999999999"},"Frequency":{"min":"-99999999999","max":"999999999999"}}})
+        if ((await apiguard(req, 'getparameter', '')) == false) {
+            res.json({
+                meter: '',
+                enable: false,
+                mm: {
+                    V1: { min: '-99999999999', max: '999999999999' },
+                    V2: { min: '-99999999999', max: '999999999999' },
+                    V3: { min: '-99999999999', max: '999999999999' },
+                    V12: { min: '-99999999999', max: '999999999999' },
+                    V23: { min: '-99999999999', max: '999999999999' },
+                    V31: { min: '-99999999999', max: '999999999999' },
+                    I1: { min: '-99999999999', max: '999999999999' },
+                    I2: { min: '-99999999999', max: '999999999999' },
+                    I3: { min: '-99999999999', max: '999999999999' },
+                    P1: { min: '-99999999999', max: '999999999999' },
+                    P2: { min: '-99999999999', max: '999999999999' },
+                    P3: { min: '-99999999999', max: '999999999999' },
+                    P_Sum: { min: '-99999999999', max: '999999999999' },
+                    Q1: { min: '-99999999999', max: '999999999999' },
+                    Q2: { min: '-99999999999', max: '999999999999' },
+                    Q3: { min: '-99999999999', max: '999999999999' },
+                    Q_Sum: { min: '-99999999999', max: '999999999999' },
+                    S1: { min: '-99999999999', max: '999999999999' },
+                    S2: { min: '-99999999999', max: '999999999999' },
+                    S3: { min: '-99999999999', max: '999999999999' },
+                    S_Sum: { min: '-99999999999', max: '999999999999' },
+                    PF1: { min: '-99999999999', max: '999999999999' },
+                    PF2: { min: '-99999999999', max: '999999999999' },
+                    PF3: { min: '-99999999999', max: '999999999999' },
+                    PF_Sum: { min: '-99999999999', max: '999999999999' },
+                    Frequency: { min: '-99999999999', max: '999999999999' }
+                }
+            })
             return
         }
 
-        if(meta_cfg.param.hasOwnProperty(req.params.meterkey))
-        {
-            res.json(meta_cfg.param[req.params.meterkey]);
+        if (meta_cfg.param.hasOwnProperty(req.params.meterkey)) {
+            res.json(meta_cfg.param[req.params.meterkey])
+        } else {
+            res.json({
+                meter: '',
+                enable: false,
+                mm: {
+                    V1: { min: '-99999999999', max: '999999999999' },
+                    V2: { min: '-99999999999', max: '999999999999' },
+                    V3: { min: '-99999999999', max: '999999999999' },
+                    V12: { min: '-99999999999', max: '999999999999' },
+                    V23: { min: '-99999999999', max: '999999999999' },
+                    V31: { min: '-99999999999', max: '999999999999' },
+                    I1: { min: '-99999999999', max: '999999999999' },
+                    I2: { min: '-99999999999', max: '999999999999' },
+                    I3: { min: '-99999999999', max: '999999999999' },
+                    P1: { min: '-99999999999', max: '999999999999' },
+                    P2: { min: '-99999999999', max: '999999999999' },
+                    P3: { min: '-99999999999', max: '999999999999' },
+                    P_Sum: { min: '-99999999999', max: '999999999999' },
+                    Q1: { min: '-99999999999', max: '999999999999' },
+                    Q2: { min: '-99999999999', max: '999999999999' },
+                    Q3: { min: '-99999999999', max: '999999999999' },
+                    Q_Sum: { min: '-99999999999', max: '999999999999' },
+                    S1: { min: '-99999999999', max: '999999999999' },
+                    S2: { min: '-99999999999', max: '999999999999' },
+                    S3: { min: '-99999999999', max: '999999999999' },
+                    S_Sum: { min: '-99999999999', max: '999999999999' },
+                    PF1: { min: '-99999999999', max: '999999999999' },
+                    PF2: { min: '-99999999999', max: '999999999999' },
+                    PF3: { min: '-99999999999', max: '999999999999' },
+                    PF_Sum: { min: '-99999999999', max: '999999999999' },
+                    Frequency: { min: '-99999999999', max: '999999999999' }
+                }
+            })
         }
-        else
-        {
-            res.json({"meter": "", "enable": false, "mm": {"V1":{"min":"-99999999999","max":"999999999999"},"V2":{"min":"-99999999999","max":"999999999999"},"V3":{"min":"-99999999999","max":"999999999999"},"V12":{"min":"-99999999999","max":"999999999999"},"V23":{"min":"-99999999999","max":"999999999999"},"V31":{"min":"-99999999999","max":"999999999999"},"I1":{"min":"-99999999999","max":"999999999999"},"I2":{"min":"-99999999999","max":"999999999999"},"I3":{"min":"-99999999999","max":"999999999999"},"P1":{"min":"-99999999999","max":"999999999999"},"P2":{"min":"-99999999999","max":"999999999999"},"P3":{"min":"-99999999999","max":"999999999999"},"P_Sum":{"min":"-99999999999","max":"999999999999"},"Q1":{"min":"-99999999999","max":"999999999999"},"Q2":{"min":"-99999999999","max":"999999999999"},"Q3":{"min":"-99999999999","max":"999999999999"},"Q_Sum":{"min":"-99999999999","max":"999999999999"},"S1":{"min":"-99999999999","max":"999999999999"},"S2":{"min":"-99999999999","max":"999999999999"},"S3":{"min":"-99999999999","max":"999999999999"},"S_Sum":{"min":"-99999999999","max":"999999999999"},"PF1":{"min":"-99999999999","max":"999999999999"},"PF2":{"min":"-99999999999","max":"999999999999"},"PF3":{"min":"-99999999999","max":"999999999999"},"PF_Sum":{"min":"-99999999999","max":"999999999999"},"Frequency":{"min":"-99999999999","max":"999999999999"}}})
-        }
-    });
+    })
 
     api.get('/holiday', async (req, res) => {
-        if(await apiguard(req, 'getholiday', '') == false)
-        {
+        if ((await apiguard(req, 'getholiday', '')) == false) {
             res.json({})
             return
         }
 
-        res.json(holidays);
-    });
+        res.json(holidays)
+    })
 
     api.post('/holiday', async (req, res) => {
-        if(await apiguard(req, 'management', '') == false)
-        {
+        if ((await apiguard(req, 'management', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
@@ -3340,26 +3363,24 @@ export function initAPI() {
             await db.holiday.create({
                 DateTime: req.body.date,
                 name: req.body.name
-            });
+            })
 
-            await loadHoliday();
+            await loadHoliday()
 
-            res.send("SUCCESS");
+            res.send('SUCCESS')
         } catch (err) {
-            console.log("Cannot add holiday.");
-            res.send("Cannot add holiday");
+            console.log('Cannot add holiday.')
+            res.send('Cannot add holiday')
         }
-    });
+    })
 
     api.post('/holiday/:action/:id', async (req, res) => {
-        if(await apiguard(req, 'management', '') == false)
-        {
+        if ((await apiguard(req, 'management', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
 
-        if(req.params.action == "edit")
-        {
+        if (req.params.action == 'edit') {
             try {
                 await db.holiday.update(
                     {
@@ -3371,47 +3392,40 @@ export function initAPI() {
                     }
                 )
 
-                await loadHoliday();
-                res.send("SUCCESS");
-                
+                await loadHoliday()
+                res.send('SUCCESS')
             } catch (err) {
-                console.log("Cannot update holiday.");
-                res.send("Cannot update holiday.");
+                console.log('Cannot update holiday.')
+                res.send('Cannot update holiday.')
             }
-        }
-        else if(req.params.action == "delete")
-        {
+        } else if (req.params.action == 'delete') {
             try {
                 await db.holiday.destroy({
                     where: { id: parseInt(req.params.id) }
-                });
+                })
 
-                await loadHoliday();
-                res.send("SUCCESS");
-
+                await loadHoliday()
+                res.send('SUCCESS')
             } catch (err) {
-                console.log("Cannot delete holiday.");
-                res.send("Cannot delete holiday.");
+                console.log('Cannot delete holiday.')
+                res.send('Cannot delete holiday.')
             }
+        } else {
+            console.log('Invalid parameter.')
+            res.send('Invalid parameter.')
         }
-        else
-        {
-            console.log("Invalid parameter.");
-            res.send("Invalid parameter.");
-        }
-    });
+    })
 
     api.get('/user', async (req, res) => {
-        if(await apiguard(req, 'getuser', '') == false)
-        {
-            res.json({});
+        if ((await apiguard(req, 'getuser', '')) == false) {
+            res.json({})
             return
         }
 
         try {
             let users = await db.user.findAll({
                 attributes: ['id', 'name', 'username', 'email', 'status', 'group']
-            });
+            })
 
             let ret = []
 
@@ -3419,18 +3433,15 @@ export function initAPI() {
 
             let roleMap = {}
 
-            for(let r of allRoles)
-            {
-                if(!roleMap.hasOwnProperty(r.userid))
-                {
+            for (let r of allRoles) {
+                if (!roleMap.hasOwnProperty(r.userid)) {
                     roleMap[r.userid] = []
                 }
 
                 roleMap[r.userid].push(r.role)
             }
 
-            for(let user of users)
-            {
+            for (let user of users) {
                 ret.push({
                     id: user.id,
                     name: user.name,
@@ -3438,29 +3449,27 @@ export function initAPI() {
                     email: user.email,
                     status: user.status,
                     group: user.group,
-                    roles: (roleMap[user.id]) ? roleMap[user.id] : ['inactive']
+                    roles: roleMap[user.id] ? roleMap[user.id] : ['inactive']
                 })
             }
 
-            res.json(ret);
+            res.json(ret)
         } catch (err) {
-            console.log("Cannot get user.");
-            res.json({});
+            console.log('Cannot get user.')
+            res.json({})
         }
-    });
+    })
 
     api.post('/user', async (req, res) => {
-        if(await apiguard(req, 'management', '') == false)
-        {
+        if ((await apiguard(req, 'management', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
 
         try {
-            if(req.body.password.length < 8)
-            {
-                res.send("Password is too short. Try a new password.")
-                return;
+            if (req.body.password.length < 8) {
+                res.send('Password is too short. Try a new password.')
+                return
             }
             let u = await db.user.create({
                 name: req.body.name,
@@ -3470,50 +3479,43 @@ export function initAPI() {
                 DateTime: new Date(),
                 status: req.body.status,
                 group: parseInt(req.body.group)
-            });
+            })
 
             // Create corresponding role and project as needed...
-            if(req.body.roles && req.body.roles.length > 0)
-            {
-                for(let i=0; i<req.body.roles.length; i++)
-                {
+            if (req.body.roles && req.body.roles.length > 0) {
+                for (let i = 0; i < req.body.roles.length; i++) {
                     await db.userrole.create({
                         userid: u.id,
                         role: req.body.roles[i]
                     })
                 }
-            }
-            else
-            {
+            } else {
                 await db.userrole.create({
                     userid: u.id,
-                    role: "user"
+                    role: 'user'
                 })
             }
 
-            res.send("SUCCESS");
+            res.send('SUCCESS')
         } catch (err) {
-            console.log("Cannot add user.");
-            res.send("Cannot add user");
+            console.log('Cannot add user.')
+            res.send('Cannot add user')
         }
-    });
+    })
 
     api.post('/user/:action/:id', async (req, res) => {
-        if(await apiguard(req, 'management', '') == false)
-        {
+        if ((await apiguard(req, 'management', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
 
-        if(req.params.action == "edit")
-        {
+        if (req.params.action == 'edit') {
             try {
-                if(req.body.password.length < 8)
-                {
-                    res.send("Password is too short. Try a new password.")
-                    return;
+                if (req.body.password.length < 8) {
+                    res.send('Password is too short. Try a new password.')
+                    return
                 }
-                
+
                 let u = await db.user.update(
                     {
                         name: req.body.name,
@@ -3535,116 +3537,105 @@ export function initAPI() {
                     }
                 })
 
-                if(req.body.roles && req.body.roles.length > 0)
-                {
-                    for(let i=0; i<req.body.roles.length; i++)
-                    {
+                if (req.body.roles && req.body.roles.length > 0) {
+                    for (let i = 0; i < req.body.roles.length; i++) {
                         await db.userrole.create({
                             userid: parseInt(req.params.id),
                             role: req.body.roles[i]
                         })
                     }
-                }
-                else
-                {
+                } else {
                     await db.userrole.create({
                         userid: parseInt(req.params.id),
-                        role: "user"
+                        role: 'user'
                     })
                 }
 
-                res.send("SUCCESS");
-                
+                res.send('SUCCESS')
             } catch (err) {
-                console.log("Cannot update user.");
-                res.send("Cannot update user.");
+                console.log('Cannot update user.')
+                res.send('Cannot update user.')
             }
-        }
-        else if(req.params.action == "delete")
-        {
+        } else if (req.params.action == 'delete') {
             try {
                 await db.user.destroy({
                     where: { id: parseInt(req.params.id) }
-                });
+                })
 
-                res.send("SUCCESS");
-
+                res.send('SUCCESS')
             } catch (err) {
-                console.log("Cannot delete user.");
-                res.send("Cannot delete user.");
+                console.log('Cannot delete user.')
+                res.send('Cannot delete user.')
             }
+        } else {
+            console.log('Invalid parameter.')
+            res.send('Invalid parameter.')
         }
-        else
-        {
-            console.log("Invalid parameter.");
-            res.send("Invalid parameter.");
-        }
-    });
+    })
 
     api.post('/rp_chart/:type/:year/:month/:day/:syear/:smonth/:sday', async (req, res) => {
-        if(await apiguard(req, 'rp_chart', '') == false)
-        {
+        if ((await apiguard(req, 'rp_chart', '')) == false) {
             res.json({})
             return
         }
 
-        let start_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
-        let end_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
+        let start_date = new Date(
+            Date.UTC(req.params.year, parseInt(req.params.month) - 1, req.params.day)
+        )
+        let end_date = new Date(
+            Date.UTC(req.params.year, parseInt(req.params.month) - 1, req.params.day)
+        )
 
-        if(req.params.type == "year")
-        {
-            start_date.setUTCMonth(0);
-            start_date.setUTCDate(1);
+        if (req.params.type == 'year') {
+            start_date.setUTCMonth(0)
+            start_date.setUTCDate(1)
 
-            end_date.setUTCFullYear(end_date.getUTCFullYear() + 1);
-            end_date.setUTCMonth(0);
-            end_date.setUTCDate(1);
-        }
-        else if(req.params.type == "month")
-        {
-            start_date.setUTCDate(1);
+            end_date.setUTCFullYear(end_date.getUTCFullYear() + 1)
+            end_date.setUTCMonth(0)
+            end_date.setUTCDate(1)
+        } else if (req.params.type == 'month') {
+            start_date.setUTCDate(1)
 
-            end_date.setUTCMonth(end_date.getUTCMonth() + 1);
-            end_date.setUTCDate(1);
-        }
-        else if(req.params.type == "range")
-        {
+            end_date.setUTCMonth(end_date.getUTCMonth() + 1)
+            end_date.setUTCDate(1)
+        } else if (req.params.type == 'range') {
             start_date.setUTCFullYear(parseInt(req.params.syear))
             start_date.setUTCMonth(parseInt(req.params.smonth) - 1)
             start_date.setUTCDate(req.params.sday)
-            if(start_date > end_date) return res.send('wrong date');
+            if (start_date > end_date) return res.send('wrong date')
+        } else {
+            end_date.setUTCDate(end_date.getUTCDate() + 1)
         }
-        else
-        {
-            end_date.setUTCDate(end_date.getUTCDate() + 1);
-        }
-
-        
 
         let now = new Date()
-        now = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0))
+        now = new Date(
+            Date.UTC(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+                now.getHours(),
+                now.getMinutes(),
+                0
+            )
+        )
 
         // console.log(now, end_date)
 
-        if(now < end_date)
-        {
+        if (now < end_date) {
             end_date = new Date(now)
         }
 
         // console.log(now, end_date)
 
-        let start_seq = Math.trunc(start_date.getTime()/1000/60/15);
-        let end_seq = Math.trunc(end_date.getTime()/1000/60/15);
+        let start_seq = Math.trunc(start_date.getTime() / 1000 / 60 / 15)
+        let end_seq = Math.trunc(end_date.getTime() / 1000 / 60 / 15)
 
-        let arr_size = end_seq-start_seq;
+        let arr_size = end_seq - start_seq
 
-        if(req.params.type == 'year')
-        {
-            arr_size = 12;
-        }
-        else if(req.params.type == 'month' || req.params.type == "range")
-        {
-            arr_size /= 96;
+        if (req.params.type == 'year') {
+            arr_size = 12
+        } else if (req.params.type == 'month' || req.params.type == 'range') {
+            arr_size /= 96
         }
 
         arr_size += 1
@@ -3653,30 +3644,27 @@ export function initAPI() {
 
         let p = req.body
 
-        let kwhType = "TotalkWh"
-        if(meta_cfg.useImport && meta_cfg.useImport.value)
-        {
-            kwhType = "Import_kWh"
+        let kwhType = 'TotalkWh'
+        if (meta_cfg.useImport && meta_cfg.useImport.value) {
+            kwhType = 'Import_kWh'
         }
 
         for (let k of p) {
             // Get data and fill
-            let arr = k.split("@");
+            let arr = k.split('@')
 
-            if(arr[0] == 'M')
-            {
+            if (arr[0] == 'M') {
                 // let sn = arr[1];
-                let siteid = arr[2];
-                let nodeid = arr[3];
+                let siteid = arr[2]
+                let nodeid = arr[3]
 
-                arr = arr[4].split("%");
+                arr = arr[4].split('%')
 
-                let modbusid = String(parseInt(arr[0]) + 1);
-                let param = arr[1];
-                let eData;
+                let modbusid = String(parseInt(arr[0]) + 1)
+                let param = arr[1]
+                let eData
 
-                if(param == 'kWdemand')
-                {
+                if (param == 'kWdemand') {
                     eData = await db.energy.findAll({
                         attributes: ['DateTimeUpdate', 'SerialNo', kwhType],
                         where: {
@@ -3686,13 +3674,14 @@ export function initAPI() {
                                     [Op.lte]: end_date
                                 }
                             },
-                            snmKey: siteid + "%" + nodeid + "%" + modbusid
+                            snmKey: siteid + '%' + nodeid + '%' + modbusid
                         },
-                        order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                        order: [
+                            ['DateTimeUpdate', 'ASC'],
+                            ['id', 'asc']
+                        ]
                     })
-                }
-                else
-                {
+                } else {
                     eData = await db.energy.findAll({
                         attributes: ['DateTimeUpdate', 'SerialNo', param],
                         where: {
@@ -3702,226 +3691,181 @@ export function initAPI() {
                                     [Op.lte]: end_date
                                 }
                             },
-                            snmKey: siteid + "%" + nodeid + "%" + modbusid
+                            snmKey: siteid + '%' + nodeid + '%' + modbusid
                         },
-                        order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                        order: [
+                            ['DateTimeUpdate', 'ASC'],
+                            ['id', 'asc']
+                        ]
                     })
                 }
 
                 ret[k] = []
                 let count = []
 
-                for(let i=0; i<arr_size; i++)
-                {
-                    let time;
+                for (let i = 0; i < arr_size; i++) {
+                    let time
 
-                    if(req.params.type == 'year')
-                    {
-                        time = new Date(start_date);
-                        time.setUTCMonth(time.getUTCMonth() + i);
-                    }
-                    else if(req.params.type == 'month' || req.params.type == "range")
-                    {
-                        time = new Date(start_date);
-                        time.setUTCDate(time.getUTCDate() + i);
-                    }
-                    else
-                    {
-                        time = new Date(start_date.getTime() + (i*15*60*1000));
+                    if (req.params.type == 'year') {
+                        time = new Date(start_date)
+                        time.setUTCMonth(time.getUTCMonth() + i)
+                    } else if (req.params.type == 'month' || req.params.type == 'range') {
+                        time = new Date(start_date)
+                        time.setUTCDate(time.getUTCDate() + i)
+                    } else {
+                        time = new Date(start_date.getTime() + i * 15 * 60 * 1000)
                     }
 
                     ret[k].push({
                         time: time,
                         value: 0,
-                        maxv: (-1) * MAX_NUMBER,
+                        maxv: -1 * MAX_NUMBER,
                         minv: MAX_NUMBER
-                    });
+                    })
 
                     count.push(0)
                 }
 
-                let prev_dval  = -1;
-                let prev_time = null;
+                let prev_dval = -1
+                let prev_time = null
 
-                for(let e of eData)
-                {
-                    let seq;
-                    let dval;
+                for (let e of eData) {
+                    let seq
+                    let dval
 
                     let adjustedTime = new Date(e.DateTimeUpdate.getTime())
                     // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes()-1)
-                    
-                    if(req.params.type == 'year')
-                    {
-                        seq = adjustedTime.getUTCMonth();
-                    }
-                    else if(req.params.type == 'month' || req.params.type == "range")
-                    {
-                        seq = Math.trunc((adjustedTime.getTime() - start_date.getTime())/(24*60*60*1000))
-                    }
-                    else
-                    {
-                        seq = Math.trunc(adjustedTime.getTime()/1000/60/15) - start_seq;
 
-                        if(seq < 0) 
-                        {
+                    if (req.params.type == 'year') {
+                        seq = adjustedTime.getUTCMonth()
+                    } else if (req.params.type == 'month' || req.params.type == 'range') {
+                        seq = Math.trunc(
+                            (adjustedTime.getTime() - start_date.getTime()) / (24 * 60 * 60 * 1000)
+                        )
+                    } else {
+                        seq = Math.trunc(adjustedTime.getTime() / 1000 / 60 / 15) - start_seq
+
+                        if (seq < 0) {
                             seq = 0
                         }
                     }
 
-                    if(cmap[param].storage == "accumulative")
-                    {
+                    if (cmap[param].storage == 'accumulative') {
                         let sn = e.SerialNo
                         let period = blacknode[sn].period * 60 * 1000
 
-                        if(prev_time == null || e.DateTimeUpdate.getTime() - prev_time.getTime() != period)
-                        {
+                        if (
+                            prev_time == null ||
+                            e.DateTimeUpdate.getTime() - prev_time.getTime() != period
+                        ) {
                             prev_time = e.DateTimeUpdate
 
-                            if(param == 'kWdemand')
-                            {
+                            if (param == 'kWdemand') {
                                 prev_dval = e[kwhType]
-                            }
-                            else
-                            {
+                            } else {
                                 prev_dval = e[param]
                             }
 
                             continue
-                        }
-                        else
-                        {
-                            if(param == 'kWdemand')
-                            {
-                                if(e[kwhType] != undefined || e[kwhType] != -1)
-                                {
+                        } else {
+                            if (param == 'kWdemand') {
+                                if (e[kwhType] != undefined || e[kwhType] != -1) {
                                     dval = (e[kwhType] - prev_dval) * DEMAND
-                                }
-                                else
-                                {
+                                } else {
                                     dval = 0
                                 }
-                            }
-                            else
-                            {
+                            } else {
                                 dval = e[param] - prev_dval
                             }
-                            
                         }
-                    }
-                    else
-                    {
-                        if(param == 'kwDemand')
-                        {
+                    } else {
+                        if (param == 'kwDemand') {
                             dval = e[kwhType]
-                        }
-                        else
-                        {
+                        } else {
                             dval = e[param]
                         }
-                        
                     }
 
                     //Get the average
 
-                    ret[k][seq].value += dval;
-                    count[seq]++;
-                    
-                    if(dval > ret[k][seq].maxv)
-                    {
+                    ret[k][seq].value += dval
+                    count[seq]++
+
+                    if (dval > ret[k][seq].maxv) {
                         ret[k][seq].maxv = dval
                     }
 
-                    if(dval < ret[k][seq].minv)
-                    {
+                    if (dval < ret[k][seq].minv) {
                         ret[k][seq].minv = dval
                     }
 
-                    if(param == 'kWdemand')
-                    {
+                    if (param == 'kWdemand') {
                         prev_dval = e[kwhType]
-                    }
-                    else
-                    {
+                    } else {
                         prev_dval = e[param]
                     }
-                    
+
                     prev_time = e.DateTimeUpdate
                 }
 
-
-                if(cmap[param].storage != "accumulative")
-                {
-                    for(let i=0; i<arr_size; i++)
-                    {
-                        if(count[i] > 0)
-                        {
-                            ret[k][i].value /= count[i];
+                if (cmap[param].storage != 'accumulative') {
+                    for (let i = 0; i < arr_size; i++) {
+                        if (count[i] > 0) {
+                            ret[k][i].value /= count[i]
                         }
                     }
                 }
 
-                if(req.params.type != 'day')
-                {
+                if (req.params.type != 'day') {
                     ret[k].length = ret[k].length - 1
                 }
-            }
-            else if(arr[0] == 'G')
-            {
-                arr = arr[1].split("%");
+            } else if (arr[0] == 'G') {
+                arr = arr[1].split('%')
 
-                let gid = parseInt(arr[0]);
+                let gid = parseInt(arr[0])
 
-                let param = arr[1];
+                let param = arr[1]
 
-                ret[k] = [];
-                let dxt = {};
+                ret[k] = []
+                let dxt = {}
                 let count = []
                 let multmap = {}
 
-                for(let i=0; i<arr_size; i++)
-                {
-                    let time;
+                for (let i = 0; i < arr_size; i++) {
+                    let time
 
-                    if(req.params.type == 'year')
-                    {
-                        time = new Date(start_date);
-                        time.setUTCMonth(time.getUTCMonth() + i);
-                    }
-                    else if(req.params.type == 'month' || req.params.type == "range")
-                    {
-                        time = new Date(start_date);
-                        time.setUTCDate(time.getUTCDate() + i);
-                    }
-                    else
-                    {
-                        time = new Date(start_date.getTime() + (i*15*60*1000));
+                    if (req.params.type == 'year') {
+                        time = new Date(start_date)
+                        time.setUTCMonth(time.getUTCMonth() + i)
+                    } else if (req.params.type == 'month' || req.params.type == 'range') {
+                        time = new Date(start_date)
+                        time.setUTCDate(time.getUTCDate() + i)
+                    } else {
+                        time = new Date(start_date.getTime() + i * 15 * 60 * 1000)
                     }
 
                     ret[k].push({
                         time: time,
                         value: 0,
                         minv: MAX_NUMBER,
-                        maxv: (-1)*MAX_NUMBER
-                    });
+                        maxv: -1 * MAX_NUMBER
+                    })
 
                     count.push(0)
                 }
 
-                for(let m of group[gid].member)
-                {
-                    let sn = m.serial;
-                    let siteid = blacknode[sn].siteid;
-                    let nodeid = blacknode[sn].nodeid;
-                    let modbusid = parseInt(m.modbusid);
+                for (let m of group[gid].member) {
+                    let sn = m.serial
+                    let siteid = blacknode[sn].siteid
+                    let nodeid = blacknode[sn].nodeid
+                    let modbusid = parseInt(m.modbusid)
 
-                    let snmKey = siteid + "%" + nodeid + "%" + modbusid
+                    let snmKey = siteid + '%' + nodeid + '%' + modbusid
                     multmap[snmKey] = parseFloat(m.multiplier)
 
-                    let eData;
+                    let eData
 
-                    if(param == 'kWdemand')
-                    {
+                    if (param == 'kWdemand') {
                         eData = await db.energy.findAll({
                             attributes: ['DateTimeUpdate', 'SerialNo', kwhType, 'snmKey'],
                             where: {
@@ -3931,13 +3875,14 @@ export function initAPI() {
                                         [Op.lte]: end_date
                                     }
                                 },
-                                snmKey: siteid + "%" + nodeid + "%" + modbusid
+                                snmKey: siteid + '%' + nodeid + '%' + modbusid
                             },
-                            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                            order: [
+                                ['DateTimeUpdate', 'ASC'],
+                                ['id', 'asc']
+                            ]
                         })
-                    }
-                    else
-                    {
+                    } else {
                         eData = await db.energy.findAll({
                             attributes: ['DateTimeUpdate', 'SerialNo', param, 'snmKey'],
                             where: {
@@ -3947,86 +3892,76 @@ export function initAPI() {
                                         [Op.lte]: end_date
                                     }
                                 },
-                                snmKey: siteid + "%" + nodeid + "%" + modbusid
+                                snmKey: siteid + '%' + nodeid + '%' + modbusid
                             },
-                            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                            order: [
+                                ['DateTimeUpdate', 'ASC'],
+                                ['id', 'asc']
+                            ]
                         })
                     }
 
                     let prev_time = null
                     let prev_dval = -1
 
-                    for(let e of eData)
-                    {
+                    for (let e of eData) {
                         let dval
-                        let tkey = e.DateTimeUpdate.getUTCFullYear() + '-' + e.DateTimeUpdate.getUTCMonth() + '-' + e.DateTimeUpdate.getUTCDate() + '-' + e.DateTimeUpdate.getUTCHours() + '-' + e.DateTimeUpdate.getUTCMinutes()
+                        let tkey =
+                            e.DateTimeUpdate.getUTCFullYear() +
+                            '-' +
+                            e.DateTimeUpdate.getUTCMonth() +
+                            '-' +
+                            e.DateTimeUpdate.getUTCDate() +
+                            '-' +
+                            e.DateTimeUpdate.getUTCHours() +
+                            '-' +
+                            e.DateTimeUpdate.getUTCMinutes()
 
-                        if(!dxt.hasOwnProperty(tkey))
-                        {
+                        if (!dxt.hasOwnProperty(tkey)) {
                             dxt[tkey] = 0
                         }
-    
-                        if(cmap[param].storage == "accumulative")
-                        {
+
+                        if (cmap[param].storage == 'accumulative') {
                             let sn = e.SerialNo
                             let period = blacknode[sn].period * 60 * 1000
 
-                            if(prev_time == null || e.DateTimeUpdate.getTime() - prev_time.getTime() != period)
-                            {
+                            if (
+                                prev_time == null ||
+                                e.DateTimeUpdate.getTime() - prev_time.getTime() != period
+                            ) {
                                 prev_time = e.DateTimeUpdate
 
-                                if(param == 'kWdemand')
-                                {
+                                if (param == 'kWdemand') {
                                     prev_dval = e[kwhType]
-                                }
-                                else
-                                {
+                                } else {
                                     prev_dval = e[param]
                                 }
-                                
+
                                 continue
-                            }
-                            else
-                            {
-                                if(param == 'kWdemand')
-                                {
-                                    if(e[kwhType] != undefined || e[kwhType] != -1)
-                                    {
+                            } else {
+                                if (param == 'kWdemand') {
+                                    if (e[kwhType] != undefined || e[kwhType] != -1) {
                                         dval = (e[kwhType] - prev_dval) * DEMAND
-                                    }
-                                    else
-                                    {
+                                    } else {
                                         dval = 0
                                     }
-                                }
-                                else
-                                {
+                                } else {
                                     dval = e[param] - prev_dval
                                 }
-                                
                             }
-                        }
-                        else
-                        {
-                            if(param == 'kWdemand')
-                            {
+                        } else {
+                            if (param == 'kWdemand') {
                                 dval = e[kwhType]
-                            }
-                            else
-                            {
+                            } else {
                                 dval = e[param]
                             }
-                            
                         }
 
                         dxt[tkey] += dval * multmap[e.snmKey]
 
-                        if(param == 'kWdemand')
-                        {
+                        if (param == 'kWdemand') {
                             prev_dval = e[kwhType]
-                        }
-                        else
-                        {
+                        } else {
                             prev_dval = e[param]
                         }
 
@@ -4035,15 +3970,12 @@ export function initAPI() {
                 }
 
                 let dKey = Object.keys(dxt)
-                
-                for(let dk of dKey)
-                {
-                    if(cmap[param].group == 'avg')
-                    {
-                        if(group[gid].member.length > 0)
-                        {
+
+                for (let dk of dKey) {
+                    if (cmap[param].group == 'avg') {
+                        if (group[gid].member.length > 0) {
                             dxt[dk] /= group[gid].member.length
-                        }  
+                        }
                     }
 
                     let arr = dk.split('-')
@@ -4051,56 +3983,44 @@ export function initAPI() {
 
                     // tt.setUTCMinutes(tt.getUTCMinutes() - 1)
 
-                    let seq;
+                    let seq
 
-                    if(req.params.type == 'year')
-                    {
-                        seq = tt.getUTCMonth();
-                                                
-                    }
-                    else if(req.params.type == 'month' || req.params.type == "range")
-                    {
-                        seq = Math.trunc((tt.getTime() - start_date.getTime())/(24*60*60*1000))
-                                                
-                    }
-                    else
-                    {
-                        seq = Math.trunc(tt.getTime()/1000/60/15) - start_seq;
+                    if (req.params.type == 'year') {
+                        seq = tt.getUTCMonth()
+                    } else if (req.params.type == 'month' || req.params.type == 'range') {
+                        seq = Math.trunc(
+                            (tt.getTime() - start_date.getTime()) / (24 * 60 * 60 * 1000)
+                        )
+                    } else {
+                        seq = Math.trunc(tt.getTime() / 1000 / 60 / 15) - start_seq
 
-                        if(seq < 0)
-                        {
+                        if (seq < 0) {
                             seq = 0
                         }
                     }
-                    
-                    ret[k][seq].value += dxt[dk];
-                    count[seq]++;
-                    
-                    if(dxt[dk] > ret[k][seq].maxv)
-                    {
+
+                    ret[k][seq].value += dxt[dk]
+                    count[seq]++
+
+                    if (dxt[dk] > ret[k][seq].maxv) {
                         ret[k][seq].maxv = dxt[dk]
                     }
 
-                    if(dxt[dk] < ret[k][seq].minv)
-                    {
+                    if (dxt[dk] < ret[k][seq].minv) {
                         ret[k][seq].minv = dxt[dk]
                     }
                 }
 
-                if(cmap[param].storage != 'accumulative')
-                {
-                    for(let i=0; i<arr_size; i++)
-                    {
-                        if(count[i] > 0)
-                        {
-                            ret[k][i].value /= count[i];
+                if (cmap[param].storage != 'accumulative') {
+                    for (let i = 0; i < arr_size; i++) {
+                        if (count[i] > 0) {
+                            ret[k][i].value /= count[i]
                         }
                     }
                 }
 
-                if(req.params.type != 'day')
-                {
-                    ret[k].length = ret[k].length - 1;
+                if (req.params.type != 'day') {
+                    ret[k].length = ret[k].length - 1
                 }
             }
         }
@@ -4108,109 +4028,106 @@ export function initAPI() {
         res.json(ret)
     })
 
-
-
     api.post('/rp_export/:type/:ttype/:year/:month/:day/:syear/:smonth/:sday', async (req, res) => {
-        if(await apiguard(req, 'rp_chart', '') == false)
-        {
+        if ((await apiguard(req, 'rp_chart', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
 
         const workbook = new ExcelJS.Workbook()
 
-        if(req.params.ttype == 'electrical')
-        {
+        if (req.params.ttype == 'electrical') {
             await workbook.xlsx.readFile(path.join(process.cwd(), 'Report-01_template.xlsx'))
-        }else{
+        } else {
             await workbook.xlsx.readFile(path.join(process.cwd(), 'Report-02_energy_template.xlsx'))
         }
-        
+
         const worksheet = workbook.getWorksheet('RawData')
 
-        const start_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
-        let end_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, req.params.day));
+        const start_date = new Date(
+            Date.UTC(req.params.year, parseInt(req.params.month) - 1, req.params.day)
+        )
+        let end_date = new Date(
+            Date.UTC(req.params.year, parseInt(req.params.month) - 1, req.params.day)
+        )
 
-        if(req.params.type == "year")
-        {
-            start_date.setUTCMonth(0);
-            start_date.setUTCDate(1);
+        if (req.params.type == 'year') {
+            start_date.setUTCMonth(0)
+            start_date.setUTCDate(1)
 
-            end_date.setUTCFullYear(end_date.getUTCFullYear() + 1);
-            end_date.setUTCMonth(0);
-            end_date.setUTCDate(1);
-        }
-        else if(req.params.type == "month")
-        {
-            start_date.setUTCDate(1);
+            end_date.setUTCFullYear(end_date.getUTCFullYear() + 1)
+            end_date.setUTCMonth(0)
+            end_date.setUTCDate(1)
+        } else if (req.params.type == 'month') {
+            start_date.setUTCDate(1)
 
-            end_date.setUTCMonth(end_date.getUTCMonth() + 1);
-            end_date.setUTCDate(1);
-        }
-        else if(req.params.type == "range")
-        {
+            end_date.setUTCMonth(end_date.getUTCMonth() + 1)
+            end_date.setUTCDate(1)
+        } else if (req.params.type == 'range') {
             start_date.setUTCFullYear(parseInt(req.params.syear))
             start_date.setUTCMonth(parseInt(req.params.smonth) - 1)
             start_date.setUTCDate(req.params.sday)
-        }
-        else
-        {
-            end_date.setUTCDate(end_date.getUTCDate() + 1);
+        } else {
+            end_date.setUTCDate(end_date.getUTCDate() + 1)
         }
 
         let now = new Date()
-        now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
+        now = Date.UTC(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            now.getHours(),
+            now.getMinutes(),
+            0
+        )
 
-        if(now < end_date)
-        {
+        if (now < end_date) {
             end_date = new Date(now)
         }
 
-        let start_seq = Math.trunc(start_date.getTime()/1000/60/15);
-        let end_seq = Math.trunc(end_date.getTime()/1000/60/15);
+        let start_seq = Math.trunc(start_date.getTime() / 1000 / 60 / 15)
+        let end_seq = Math.trunc(end_date.getTime() / 1000 / 60 / 15)
 
-        let arr_size = end_seq - start_seq + 1;
+        let arr_size = end_seq - start_seq + 1
 
         let ret = {}
 
         let p = req.body
 
-        let kwhType = "TotalkWh"
+        let kwhType = 'TotalkWh'
 
-        if(meta_cfg.useImport && meta_cfg.useImport.value)
-        {
-            kwhType = "Import_kWh"
+        if (meta_cfg.useImport && meta_cfg.useImport.value) {
+            kwhType = 'Import_kWh'
         }
-        
+
         for (let k of p) {
             // Get data and fill
-            let arr = k.split("@");
+            let arr = k.split('@')
 
-            if(arr[0] == 'M')
-            {
-                let sn = arr[1];
-                let siteid = arr[2];
-                let nodeid = arr[3];
+            if (arr[0] == 'M') {
+                let sn = arr[1]
+                let siteid = arr[2]
+                let nodeid = arr[3]
 
-                arr = arr[4].split("%");
+                arr = arr[4].split('%')
 
-                let modbusid = String(parseInt(arr[0]) + 1);
-                let param = arr[1];
-                let eData;
+                let modbusid = String(parseInt(arr[0]) + 1)
+                let param = arr[1]
+                let eData
 
-                if(param == "TotalkWh" && req.params.ttype != 'electrical' && meta_cfg.useImport && meta_cfg.useImport.value)
-                {
+                if (
+                    param == 'TotalkWh' &&
+                    req.params.ttype != 'electrical' &&
+                    meta_cfg.useImport &&
+                    meta_cfg.useImport.value
+                ) {
                     var cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + kwhType
                     param = kwhType
-                }
-                else
-                {
+                } else {
                     var cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + param
                 }
-                
 
-                if(param == 'kWdemand')
-                {
+                if (param == 'kWdemand') {
                     eData = await db.energy.findAll({
                         attributes: ['DateTimeUpdate', 'SerialNo', kwhType],
                         where: {
@@ -4220,13 +4137,14 @@ export function initAPI() {
                                     [Op.lte]: end_date
                                 }
                             },
-                            snmKey: siteid + "%" + nodeid + "%" + modbusid
+                            snmKey: siteid + '%' + nodeid + '%' + modbusid
                         },
-                        order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                        order: [
+                            ['DateTimeUpdate', 'ASC'],
+                            ['id', 'asc']
+                        ]
                     })
-                }
-                else
-                {
+                } else {
                     eData = await db.energy.findAll({
                         attributes: ['DateTimeUpdate', 'SerialNo', param],
                         where: {
@@ -4236,170 +4154,142 @@ export function initAPI() {
                                     [Op.lte]: end_date
                                 }
                             },
-                            snmKey: siteid + "%" + nodeid + "%" + modbusid
+                            snmKey: siteid + '%' + nodeid + '%' + modbusid
                         },
-                        order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                        order: [
+                            ['DateTimeUpdate', 'ASC'],
+                            ['id', 'asc']
+                        ]
                     })
                 }
 
                 ret[cellName] = []
                 let count = []
 
-                for(let i=0; i<arr_size; i++)
-                {
-                    ret[cellName].push(-1);
+                for (let i = 0; i < arr_size; i++) {
+                    ret[cellName].push(-1)
                     count.push(0)
                 }
 
-                let prev_dval  = -1;
-                let prev_time = null;
+                let prev_dval = -1
+                let prev_time = null
 
-                for(let e of eData)
-                {
-                    let seq;
-                    let dval;
+                for (let e of eData) {
+                    let seq
+                    let dval
 
                     let adjustedTime = new Date(e.DateTimeUpdate.getTime())
                     // adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes()-1)
 
-                    seq = Math.trunc(adjustedTime.getTime()/1000/60/15) - start_seq;
+                    seq = Math.trunc(adjustedTime.getTime() / 1000 / 60 / 15) - start_seq
 
-                    if(seq < 0) 
-                    {
+                    if (seq < 0) {
                         seq = 0
                     }
 
-                    if(cmap[param].storage == "accumulative")
-                    {
+                    if (cmap[param].storage == 'accumulative') {
                         let sn = e.SerialNo
                         let period = blacknode[sn].period * 60 * 1000
 
-                        if(prev_time == null || e.DateTimeUpdate.getTime() - prev_time.getTime() != period)
-                        {
+                        if (
+                            prev_time == null ||
+                            e.DateTimeUpdate.getTime() - prev_time.getTime() != period
+                        ) {
                             prev_time = e.DateTimeUpdate
 
-                            if(param == 'kWdemand')
-                            {
+                            if (param == 'kWdemand') {
                                 prev_dval = e[kwhType]
-                            }
-                            else
-                            {
+                            } else {
                                 prev_dval = e[param]
                             }
 
                             continue
-                        }
-                        else
-                        {
-                            if(param == 'kWdemand')
-                            {
-                                if(e[kwhType] != undefined || e[kwhType] != -1)
-                                {
+                        } else {
+                            if (param == 'kWdemand') {
+                                if (e[kwhType] != undefined || e[kwhType] != -1) {
                                     dval = (e[kwhType] - prev_dval) * DEMAND
-                                }
-                                else
-                                {
+                                } else {
                                     dval = 0
                                 }
-                            }
-                            else
-                            {
+                            } else {
                                 dval = e[param] - prev_dval
                             }
-                            
                         }
-                    }
-                    else
-                    {
-                        if(param == 'kWdemand')
-                        {
+                    } else {
+                        if (param == 'kWdemand') {
                             dval = e[kwhType]
-                        }
-                        else
-                        {
+                        } else {
                             dval = e[param]
                         }
                     }
 
                     //Get the average
-                    if(ret[cellName][seq] == -1) ret[cellName][seq] = 0
-                    ret[cellName][seq] += dval;
-                    count[seq]++;
+                    if (ret[cellName][seq] == -1) ret[cellName][seq] = 0
+                    ret[cellName][seq] += dval
+                    count[seq]++
 
-                    if(param == 'kWdemand')
-                    {
+                    if (param == 'kWdemand') {
                         prev_dval = e[kwhType]
-                    }
-                    else
-                    {
+                    } else {
                         prev_dval = e[param]
                     }
-                    
+
                     prev_time = e.DateTimeUpdate
                 }
 
-
-                if(cmap[param].storage != "accumulative")
-                {
-                    for(let i=0; i<arr_size; i++)
-                    {
-                        if(count[i] > 0)
-                        {
-                            ret[cellName][i] /= count[i];
+                if (cmap[param].storage != 'accumulative') {
+                    for (let i = 0; i < arr_size; i++) {
+                        if (count[i] > 0) {
+                            ret[cellName][i] /= count[i]
                         }
                     }
                 }
 
-                if(req.params.type != 'day')
-                {
+                if (req.params.type != 'day') {
                     ret[cellName].length = ret[cellName].length - 1
                 }
-            }
-            else if(arr[0] == 'G')
-            {
-                arr = arr[1].split("%");
+            } else if (arr[0] == 'G') {
+                arr = arr[1].split('%')
 
-                let gid = parseInt(arr[0]);
+                let gid = parseInt(arr[0])
 
-                let param = arr[1];
+                let param = arr[1]
 
-                
-                let dxt = {};
-                let multmap = {};
+                let dxt = {}
+                let multmap = {}
                 let count = []
 
-                if(param == "TotalkWh" && req.params.ttype != 'electrical' && meta_cfg.useImport && meta_cfg.useImport.value)
-                {
+                if (
+                    param == 'TotalkWh' &&
+                    req.params.ttype != 'electrical' &&
+                    meta_cfg.useImport &&
+                    meta_cfg.useImport.value
+                ) {
                     var cellName = group[gid].name + '.' + kwhType
                     param = kwhType
-                }
-                else
-                {
+                } else {
                     var cellName = group[gid].name + '.' + param
                 }
-                
-                ret[cellName] = [];
 
-                for(let i=0; i<arr_size; i++)
-                {
-                    ret[cellName].push(0);
+                ret[cellName] = []
+
+                for (let i = 0; i < arr_size; i++) {
+                    ret[cellName].push(0)
                     count.push(0)
                 }
 
-                for(let m of group[gid].member)
-                {
-                    let sn = m.serial;
-                    let siteid = blacknode[sn].siteid;
-                    let nodeid = blacknode[sn].nodeid;
-                    let modbusid = parseInt(m.modbusid);
-                    let snmKey = siteid + "%" + nodeid + "%" + modbusid
+                for (let m of group[gid].member) {
+                    let sn = m.serial
+                    let siteid = blacknode[sn].siteid
+                    let nodeid = blacknode[sn].nodeid
+                    let modbusid = parseInt(m.modbusid)
+                    let snmKey = siteid + '%' + nodeid + '%' + modbusid
 
                     multmap[snmKey] = parseFloat(m.multiplier)
 
-                    let eData;
+                    let eData
 
-                    if(param == 'kWdemand')
-                    {
+                    if (param == 'kWdemand') {
                         eData = await db.energy.findAll({
                             attributes: ['DateTimeUpdate', 'SerialNo', kwhType, 'snmKey'],
                             where: {
@@ -4409,13 +4299,14 @@ export function initAPI() {
                                         [Op.lte]: end_date
                                     }
                                 },
-                                snmKey: siteid + "%" + nodeid + "%" + modbusid
+                                snmKey: siteid + '%' + nodeid + '%' + modbusid
                             },
-                            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                            order: [
+                                ['DateTimeUpdate', 'ASC'],
+                                ['id', 'asc']
+                            ]
                         })
-                    }
-                    else
-                    {
+                    } else {
                         eData = await db.energy.findAll({
                             attributes: ['DateTimeUpdate', 'SerialNo', param, 'snmKey'],
                             where: {
@@ -4425,85 +4316,76 @@ export function initAPI() {
                                         [Op.lte]: end_date
                                     }
                                 },
-                                snmKey: siteid + "%" + nodeid + "%" + modbusid
+                                snmKey: siteid + '%' + nodeid + '%' + modbusid
                             },
-                            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                            order: [
+                                ['DateTimeUpdate', 'ASC'],
+                                ['id', 'asc']
+                            ]
                         })
                     }
 
                     let prev_time = null
                     let prev_dval = -1
 
-                    for(let e of eData)
-                    {
+                    for (let e of eData) {
                         let dval
-                        let tkey = e.DateTimeUpdate.getUTCFullYear() + '-' + e.DateTimeUpdate.getUTCMonth() + '-' + e.DateTimeUpdate.getUTCDate() + '-' + e.DateTimeUpdate.getUTCHours() + '-' + e.DateTimeUpdate.getUTCMinutes()
+                        let tkey =
+                            e.DateTimeUpdate.getUTCFullYear() +
+                            '-' +
+                            e.DateTimeUpdate.getUTCMonth() +
+                            '-' +
+                            e.DateTimeUpdate.getUTCDate() +
+                            '-' +
+                            e.DateTimeUpdate.getUTCHours() +
+                            '-' +
+                            e.DateTimeUpdate.getUTCMinutes()
 
-                        if(!dxt.hasOwnProperty(tkey))
-                        {
+                        if (!dxt.hasOwnProperty(tkey)) {
                             dxt[tkey] = 0
                         }
-    
-                        if(cmap[param].storage == "accumulative")
-                        {
+
+                        if (cmap[param].storage == 'accumulative') {
                             let sn = e.SerialNo
                             let period = blacknode[sn].period * 60 * 1000
 
-                            if(prev_time == null || e.DateTimeUpdate.getTime() - prev_time.getTime() != period)
-                            {
+                            if (
+                                prev_time == null ||
+                                e.DateTimeUpdate.getTime() - prev_time.getTime() != period
+                            ) {
                                 prev_time = e.DateTimeUpdate
 
-                                if(param == 'kWdemand')
-                                {
+                                if (param == 'kWdemand') {
                                     prev_dval = e[kwhType]
-                                }
-                                else
-                                {
+                                } else {
                                     prev_dval = e[param]
                                 }
-                                
+
                                 continue
-                            }
-                            else
-                            {
-                                if(param == 'kWdemand')
-                                {
-                                    if(e[kwhType] != undefined || e[kwhType] != -1)
-                                    {
+                            } else {
+                                if (param == 'kWdemand') {
+                                    if (e[kwhType] != undefined || e[kwhType] != -1) {
                                         dval = (e[kwhType] - prev_dval) * DEMAND
-                                    }
-                                    else
-                                    {
+                                    } else {
                                         dval = 0
                                     }
-                                }
-                                else
-                                {
+                                } else {
                                     dval = e[param] - prev_dval
                                 }
-                                
                             }
-                        }
-                        else
-                        {
-                            if(param == 'kWdemand')
-                            {
+                        } else {
+                            if (param == 'kWdemand') {
                                 dval = e[kwhType]
-                            }
-                            else
-                            {
+                            } else {
                                 dval = e[param]
                             }
                         }
 
                         dxt[tkey] += dval * multmap[e.snmKey]
 
-                        if(param == 'kWdemand')
-                        {
+                        if (param == 'kWdemand') {
                             prev_dval = e[kwhType]
-                        }
-                        else
-                        {
+                        } else {
                             prev_dval = e[param]
                         }
 
@@ -4512,15 +4394,12 @@ export function initAPI() {
                 }
 
                 let dKey = Object.keys(dxt)
-                
-                for(let dk of dKey)
-                {
-                    if(cmap[param].group == 'avg')
-                    {
-                        if(group[gid].member.length > 0)
-                        {
+
+                for (let dk of dKey) {
+                    if (cmap[param].group == 'avg') {
+                        if (group[gid].member.length > 0) {
                             dxt[dk] /= group[gid].member.length
-                        }  
+                        }
                     }
 
                     let arr = dk.split('-')
@@ -4528,56 +4407,47 @@ export function initAPI() {
 
                     // tt.setUTCMinutes(tt.getUTCMinutes() - 1)
 
-                    let seq;
+                    let seq
 
-                    seq = Math.trunc(tt.getTime()/1000/60/15) - start_seq;
+                    seq = Math.trunc(tt.getTime() / 1000 / 60 / 15) - start_seq
 
-                    if(seq < 0)
-                    {
+                    if (seq < 0) {
                         seq = 0
                     }
-                    
-                    ret[cellName][seq] += dxt[dk];
-                    count[seq]++;
-                    
+
+                    ret[cellName][seq] += dxt[dk]
+                    count[seq]++
                 }
 
-                if(cmap[param].storage != 'accumulative')
-                {
-                    for(let i=0; i<arr_size; i++)
-                    {
-                        if(count[i] > 0)
-                        {
-                            ret[cellName][i] /= count[i];
+                if (cmap[param].storage != 'accumulative') {
+                    for (let i = 0; i < arr_size; i++) {
+                        if (count[i] > 0) {
+                            ret[cellName][i] /= count[i]
                         }
                     }
                 }
 
-                if(req.params.type != 'day')
-                {
-                    ret[cellName].length = ret[cellName].length - 1;
+                if (req.params.type != 'day') {
+                    ret[cellName].length = ret[cellName].length - 1
                 }
-                
             }
         }
 
         let keys = Object.keys(ret)
         let currCol = 2
 
-        for(let k of keys)
-        {
+        for (let k of keys) {
             let col = worksheet.getColumn(currCol)
 
             col.values = [k].concat(ret[k])
-            col.width = k.length+5
+            col.width = k.length + 5
             currCol++
         }
 
-
-
-        for(let i=1; i<=arr_size; i++)
-        {
-            worksheet.getCell('A' + String(i+1)).value = new Date(start_date.getTime() + ((i-1)*15*60*1000));
+        for (let i = 1; i <= arr_size; i++) {
+            worksheet.getCell('A' + String(i + 1)).value = new Date(
+                start_date.getTime() + (i - 1) * 15 * 60 * 1000
+            )
         }
 
         res.attachment(req.params.ttype + '_export.xlsx')
@@ -4586,276 +4456,327 @@ export function initAPI() {
         })
     })
 
-    api.post('/report_export/day/:s_year/:s_month/:s_day/:s_hour/:s_min/:report_type', async (req, res) => {
-        if(await apiguard(req, 'rp_chart', '') == false)
-        {
-            res.send('Permission not allowed.')
-            return
-        }
-
-        let workbook = new ExcelJS.Workbook()
-        try{
-            switch (req.params.report_type) {
-                case 'report_MC1_2':
-                    await workbook.xlsx.readFile(path.join(process.cwd(), 'Template Energy Report - TEP - MC12.xlsx'))
-                    break;
-                case 'report_DC1':
-                    await workbook.xlsx.readFile(path.join(process.cwd(), 'Template Energy Report - TEP - DC1.xlsx'))
-                    break;
-                case 'report_DC2':
-                    await workbook.xlsx.readFile(path.join(process.cwd(), 'Template Energy Report - TEP - DC2.xlsx'))
-                    break;
-                case 'report_DC3':
-                    await workbook.xlsx.readFile(path.join(process.cwd(), 'Template Energy Report - TEP - DC3.xlsx'))
-                    break;
-                case 'report_GC2':
-                    await workbook.xlsx.readFile(path.join(process.cwd(), 'Template Energy Report - TEP - GC2.xlsx'))
-                    break;
-                case 'report_MDB_TEP':
-                    await workbook.xlsx.readFile(path.join(process.cwd(), 'Template Energy Report - TEP - MDB.xlsx'))
-                    break;        
-                default:
-                    workbook = null;
-                    break;
+    api.post(
+        '/report_export/day/:s_year/:s_month/:s_day/:s_hour/:s_min/:report_type',
+        async (req, res) => {
+            if ((await apiguard(req, 'rp_chart', '')) == false) {
+                res.send('Permission not allowed.')
+                return
             }
-        }catch(err){
-            console.log(err);
-            
-            res.send(err)
-            return;
-        }
-    
 
-        if(!workbook){
-            res.send('file not found.')
-            return;
-        }
-
-        const worksheet = workbook.getWorksheet('RawData')
-        const start_date = new Date(Date.UTC(req.params.s_year, parseInt(req.params.s_month)-1, req.params.s_day,req.params.s_hour,req.params.s_min));
-        const end_date = new Date(Date.UTC(req.params.s_year, parseInt(req.params.s_month)-1, req.params.s_day,req.params.s_hour,req.params.s_min));
-
-        start_date.setUTCDate(1);
-        end_date.setUTCDate(end_date.getUTCDate() + 1);
-
-        const arr_size = ((end_date - start_date) / (1000 * 60 * 60 * 24)) + 1;
-
-        const ret = {}
-        const storeCName = {};
-        const snmKeys = [];
-        const p = req.body
-        if(p.length == 0) return;
-        for (const k of p) {
-            // Get data and fill
-            let arr = k.split("@");
-            if(arr[0] == 'M')
-            {
-                const sn = arr[1];
-                const siteid = arr[2];
-                const nodeid = arr[3];
-
-                arr = arr[4].split("%");
-
-                const modbusid = String(parseInt(arr[0]) + 1);
-                const param = arr[1];
-                const cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + param
-                snmKeys.push(siteid + "%" + nodeid + "%" + modbusid);
-                ret[cellName] = [];
-                for (let index = 0; index < arr_size; index++) {
-                    ret[cellName].push(-1) 
+            let workbook = new ExcelJS.Workbook()
+            try {
+                switch (req.params.report_type) {
+                    case 'report_MC1_2':
+                        await workbook.xlsx.readFile(
+                            path.join(process.cwd(), 'Template Energy Report - TEP - MC12.xlsx')
+                        )
+                        break
+                    case 'report_DC1':
+                        await workbook.xlsx.readFile(
+                            path.join(process.cwd(), 'Template Energy Report - TEP - DC1.xlsx')
+                        )
+                        break
+                    case 'report_DC2':
+                        await workbook.xlsx.readFile(
+                            path.join(process.cwd(), 'Template Energy Report - TEP - DC2.xlsx')
+                        )
+                        break
+                    case 'report_DC3':
+                        await workbook.xlsx.readFile(
+                            path.join(process.cwd(), 'Template Energy Report - TEP - DC3.xlsx')
+                        )
+                        break
+                    case 'report_GC2':
+                        await workbook.xlsx.readFile(
+                            path.join(process.cwd(), 'Template Energy Report - TEP - GC2.xlsx')
+                        )
+                        break
+                    case 'report_MDB_TEP':
+                        await workbook.xlsx.readFile(
+                            path.join(process.cwd(), 'Template Energy Report - TEP - MDB.xlsx')
+                        )
+                        break
+                    default:
+                        workbook = null
+                        break
                 }
-                storeCName[siteid + "%" + nodeid + "%" + modbusid] = [cellName,param];
-            }
-        }
+            } catch (err) {
+                console.log(err)
 
-        const eData = await db.energy.findAll({
-            where: {
-                DateTimeUpdate: {
-                    [Op.between]: [start_date, end_date]
+                res.send(err)
+                return
+            }
+
+            if (!workbook) {
+                res.send('file not found.')
+                return
+            }
+
+            const worksheet = workbook.getWorksheet('RawData')
+            const start_date = new Date(
+                Date.UTC(
+                    req.params.s_year,
+                    parseInt(req.params.s_month) - 1,
+                    req.params.s_day,
+                    req.params.s_hour,
+                    req.params.s_min
+                )
+            )
+            const end_date = new Date(
+                Date.UTC(
+                    req.params.s_year,
+                    parseInt(req.params.s_month) - 1,
+                    req.params.s_day,
+                    req.params.s_hour,
+                    req.params.s_min
+                )
+            )
+
+            start_date.setUTCDate(1)
+            end_date.setUTCDate(end_date.getUTCDate() + 1)
+
+            const arr_size = (end_date - start_date) / (1000 * 60 * 60 * 24) + 1
+
+            const ret = {}
+            const storeCName = {}
+            const snmKeys = []
+            const p = req.body
+            if (p.length == 0) return
+            for (const k of p) {
+                // Get data and fill
+                let arr = k.split('@')
+                if (arr[0] == 'M') {
+                    const sn = arr[1]
+                    const siteid = arr[2]
+                    const nodeid = arr[3]
+
+                    arr = arr[4].split('%')
+
+                    const modbusid = String(parseInt(arr[0]) + 1)
+                    const param = arr[1]
+                    const cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + param
+                    snmKeys.push(siteid + '%' + nodeid + '%' + modbusid)
+                    ret[cellName] = []
+                    for (let index = 0; index < arr_size; index++) {
+                        ret[cellName].push(-1)
+                    }
+                    storeCName[siteid + '%' + nodeid + '%' + modbusid] = [cellName, param]
+                }
+            }
+
+            const eData = await db.energy.findAll({
+                where: {
+                    DateTimeUpdate: {
+                        [Op.between]: [start_date, end_date]
+                    },
+                    [Op.and]: [
+                        db.sequelize.where(
+                            db.sequelize.fn(
+                                'DATE_PART',
+                                'hour',
+                                db.sequelize.col('DateTimeUpdate')
+                            ),
+                            req.params.s_hour
+                        ),
+                        db.sequelize.where(
+                            db.sequelize.fn(
+                                'DATE_PART',
+                                'minute',
+                                db.sequelize.col('DateTimeUpdate')
+                            ),
+                            req.params.s_min
+                        )
+                    ],
+                    snmKey: { [Op.in]: snmKeys }
                 },
-                [Op.and]: [
-                    db.sequelize.where(
-                        db.sequelize.fn('DATE_PART', 'hour', db.sequelize.col('DateTimeUpdate')),
-                        req.params.s_hour
-                    ),
-                    db.sequelize.where(
-                        db.sequelize.fn('DATE_PART', 'minute', db.sequelize.col('DateTimeUpdate')),
-                        req.params.s_min
-                    )
-                ],
-                snmKey: { [Op.in]: snmKeys }
-            },
-            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
-        })
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
+            })
 
-        if(eData.length > 0){
-            const tmpMonth = new Date(eData[0].DateTimeUpdate).getMonth();
-            const tmpYear = new Date(eData[0].DateTimeUpdate).getFullYear();
-            for(const e of eData)
-            { 
-                if(!storeCName[e.snmKey] || storeCName[e.snmKey].length != 2) continue;
-                const index = new Date(e.DateTimeUpdate).getDate() - 1;
-                const currMonth = new Date(e.DateTimeUpdate).getMonth();
-                const currYear = new Date(e.DateTimeUpdate).getFullYear();
-                
-                if(currMonth > tmpMonth || tmpYear > currYear){
-                    ret[storeCName[e.snmKey][0]][ret[storeCName[e.snmKey][0]].length - 1] = e[storeCName[e.snmKey][1]];
+            if (eData.length > 0) {
+                const tmpMonth = new Date(eData[0].DateTimeUpdate).getMonth()
+                const tmpYear = new Date(eData[0].DateTimeUpdate).getFullYear()
+                for (const e of eData) {
+                    if (!storeCName[e.snmKey] || storeCName[e.snmKey].length != 2) continue
+                    const index = new Date(e.DateTimeUpdate).getDate() - 1
+                    const currMonth = new Date(e.DateTimeUpdate).getMonth()
+                    const currYear = new Date(e.DateTimeUpdate).getFullYear()
+
+                    if (currMonth > tmpMonth || tmpYear > currYear) {
+                        ret[storeCName[e.snmKey][0]][ret[storeCName[e.snmKey][0]].length - 1] =
+                            e[storeCName[e.snmKey][1]]
+                    } else if (index >= 0 && index <= 30) {
+                        ret[storeCName[e.snmKey][0]][index] = e[storeCName[e.snmKey][1]]
+                    }
                 }
-                else if(index >= 0 && index <=30 ){
-                    ret[storeCName[e.snmKey][0]][index] = e[storeCName[e.snmKey][1]];
-                } 
             }
-        }
 
-        function getColumnLetter(colIndex) {
-            let letter = '';
-            while (colIndex > 0) {
-                const mod = (colIndex - 1) % 26;
-                letter = String.fromCharCode(65 + mod) + letter;
-                colIndex = Math.floor((colIndex - mod) / 26);
-            }
-            return letter;
-        }
-    
-        const keys = Object.keys(ret)
-        let currRow = 2     
-        for(const k of keys)
-        {
-            const col = worksheet.getRow(currRow)
-            col.values = [k].concat(ret[k])
-            col.width = k.length+5
-            currRow++
-        }
-
-        
-
-        for(let i=1; i<=arr_size; i++)
-        {
-            const columnLetter = getColumnLetter(i+1); 
-            const newDate = new Date(start_date);
-            newDate.setDate(newDate.getDate() + (i-1))
-            worksheet.getCell(`${columnLetter}1`).value = newDate;
-            //worksheet.getCell(`${columnLetter}1`).value = new Date(start_date.getTime() + ((i-1)*15*60*1000));
-            
-        }
-
-        res.attachment(req.params.report_type + '_export.xlsx')
-        workbook.xlsx.write(res).then(() => {
-            res.end()
-        })
-    })
-
-    api.post('/report_export/month/:s_year/:s_month/:s_day/:s_hour/:s_min/:e_year/:e_month/:e_day/:e_hour/:e_min', async (req, res) => {
-        if(await apiguard(req, 'rp_chart', '') == false)
-        {
-            res.send('Permission not allowed.')
-            return
-        }
-
-        const workbook = new ExcelJS.Workbook();
-        try {
-            await workbook.xlsx.readFile(path.join(process.cwd(), 'Template Energy Report - TEP - Monthly.xlsx'));
-        } catch (error) {
-            res.send(error)
-            return;    
-        }
-
-        const worksheet = workbook.getWorksheet('RawData');
-        
-        const start_date = new Date(Date.UTC(req.params.s_year, parseInt(req.params.s_month)-1, req.params.s_day,req.params.s_hour,req.params.s_min));
-        const end_date = new Date(Date.UTC(req.params.e_year, parseInt(req.params.e_month)-1, req.params.e_day,req.params.e_hour,req.params.e_min));
-
-        const arr_size = 2
-        
-        const ret = {}
-        const storeCName = {};
-        const snmKeys = [];
-        const p = req.body
-
-        if(p.length == 0) return;
-        let param;
-        for (const k of p) {
-            // Get data and fill
-            let arr = k.split("@");
-
-            if(arr[0] == 'M')
-            {
-                const sn = arr[1];
-                const siteid = arr[2];
-                const nodeid = arr[3];
-
-                arr = arr[4].split("%");
-
-                const modbusid = String(parseInt(arr[0]) + 1);
-                param = arr[1];
-                const cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + param
-                snmKeys.push(siteid + "%" + nodeid + "%" + modbusid);
-                ret[cellName] = [];
-                for (let index = 0; index < arr_size; index++) {
-                    ret[cellName].push(-1) 
+            function getColumnLetter(colIndex) {
+                let letter = ''
+                while (colIndex > 0) {
+                    const mod = (colIndex - 1) % 26
+                    letter = String.fromCharCode(65 + mod) + letter
+                    colIndex = Math.floor((colIndex - mod) / 26)
                 }
-                storeCName[siteid + "%" + nodeid + "%" + modbusid] = [cellName,param];
+                return letter
             }
-        }
- 
-        const eData = await db.energy.findAll({
-            where: {
-                DateTimeUpdate:  {[Op.in]:[start_date,end_date]},
-                snmKey: { [Op.in]: snmKeys }
-            },
-            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
-        })
 
-        if(eData.length > 0){
-            for(const e of eData)
-            { 
-                if(!storeCName[e.snmKey] || storeCName[e.snmKey].length != 2) continue;
-                let index;
-                if(compareDateTime(new Date(e.DateTimeUpdate),start_date)){
-                    index  = 0
-                }else{
-                    index  = 1
+            const keys = Object.keys(ret)
+            let currRow = 2
+            for (const k of keys) {
+                const col = worksheet.getRow(currRow)
+                col.values = [k].concat(ret[k])
+                col.width = k.length + 5
+                currRow++
+            }
+
+            for (let i = 1; i <= arr_size; i++) {
+                const columnLetter = getColumnLetter(i + 1)
+                const newDate = new Date(start_date)
+                newDate.setDate(newDate.getDate() + (i - 1))
+                worksheet.getCell(`${columnLetter}1`).value = newDate
+                //worksheet.getCell(`${columnLetter}1`).value = new Date(start_date.getTime() + ((i-1)*15*60*1000));
+            }
+
+            res.attachment(req.params.report_type + '_export.xlsx')
+            workbook.xlsx.write(res).then(() => {
+                res.end()
+            })
+        }
+    )
+
+    api.post(
+        '/report_export/month/:s_year/:s_month/:s_day/:s_hour/:s_min/:e_year/:e_month/:e_day/:e_hour/:e_min',
+        async (req, res) => {
+            if ((await apiguard(req, 'rp_chart', '')) == false) {
+                res.send('Permission not allowed.')
+                return
+            }
+
+            const workbook = new ExcelJS.Workbook()
+            try {
+                await workbook.xlsx.readFile(
+                    path.join(process.cwd(), 'Template Energy Report - TEP - Monthly.xlsx')
+                )
+            } catch (error) {
+                res.send(error)
+                return
+            }
+
+            const worksheet = workbook.getWorksheet('RawData')
+
+            const start_date = new Date(
+                Date.UTC(
+                    req.params.s_year,
+                    parseInt(req.params.s_month) - 1,
+                    req.params.s_day,
+                    req.params.s_hour,
+                    req.params.s_min
+                )
+            )
+            const end_date = new Date(
+                Date.UTC(
+                    req.params.e_year,
+                    parseInt(req.params.e_month) - 1,
+                    req.params.e_day,
+                    req.params.e_hour,
+                    req.params.e_min
+                )
+            )
+
+            const arr_size = 2
+
+            const ret = {}
+            const storeCName = {}
+            const snmKeys = []
+            const p = req.body
+
+            if (p.length == 0) return
+            let param
+            for (const k of p) {
+                // Get data and fill
+                let arr = k.split('@')
+
+                if (arr[0] == 'M') {
+                    const sn = arr[1]
+                    const siteid = arr[2]
+                    const nodeid = arr[3]
+
+                    arr = arr[4].split('%')
+
+                    const modbusid = String(parseInt(arr[0]) + 1)
+                    param = arr[1]
+                    const cellName = blacknode[sn].meter_list[parseInt(arr[0])].name + '.' + param
+                    snmKeys.push(siteid + '%' + nodeid + '%' + modbusid)
+                    ret[cellName] = []
+                    for (let index = 0; index < arr_size; index++) {
+                        ret[cellName].push(-1)
+                    }
+                    storeCName[siteid + '%' + nodeid + '%' + modbusid] = [cellName, param]
                 }
-                //console.log(eDate,start_date,index,e[param]);
-                ret[storeCName[e.snmKey][0]][index] = e[storeCName[e.snmKey][1]];
             }
+
+            const eData = await db.energy.findAll({
+                where: {
+                    DateTimeUpdate: { [Op.in]: [start_date, end_date] },
+                    snmKey: { [Op.in]: snmKeys }
+                },
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
+            })
+
+            if (eData.length > 0) {
+                for (const e of eData) {
+                    if (!storeCName[e.snmKey] || storeCName[e.snmKey].length != 2) continue
+                    let index
+                    if (compareDateTime(new Date(e.DateTimeUpdate), start_date)) {
+                        index = 0
+                    } else {
+                        index = 1
+                    }
+                    //console.log(eDate,start_date,index,e[param]);
+                    ret[storeCName[e.snmKey][0]][index] = e[storeCName[e.snmKey][1]]
+                }
+            }
+
+            const keys = Object.keys(ret)
+            let currCol = 2
+
+            for (const k of keys) {
+                const col = worksheet.getColumn(currCol)
+                col.values = [k].concat(ret[k])
+                col.width = k.length + 5
+                currCol++
+            }
+
+            worksheet.getCell('A' + String(2)).value = start_date
+            worksheet.getCell('A' + String(3)).value = end_date
+
+            res.attachment(req.params.report_type + '_export.xlsx')
+            workbook.xlsx.write(res).then(() => {
+                res.end()
+            })
         }
-
-        const keys = Object.keys(ret)
-        let currCol = 2
-
-        for(const k of keys)
-        {
-            const col = worksheet.getColumn(currCol)
-            col.values = [k].concat(ret[k])
-            col.width = k.length+5
-            currCol++
-        }
-
-        worksheet.getCell('A' + String(2)).value = start_date;
-        worksheet.getCell('A' + String(3)).value = end_date;
-
-        res.attachment(req.params.report_type + '_export.xlsx')
-        workbook.xlsx.write(res).then(() => {
-            res.end()
-        })
-    })
+    )
 
     api.get('/monthly_target/:year/:month', async (req, res) => {
-
-        if(await apiguard(req, 'group_monitor', '') == false)
-        {
+        if ((await apiguard(req, 'group_monitor', '')) == false) {
             res.json({})
             return
         }
 
         const group = await db.group.findAll({
             where: {
-              type: 'monthly_target'
+                type: 'monthly_target'
             }
-        });  
+        })
 
-        if(!group){
+        if (!group) {
             res.json({})
             return
         }
@@ -4865,7 +4786,7 @@ export function initAPI() {
         let startTime = new Date(Date.UTC(year, month, 1, 0, 0, 0))
         let endTime = new Date(Date.UTC(year, month + 1, 1, 0, 0, 0))
         endTime.setDate(endTime.getDate() - 1)
-        
+
         let target = await db.target.findAll({
             where: {
                 target_datetime: {
@@ -4875,19 +4796,21 @@ export function initAPI() {
                     }
                 }
             }
-        });   
+        })
 
-          // get group that not create in current month and create it
-        if(target.length != group.length){
-            const filterGroup = group.filter(g => {
-                return !target.some(t => t.group_id === g.id);
-            });
-            if(filterGroup){
-                await db.target.bulkCreate(filterGroup.map(fg=>({
-                    target_datetime:startTime,
-                    group_id:fg.id,
-                    value:0
-                })))
+        // get group that not create in current month and create it
+        if (target.length != group.length) {
+            const filterGroup = group.filter((g) => {
+                return !target.some((t) => t.group_id === g.id)
+            })
+            if (filterGroup) {
+                await db.target.bulkCreate(
+                    filterGroup.map((fg) => ({
+                        target_datetime: startTime,
+                        group_id: fg.id,
+                        value: 0
+                    }))
+                )
             }
         }
 
@@ -4900,11 +4823,10 @@ export function initAPI() {
                     }
                 }
             }
-        });   
+        })
 
         startTime = new Date(Date.UTC(year, month, 1, 7, 30, 0))
         endTime = new Date(Date.UTC(year, month + 1, 1, 7, 30, 0))
-
 
         const group_value = async (gid) => {
             let snmKey = []
@@ -4914,11 +4836,11 @@ export function initAPI() {
 
             const members = await db.gmember.findAll({
                 where: { GroupID: gid },
-                order: [['order_meter', 'ASC']] 
+                order: [['order_meter', 'ASC']]
             })
 
-            if(!members){
-                return 0;
+            if (!members) {
+                return 0
             }
 
             if (members) {
@@ -4930,7 +4852,6 @@ export function initAPI() {
                     multmap[key] = parseFloat(m.multiplier)
                 }
             }
-        
 
             const eData = await db.energy.findAll({
                 where: {
@@ -4942,31 +4863,34 @@ export function initAPI() {
                     },
                     snmKey: snmKey
                 },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+                order: [
+                    ['DateTimeUpdate', 'ASC'],
+                    ['id', 'asc']
+                ]
             })
-            
-            let total = 0;
+
+            let total = 0
 
             for (const e of eData) {
                 let sn = e.SerialNo
                 let period = blacknode[sn].period * 60 * 1000
-                let energy = 0;
+                let energy = 0
 
-                if(meta_cfg.useImport.value)
-                {
+                if (meta_cfg.useImport.value) {
                     energy = e.Import_kWh
-                }
-                else
-                {
+                } else {
                     energy = e.TotalkWh
                 }
 
                 //skip if energy = 0
-                if(energy <= 0){
-                    continue;
+                if (energy <= 0) {
+                    continue
                 }
 
-                if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
+                if (
+                    !prevTime[e.snmKey] ||
+                    e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period
+                ) {
                     prevTime[e.snmKey] = e.DateTimeUpdate
                     prevEnergy[e.snmKey] = energy
                     continue
@@ -4978,50 +4902,45 @@ export function initAPI() {
                 prevTime[e.snmKey] = e.DateTimeUpdate
             }
 
-
-
-            return total;
-
+            return total
         }
 
-        const filterTarget = [];
+        const filterTarget = []
 
-        const ret = [];
+        const ret = []
         for (let i = 0; i < group.length; i++) {
-            const value = await group_value(group[i].id);
-            const target_value = target.find((t)=>t.group_id == group[i].id)
-            if(target_value){
-                ret[i] =   {
+            const value = await group_value(group[i].id)
+            const target_value = target.find((t) => t.group_id == group[i].id)
+            if (target_value) {
+                ret[i] = {
                     department: group[i].name,
                     target: target_value.value ? target_value.value : 0,
-                    usage: value,
+                    usage: value
                 }
                 filterTarget[i] = {
-                    id:target_value.id,
-                    name:group[i].name,
-                    value:target_value.value
+                    id: target_value.id,
+                    name: group[i].name,
+                    value: target_value.value
                 }
             }
         }
 
-        
         res.json({
-            graph:ret,
-            target:filterTarget
+            graph: ret,
+            target: filterTarget
         })
     })
 
     api.post('/monthly_target', async (req, res) => {
-        if(await apiguard(req, 'target', '') == false)
-        {
+        if ((await apiguard(req, 'target', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
-        
+
         try {
-           await db.target.bulkCreate(req.body, {
-                updateOnDuplicate: ['value'], 
-            });
+            await db.target.bulkCreate(req.body, {
+                updateOnDuplicate: ['value']
+            })
             res.send('SUCCESS')
         } catch (err) {
             console.log(err)
@@ -5030,93 +4949,95 @@ export function initAPI() {
     })
 
     api.get('/demand/:gid', async (req, res) => {
-        if(await apiguard(req, 'demand', '') == false)
-        {
+        if ((await apiguard(req, 'demand', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
 
         const ret = {
-            actual:0,
-            target:0,
-            diff:0
-        };
-        
+            actual: 0,
+            target: 0,
+            diff: 0
+        }
+
         const demand = await db.demand.findAll({
             where: {
                 name: {
-                    [Op.in]: ['onPeak','offPeak','partialPeak']
+                    [Op.in]: ['onPeak', 'offPeak', 'partialPeak']
                 }
-            },
+            }
         })
 
-        if(!demand){
-            res.send("please set demand first");
-            return;
+        if (!demand) {
+            res.send('please set demand first')
+            return
         }
         try {
             // Helper function to check if a time is between two other times
-            const now_time = new Date();
-            const findDate = demand.find(d => {
-
+            const now_time = new Date()
+            const findDate = demand.find((d) => {
                 // Extract hours and minutes
-                const startHour = d.start_time.getUTCHours();
-                const startMinute = d.start_time.getUTCMinutes();
-                const endHour = d.end_time.getUTCHours();
-                const endMinute = d.end_time.getUTCMinutes();
-                const nowHour = now_time.getHours();
-                const nowMinute = now_time.getMinutes();
+                const startHour = d.start_time.getUTCHours()
+                const startMinute = d.start_time.getUTCMinutes()
+                const endHour = d.end_time.getUTCHours()
+                const endMinute = d.end_time.getUTCMinutes()
+                const nowHour = now_time.getHours()
+                const nowMinute = now_time.getMinutes()
 
                 // Compare only hours and minutes
 
-                const isAfterStart = nowHour > startHour || (nowHour === startHour && nowMinute >= startMinute);
-                const isBeforeEnd = nowHour < endHour || (nowHour === endHour && nowMinute <= endMinute);
+                const isAfterStart =
+                    nowHour > startHour || (nowHour === startHour && nowMinute >= startMinute)
+                const isBeforeEnd =
+                    nowHour < endHour || (nowHour === endHour && nowMinute <= endMinute)
 
                 // For ranges that span midnight
                 if (endHour < startHour || (endHour === startHour && endMinute < startMinute)) {
-                    return isAfterStart || isBeforeEnd;
+                    return isAfterStart || isBeforeEnd
                 } else {
-                    return isAfterStart && isBeforeEnd;
+                    return isAfterStart && isBeforeEnd
                 }
-            });
+            })
 
-            if(!findDate){
-                ret.actual = -1;
-                ret.target = -1;
-                ret.diff = -1;
-                res.json(ret);
-                return;
+            if (!findDate) {
+                ret.actual = -1
+                ret.target = -1
+                ret.diff = -1
+                res.json(ret)
+                return
             }
 
-            ret.target = findDate.value;
+            ret.target = findDate.value
             const gid = req.params.gid
             const members = await db.gmember.findAll({
                 where: { GroupID: gid },
-                order: [['order_meter', 'ASC']] 
+                order: [['order_meter', 'ASC']]
             })
 
-            if(!members){
-                res.json(ret);
+            if (!members) {
+                res.json(ret)
             }
 
             if (members) {
                 for (const m of members) {
-                    if(lastUpdateData[m.SerialNo + '%' + String(parseInt(m.ModbusID) - 1)]?.P_Sum)
-                    ret.actual += lastUpdateData[m.SerialNo + '%' + String(parseInt(m.ModbusID) - 1)].P_Sum;
+                    if (lastUpdateData[m.SerialNo + '%' + String(parseInt(m.ModbusID) - 1)]?.P_Sum)
+                        ret.actual +=
+                            lastUpdateData[
+                                m.SerialNo + '%' + String(parseInt(m.ModbusID) - 1)
+                            ].P_Sum
                 }
             }
-            ret.diff = ret.target - ret.actual;
-            res.json(ret);
+            ret.diff = ret.target - ret.actual
+            res.json(ret)
         } catch (err) {
-            console.log(err);
+            console.log(err)
             res.send(err)
-            return;    
+            return
         }
     })
 
     api.put('/demand-manage', async (req, res) => {
-        if(await apiguard(req, 'demand_manage', '') == false)
-        {
+        if ((await apiguard(req, 'demand_manage', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
@@ -5134,149 +5055,235 @@ export function initAPI() {
             const demand = await db.demand.findAll({
                 where: {
                     name: {
-                        [Op.in]: ['onPeak','offPeak','partialPeak']
+                        [Op.in]: ['onPeak', 'offPeak', 'partialPeak']
                     }
-                },
+                }
             })
 
             let opsDate = new Date(req.body.onPeakS)
-            opsDate = Date.UTC(opsDate.getFullYear(), opsDate.getMonth(), opsDate.getDate(), opsDate.getHours(), opsDate.getMinutes(), 0)
+            opsDate = Date.UTC(
+                opsDate.getFullYear(),
+                opsDate.getMonth(),
+                opsDate.getDate(),
+                opsDate.getHours(),
+                opsDate.getMinutes(),
+                0
+            )
             let opeDate = new Date(req.body.onPeakE)
-            opeDate = Date.UTC(opeDate.getFullYear(), opeDate.getMonth(), opeDate.getDate(), opeDate.getHours(), opeDate.getMinutes(), 0)
+            opeDate = Date.UTC(
+                opeDate.getFullYear(),
+                opeDate.getMonth(),
+                opeDate.getDate(),
+                opeDate.getHours(),
+                opeDate.getMinutes(),
+                0
+            )
             let ofpsDate = new Date(req.body.offPeakS)
-            ofpsDate = Date.UTC(ofpsDate.getFullYear(), ofpsDate.getMonth(), ofpsDate.getDate(), ofpsDate.getHours(), ofpsDate.getMinutes(), 0)
+            ofpsDate = Date.UTC(
+                ofpsDate.getFullYear(),
+                ofpsDate.getMonth(),
+                ofpsDate.getDate(),
+                ofpsDate.getHours(),
+                ofpsDate.getMinutes(),
+                0
+            )
             let ofpeDate = new Date(req.body.offPeakE)
-            ofpeDate = Date.UTC(ofpeDate.getFullYear(), ofpeDate.getMonth(), ofpeDate.getDate(), ofpeDate.getHours(), ofpeDate.getMinutes(), 0)
+            ofpeDate = Date.UTC(
+                ofpeDate.getFullYear(),
+                ofpeDate.getMonth(),
+                ofpeDate.getDate(),
+                ofpeDate.getHours(),
+                ofpeDate.getMinutes(),
+                0
+            )
             let ppsDate = new Date(req.body.partialPeakS)
-            ppsDate = Date.UTC(ppsDate.getFullYear(), ppsDate.getMonth(), ppsDate.getDate(), ppsDate.getHours(), ppsDate.getMinutes(), 0)
+            ppsDate = Date.UTC(
+                ppsDate.getFullYear(),
+                ppsDate.getMonth(),
+                ppsDate.getDate(),
+                ppsDate.getHours(),
+                ppsDate.getMinutes(),
+                0
+            )
             let ppeDate = new Date(req.body.partialPeakE)
-            ppeDate = Date.UTC(ppeDate.getFullYear(), ppeDate.getMonth(), ppeDate.getDate(), ppeDate.getHours(), ppeDate.getMinutes(), 0)
+            ppeDate = Date.UTC(
+                ppeDate.getFullYear(),
+                ppeDate.getMonth(),
+                ppeDate.getDate(),
+                ppeDate.getHours(),
+                ppeDate.getMinutes(),
+                0
+            )
 
-            if(!demand){
+            if (!demand) {
                 const data = [
-                    { name: "onPeak",start_time:opsDate,value:onPeak,end_time:opeDate},
-                    { name: "offPeak",start_time:ofpsDate,value:offPeak,end_time:ofpeDate},
-                    { name: "partialPeak",start_time:ppsDate,value:partialPeak,end_time:ppeDate}
+                    { name: 'onPeak', start_time: opsDate, value: onPeak, end_time: opeDate },
+                    { name: 'offPeak', start_time: ofpsDate, value: offPeak, end_time: ofpeDate },
+                    {
+                        name: 'partialPeak',
+                        start_time: ppsDate,
+                        value: partialPeak,
+                        end_time: ppeDate
+                    }
                 ]
-                await db.demand.bulkCreate(data);
-            }else{
-                const findOnPeak = demand.find(d=>d.name=='onPeak');
-                const findOffPeak = demand.find(d=>d.name=='offPeak');
-                const findPartialPeak = demand.find(d=>d.name=='partialPeak');
-                if(findOnPeak)  await db.demand.update({start_time:opsDate,value:onPeak,end_time:opeDate},{where: { name: 'onPeak' }});
-                else await db.demand.create({name:'onPeak',start_time:opsDate,value:onPeak,end_time:opeDate});
-                if(findOffPeak)  await db.demand.update({start_time:ofpsDate,value:offPeak,end_time:ofpeDate},{where: { name: 'offPeak' }});
-                else await db.demand.create({name:'offPeak',start_time:ofpsDate,value:offPeak,end_time:ofpeDate});
-                if(findPartialPeak)  await db.demand.update({start_time:ppsDate,value:partialPeak,end_time:ppeDate},{where: { name: 'partialPeak' }});
-                else await db.demand.create({name:'partialPeak',start_time:ppsDate,value:partialPeak,end_time:ppeDate});
+                await db.demand.bulkCreate(data)
+            } else {
+                const findOnPeak = demand.find((d) => d.name == 'onPeak')
+                const findOffPeak = demand.find((d) => d.name == 'offPeak')
+                const findPartialPeak = demand.find((d) => d.name == 'partialPeak')
+                if (findOnPeak)
+                    await db.demand.update(
+                        { start_time: opsDate, value: onPeak, end_time: opeDate },
+                        { where: { name: 'onPeak' } }
+                    )
+                else
+                    await db.demand.create({
+                        name: 'onPeak',
+                        start_time: opsDate,
+                        value: onPeak,
+                        end_time: opeDate
+                    })
+                if (findOffPeak)
+                    await db.demand.update(
+                        { start_time: ofpsDate, value: offPeak, end_time: ofpeDate },
+                        { where: { name: 'offPeak' } }
+                    )
+                else
+                    await db.demand.create({
+                        name: 'offPeak',
+                        start_time: ofpsDate,
+                        value: offPeak,
+                        end_time: ofpeDate
+                    })
+                if (findPartialPeak)
+                    await db.demand.update(
+                        { start_time: ppsDate, value: partialPeak, end_time: ppeDate },
+                        { where: { name: 'partialPeak' } }
+                    )
+                else
+                    await db.demand.create({
+                        name: 'partialPeak',
+                        start_time: ppsDate,
+                        value: partialPeak,
+                        end_time: ppeDate
+                    })
             }
-            res.send("Updated")
+            res.send('Updated')
         } catch (err) {
-            console.log(err);
+            console.log(err)
             res.send("Can't create")
             return
         }
     })
 
     api.get('/demand-manage', async (req, res) => {
-        if(await apiguard(req, 'demand', '') == false)
-        {
+        if ((await apiguard(req, 'demand', '')) == false) {
             res.send('Permission not allowed.')
             return
         }
 
         try {
-
             let demand = await db.demand.findAll({
                 where: {
                     name: {
-                        [Op.in]: ['onPeak','offPeak','partialPeak']
+                        [Op.in]: ['onPeak', 'offPeak', 'partialPeak']
                     }
-                },
+                }
             })
 
-            demand = demand?.map((d)=>{
-                const newD =  d;
-                let sDate = new Date(d.start_date);
-                sDate = Date.UTC(sDate.getFullYear(), sDate.getMonth(), sDate.getDate(), sDate.getHours(), sDate.getMinutes(), 0);
-                d.start_date = sDate;
-                let eDate = new Date(d.start_date);
-                eDate = Date.UTC(eDate.getFullYear(), eDate.getMonth(), eDate.getDate(), eDate.getHours(), eDate.getMinutes(), 0);
-                d.end_date = eDate;
-                return newD;
+            demand = demand?.map((d) => {
+                const newD = d
+                let sDate = new Date(d.start_date)
+                sDate = Date.UTC(
+                    sDate.getFullYear(),
+                    sDate.getMonth(),
+                    sDate.getDate(),
+                    sDate.getHours(),
+                    sDate.getMinutes(),
+                    0
+                )
+                d.start_date = sDate
+                let eDate = new Date(d.start_date)
+                eDate = Date.UTC(
+                    eDate.getFullYear(),
+                    eDate.getMonth(),
+                    eDate.getDate(),
+                    eDate.getHours(),
+                    eDate.getMinutes(),
+                    0
+                )
+                d.end_date = eDate
+                return newD
             })
 
-            res.json(demand);
+            res.json(demand)
         } catch (err) {
             res.send("Can't get demand")
             return
         }
     })
 
-
-
-
     api.get('/overview-group/:type', async (req, res) => {
         const ret = {}
 
-        if(await apiguard(req, 'overview', '') == false)
-        {
+        if ((await apiguard(req, 'overview', '')) == false) {
             res.json(ret)
             return
         }
-        const like = req.params.type == 'go' ? 'go-%' :'overview-%'
+        const like = req.params.type == 'go' ? 'go-%' : 'overview-%'
         const group = await db.group.findAll({
             where: {
-                type:{
-                     [Op.like]: like
-                },
-            },
-        });
-
-        if(!group) res.json(ret)
-        ret['graph-extend']= {};
-        ret['graph'] = {};
-        for (const g of group) {
-            if(g.type.startsWith('go-graph-extend')){
-                if(!ret['graph-extend'][g.type]) ret['graph-extend'][g.type] = [];
-                ret['graph-extend'][g.type].push({
-                    key:g.type+g.name,
-                    name:g.name,
-                    isRight:null
-                });
-            }else if(g.type.startsWith('go-graph')){
-                ret['graph'][g.type] = [];
+                type: {
+                    [Op.like]: like
+                }
             }
-            else{
-                ret[g.type] =[];
+        })
+
+        if (!group) res.json(ret)
+        ret['graph-extend'] = {}
+        ret['graph'] = {}
+        for (const g of group) {
+            if (g.type.startsWith('go-graph-extend')) {
+                if (!ret['graph-extend'][g.type]) ret['graph-extend'][g.type] = []
+                ret['graph-extend'][g.type].push({
+                    key: g.type + g.name,
+                    name: g.name,
+                    isRight: null
+                })
+            } else if (g.type.startsWith('go-graph')) {
+                ret['graph'][g.type] = []
+            } else {
+                ret[g.type] = []
             }
             const members = await db.gmember.findAll({
                 where: { GroupID: g.id }
             })
             if (members !== null) {
                 for (const m of members) {
-                    if(g.type.startsWith('go-graph-extend') && m.is_consumption){
-                        if(!ret['graph-extend'][g.type]) ret['graph-extend'][g.type] = [];
-                        ret['graph-extend'][g.type].pop();
+                    if (g.type.startsWith('go-graph-extend') && m.is_consumption) {
+                        if (!ret['graph-extend'][g.type]) ret['graph-extend'][g.type] = []
+                        ret['graph-extend'][g.type].pop()
                         ret['graph-extend'][g.type].push({
-                            key:g.type+g.name,
-                            name:g.name,
-                            isRight:m.is_consumption
-                        });
-                    }
-                    else if(g.type.startsWith('go-graph') && !g.type.startsWith('go-graph-extend')){
+                            key: g.type + g.name,
+                            name: g.name,
+                            isRight: m.is_consumption
+                        })
+                    } else if (
+                        g.type.startsWith('go-graph') &&
+                        !g.type.startsWith('go-graph-extend')
+                    ) {
                         ret['graph'][g.type].push({
-                            key:m.SerialNo+ "%" + String(m.ModbusID-1),  
-                            snmKey: m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID),  
-                            name:m.line,
-                            isRight:m.is_consumption
-                        });
-                    }else if(g.type.startsWith('overview') || g.type.startsWith('go-value')){
+                            key: m.SerialNo + '%' + String(m.ModbusID - 1),
+                            snmKey: m.SiteID + '%' + m.NodeID + '%' + String(m.ModbusID),
+                            name: m.line,
+                            isRight: m.is_consumption
+                        })
+                    } else if (g.type.startsWith('overview') || g.type.startsWith('go-value')) {
                         ret[g.type].push({
-                            snKey:m.SerialNo+ "%" + String(m.ModbusID-1),  
-                            multiplier:m.multiplier,
-                            isRight:m.is_consumption
-                        });
+                            snKey: m.SerialNo + '%' + String(m.ModbusID - 1),
+                            multiplier: m.multiplier,
+                            isRight: m.is_consumption
+                        })
                     }
                 }
             }
@@ -5287,187 +5294,196 @@ export function initAPI() {
     api.post('/overview/:init', async (req, res) => {
         const ret = {}
 
-        if(await apiguard(req, 'overview', '') == false)
-        {
+        if ((await apiguard(req, 'overview', '')) == false) {
             res.json(ret)
             return
         }
         ret['overview-incomming'] = {
-            "utc": new Date().toISOString(),
-            "value": {
-                "P_Sum": 0,
-                "kWdemand": 0,
-                "Import_kWh": 0,
-                "TotalkWh": 0
+            utc: new Date().toISOString(),
+            value: {
+                P_Sum: 0,
+                kWdemand: 0,
+                Import_kWh: 0,
+                TotalkWh: 0
             }
-        };
-        try{
-            const init = req.params.init;
-            const snidIncomming = req.body['overview-incomming'].keys;
+        }
+        try {
+            const init = req.params.init
+            const snidIncomming = req.body['overview-incomming'].keys
             ret['monthly'] = {}
             for (const k in overview_store.monthly_kwh) {
-                ret['monthly'][k] = 0;
+                ret['monthly'][k] = 0
                 for (const snmKey in overview_store.monthly_kwh[k].value) {
-                    ret['monthly'][k] +=  overview_store.monthly_kwh[k].value[snmKey];   
+                    ret['monthly'][k] += overview_store.monthly_kwh[k].value[snmKey]
                 }
-
             }
 
             for (const k in overview_store['column']) {
-                ret[k] = 0;
+                ret[k] = 0
                 for (const sn of overview_store['column'][k]) {
-                    if(lastUpdateData[sn.snKey]?.P_Sum)
-                    ret[k] += lastUpdateData[sn.snKey].P_Sum * overview_store['multiplier'][k+'-'+sn.snmKey];
+                    if (lastUpdateData[sn.snKey]?.P_Sum)
+                        ret[k] +=
+                            lastUpdateData[sn.snKey].P_Sum *
+                            overview_store['multiplier'][k + '-' + sn.snmKey]
                 }
             }
-            if(init != 'init'){
-                if(snidIncomming){
-                    ret['overview-incomming'] = overview_store[snidIncomming][overview_store[snidIncomming].length - 1];
+            if (init != 'init') {
+                if (snidIncomming) {
+                    ret['overview-incomming'] =
+                        overview_store[snidIncomming][overview_store[snidIncomming].length - 1]
                 }
-            }else{
-                const filePath = path.join(process.cwd(), `overview_data/${snidIncomming}.dat`); 
-                const ov_data = fs.readFileSync(filePath, 'utf8')
+            } else {
+                const ov_data = await redisClient.get(`${snidIncomming}.dat`)
                 const ov_json = JSON.parse(ov_data)
-                ret['overview-incomming'] = ov_json['data'];
+                ret['overview-incomming'] = ov_json['data']
             }
             res.json(ret)
-        }catch(err){
+        } catch (err) {
+            console.log(err);
+            
             res.json(ret)
         }
-
     })
 
     api.post('/group-overview/:init', async (req, res) => {
         const ret = {}
 
-        if(await apiguard(req, 'overview_group', '') == false)
-        {
+        if ((await apiguard(req, 'overview_group', '')) == false) {
             res.json(ret)
             return
         }
-        try{
-            const init = req.params.init;
-            let snKeys = req.body['groupKeys'];
-            const gKey = req.body['key'];
-            const graphKeys = req.body['graphKeys'];
-            const graphGroupKey = req.body['graphGroupKey'];
+        try {
+            const init = req.params.init
+            let snKeys = req.body['groupKeys']
+            const gKey = req.body['key']
+            const graphKeys = req.body['graphKeys']
+            const graphGroupKey = req.body['graphGroupKey']
 
-            if(!snKeys || !gKey) res.json(ret)
-            ret['main'] = [];
-            ret['month'] = 0;
-            ret['rt_graph'] = {left:[],right:[]};
-            ret['month_graph'] = {left:[],right:[]};
-            
-            for (const  snmKey in overview_store['monthly_kwh'][gKey]?.value) {
-                const d = overview_store['monthly_kwh'][gKey].value[snmKey];
-                if(d) ret['month'] += d *  overview_store['multiplier'][gKey+'-'+snmKey];
+            if (!snKeys || !gKey) res.json(ret)
+            ret['main'] = []
+            ret['month'] = 0
+            ret['rt_graph'] = { left: [], right: [] }
+            ret['month_graph'] = { left: [], right: [] }
+
+            for (const snmKey in overview_store['monthly_kwh'][gKey]?.value) {
+                const d = overview_store['monthly_kwh'][gKey].value[snmKey]
+                if (d) ret['month'] += d * overview_store['multiplier'][gKey + '-' + snmKey]
             }
 
-            if(graphKeys && graphGroupKey && graphKeys['length'] > 0){
+            if (graphKeys && graphGroupKey && graphKeys['length'] > 0) {
                 for (const gk of graphKeys) {
-                    if(gk.type == 'extend'){
+                    if (gk.type == 'extend') {
                         const rt_data = {
-                            name:gk.name,
-                            value:0
+                            name: gk.name,
+                            value: 0
                         }
                         const m_data = {
-                            name:gk.name,
-                            value:0
+                            name: gk.name,
+                            value: 0
                         }
 
-                        for (const  k of overview_store['graph'][gk.key]) {
-                            if(lastUpdateData[k.snKey]?.P_Sum) rt_data.value += lastUpdateData[k.snKey].P_Sum *  overview_store['multiplier'][gk.key+'-'+k.snmKey];
+                        for (const k of overview_store['graph'][gk.key]) {
+                            if (lastUpdateData[k.snKey]?.P_Sum)
+                                rt_data.value +=
+                                    lastUpdateData[k.snKey].P_Sum *
+                                    overview_store['multiplier'][gk.key + '-' + k.snmKey]
                             const d = overview_store.monthly_kwh[gk.key].value[k.snmKey]
-                            if(d) m_data.value += overview_store.monthly_kwh[gk.key].value[k.snmKey]
+                            if (d)
+                                m_data.value += overview_store.monthly_kwh[gk.key].value[k.snmKey]
                         }
-                        if(gk.isRight){
-                            ret['month_graph']['right'].push(m_data);
-                            ret['rt_graph']['right'].push(rt_data);
-                        }else{
-                            ret['month_graph']['left'].push(m_data);
-                            ret['rt_graph']['left'].push(rt_data);
+                        if (gk.isRight) {
+                            ret['month_graph']['right'].push(m_data)
+                            ret['rt_graph']['right'].push(rt_data)
+                        } else {
+                            ret['month_graph']['left'].push(m_data)
+                            ret['rt_graph']['left'].push(rt_data)
                         }
-                    }else if(gk.type == 'single'){
+                    } else if (gk.type == 'single') {
                         const rt_data = {
-                            name:gk.name,
-                            value:0
+                            name: gk.name,
+                            value: 0
                         }
                         const m_data = {
-                            name:gk.name,
-                            value:0
+                            name: gk.name,
+                            value: 0
                         }
-                        if(lastUpdateData[gk.key]?.P_Sum) rt_data.value += lastUpdateData[gk.key].P_Sum * overview_store['multiplier'][graphGroupKey+'-'+gk.snmKey];
-                        if(overview_store.monthly_kwh[graphGroupKey].value[gk.snmKey]){
-                            m_data.value = overview_store.monthly_kwh[graphGroupKey].value[gk.snmKey]
-                        }   
-                        if(gk.isRight){
-                            ret['month_graph']['right'].push(m_data);
-                            ret['rt_graph']['right'].push(rt_data);
-                        }else{
-                            ret['month_graph']['left'].push(m_data);
-                            ret['rt_graph']['left'].push(rt_data);
+                        if (lastUpdateData[gk.key]?.P_Sum)
+                            rt_data.value +=
+                                lastUpdateData[gk.key].P_Sum *
+                                overview_store['multiplier'][graphGroupKey + '-' + gk.snmKey]
+                        if (overview_store.monthly_kwh[graphGroupKey].value[gk.snmKey]) {
+                            m_data.value =
+                                overview_store.monthly_kwh[graphGroupKey].value[gk.snmKey]
+                        }
+                        if (gk.isRight) {
+                            ret['month_graph']['right'].push(m_data)
+                            ret['rt_graph']['right'].push(rt_data)
+                        } else {
+                            ret['month_graph']['left'].push(m_data)
+                            ret['rt_graph']['left'].push(rt_data)
                         }
                     }
                 }
             }
 
             ret['main'] = {
-                "utc": new Date().toISOString(),
-                "value": {
-                    "P_Sum": 0,
-                    "kWdemand": 0,
-                    "Import_kWh": 0,
-                    "TotalkWh": 0
+                utc: new Date().toISOString(),
+                value: {
+                    P_Sum: 0,
+                    kWdemand: 0,
+                    Import_kWh: 0,
+                    TotalkWh: 0
                 }
-            };
+            }
 
-            if(init != 'init' && snKeys?.length > 0){
-                ret['main'] = [];
+            if (init != 'init' && snKeys?.length > 0) {
+                ret['main'] = []
                 const data = {
-                    value:0,
-                    date:overview_store[snKeys[0]][overview_store[snKeys[0]].length - 1].utc
-                };
-                for (const k of snKeys) {
-                    const ov = overview_store[k][overview_store[k].length - 1]; 
-                    if(ov && ov.value?.P_Sum)
-                        data.value += ov.value.P_Sum * overview_store['multiplier'][gKey+'-'+ov.value.snmKey]
+                    value: 0,
+                    date: overview_store[snKeys[0]][overview_store[snKeys[0]].length - 1].utc
                 }
-                ret['main'].push(data);
-            }else if(snKeys?.length > 0){
-                ret['main'] = [];
-                const firstKey = snKeys[0];
-                snKeys = snKeys.filter(k => k !== firstKey); 
-                const filePath = path.join(process.cwd(), `overview_data/${firstKey}.dat`); 
-                const ov_data = fs.readFileSync(filePath, 'utf8')
-                const ov_json = JSON.parse(ov_data);
-                for (let index = 0; index < ov_json['data'].length ; index++) {
+                for (const k of snKeys) {
+                    const ov = overview_store[k][overview_store[k].length - 1]
+                    if (ov && ov.value?.P_Sum)
+                        data.value +=
+                            ov.value.P_Sum *
+                            overview_store['multiplier'][gKey + '-' + ov.value.snmKey]
+                }
+                ret['main'].push(data)
+            } else if (snKeys?.length > 0) {
+                ret['main'] = []
+                const firstKey = snKeys[0]
+                snKeys = snKeys.filter((k) => k !== firstKey)
+                const ov_data = await redisClient.get(`${firstKey}.dat`)
+                const ov_json = JSON.parse(ov_data)
+                for (let index = 0; index < ov_json['data'].length; index++) {
                     const ov = ov_json['data'][index]
                     const data = {
-                        value:0,
-                        date:null
-                    };
-                    if(ov && ov.value?.P_Sum){
-                        data.value += ov.value.P_Sum * overview_store['multiplier'][gKey+'-'+ov.value.snmKey]
-                        data.date = ov.utc 
-                    }   
-                    for (const k of snKeys) {
-                        const filePath2 = path.join(process.cwd(), `overview_data/${k}.dat`); 
-                        const ov_data = fs.readFileSync(filePath2, 'utf8')
-                        const ov_json = JSON.parse(ov_data);
-                        const ov2 = ov_json['data'][index];
-                        if(ov2 && ov2.value?.P_Sum)
-                            data.value += ov2.value.P_Sum  * overview_store['multiplier'][gKey+'-'+ov2.value.snmKey]
+                        value: 0,
+                        date: null
                     }
-                    ret['main'].push(data);
+                    if (ov && ov.value?.P_Sum) {
+                        data.value +=
+                            ov.value.P_Sum *
+                            overview_store['multiplier'][gKey + '-' + ov.value.snmKey]
+                        data.date = ov.utc
+                    }
+                    for (const k of snKeys) {
+                        const ov_data = await redisClient.get(`${k}.dat`)
+                        const ov_json = JSON.parse(ov_data)
+                        const ov2 = ov_json['data'][index]
+                        if (ov2 && ov2.value?.P_Sum)
+                            data.value +=
+                                ov2.value.P_Sum *
+                                overview_store['multiplier'][gKey + '-' + ov2.value.snmKey]
+                    }
+                    ret['main'].push(data)
                 }
             }
             res.json(ret)
-        }catch(err){
-            console.log(err);
-            
+        } catch (err) {
             res.json(ret)
         }
-
     })
 
     // api.post('/group-overview-monthly/:month', async (req, res) => {
@@ -5487,7 +5503,7 @@ export function initAPI() {
     //         const end_date = new Date(Date.UTC(newDate.getFullYear(), month +1, 1));
 
     //         const snmKeys = [];
-            
+
     //         if(graphKeys && graphGroupKey && graphKeys['length'] > 0){
     //             for (const gk of graphKeys) {
     //                 if(gk.type == 'extend'){
@@ -5513,21 +5529,22 @@ export function initAPI() {
     // })
 
     api.post('/overview-reloaded', async (req, res) => {
-        if(await apiguard(req, 'overview', '') == false)
-        {
+        if ((await apiguard(req, 'overview', '')) == false) {
             res.status(403).send('denined')
         }
-        try{
-            await loadOverview(true);
+        try {
+            await loadOverview(true)
             res.status(200).send('Ok')
-        }catch(err){
-            console.log(err);
+        } catch (err) {
+            console.log(err)
             res.status(500).send('Err')
         }
-    
     })
 
-    api_server = api.listen((meta_cfg.broker.apiport) ? meta_cfg.broker.apiport : 8888, () => {
-        console.log('API Server is running at ', (meta_cfg.broker.apiport) ? meta_cfg.broker.apiport : 8888)
+    api_server = api.listen(meta_cfg.broker.apiport ? meta_cfg.broker.apiport : 8888, () => {
+        console.log(
+            'API Server is running at ',
+            meta_cfg.broker.apiport ? meta_cfg.broker.apiport : 8888
+        )
     })
 }
