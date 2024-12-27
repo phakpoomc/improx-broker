@@ -5161,20 +5161,23 @@ export function initAPI() {
                 const tmpRead = JSON.parse(json)
 
                 //find lowest legnth of data
-                let lowestLength = 0
+                let maxLength = 0
+                let maxKey = null;
                 for (const key in tmpRead.data) {
                     const length = tmpRead.data[key].length
-                    if (length > lowestLength) {
-                        lowestLength = length
+                    if (length > maxLength) {
+                        maxLength = length
+                        maxKey = key;
                     }
                 }
 
-                if (lowestLength == 0) {
+                if (maxLength == 0) {
                     res.json(result)
                     return
                 }
+
                 //sum data
-                for (let index = 0; index < lowestLength; index++) {
+                for (let index = 0; index < maxLength; index++) {
                     const obj = {
                         value: 0,
                         date: ''
@@ -5183,7 +5186,7 @@ export function initAPI() {
                     for (const key of keys) {
                         try {
                             obj.value += tmpRead.data[key.snid][index].P_Sum
-                            obj.date = tmpRead.data[key.snid][index].datetime
+                            obj.date = tmpRead.data[maxKey][index].datetime
                         } catch (err) {}
                     }
                     result.data.push(obj)
@@ -5203,10 +5206,7 @@ export function initAPI() {
                         rt_store.group[gid].data[key.snid][
                             rt_store.group[gid].data[key.snid].length - 1
                         ].P_Sum
-                    obj.date =
-                        rt_store.group[gid].data[key.snid][
-                            rt_store.group[gid].data[key.snid].length - 1
-                        ].datetime
+                    obj.date = rt_store.group[gid].data[key.snid][rt_store.group[gid].data[key.snid].length - 1].datetime
                 } catch (err) {
                     res.json(result)
                     return
@@ -5335,8 +5335,8 @@ export function initAPI() {
                 startDate = new Date(Date.UTC(year, month, day, 0, 0, 0))
                 endDate = new Date(Date.UTC(year, month, parseInt(day) + 1, 0, 0, 0))
                 for (let index = 0; index < 24; index++) {
-                    result[index + 1] = {
-                        category: index + 1,
+                    result[index] = {
+                        category: index,
                         value: 0
                     }
                 }
@@ -5364,7 +5364,7 @@ export function initAPI() {
                     ['id', 'asc']
                 ]
             })
-            const prevTime = {}
+            const prevData = {};
             for (const e of eData) {
                 let power
                 if (e.P_Sum < 0) {
@@ -5372,33 +5372,36 @@ export function initAPI() {
                 } else {
                     power = e.P_Sum * -1
                 }
+                if(!prevData[e.DateTimeUpdate]) prevData[e.DateTimeUpdate] = 0
+                prevData[e.DateTimeUpdate] += power;
                 const date = new Date(e.DateTimeUpdate)
                 if (type == 'year') {
-                    const utcMonth = date.getUTCMonth();
-                    if (result[utcMonth + 1]) {
-                        result[utcMonth].value += power
+                    const utcMonth = date.getUTCMonth() + 1
+                    if (prevData[e.DateTimeUpdate] > result[utcMonth].value) {
+                        result[utcMonth].value = prevData[e.DateTimeUpdate]
                     }
                 } else if (type == 'month') {
-                    const utcDate = date.getDate();
-                    if (result[utcDate]) {
-                        result[utcDate].value += power
+                    const utcDate = date.getUTCDate()
+                    if (prevData[e.DateTimeUpdate] > result[utcDate].value) {
+                        result[utcDate].value = prevData[e.DateTimeUpdate]
                     }
                 } else {
-                    const utcHour = date.getUTCHours();
-                    if (result[utcHour]) {
-                        result[utcHour].value += power
+                    const utcHour = date.getUTCHours()
+                    if (prevData[e.DateTimeUpdate] > result[utcHour].value) {
+                        result[utcHour].value = prevData[e.DateTimeUpdate]
                     }
                 }
-                prevTime[e.snmKey] = date
             }
             res.json(result)
         } catch (err) {
+            console.log(err);
+            
             res.json(result)
             return
         }
     })
 
-    api.post('/solar_kWh/:year/:month', async (req, res) => {
+    api.post('/solar_kWh/:year/:month/:day/:type', async (req, res) => {
         if ((await apiguard(req, 'solar', '')) == false) {
             res.json({})
             return
@@ -5406,26 +5409,62 @@ export function initAPI() {
         const keys = req.body.keys
         const year = req.params.year
         const month = req.params.month
-        if (!keys || !year || !month) {
+        const day = req.params.day
+        const type = req.params.type
+        if (!keys || !year || !month || !day || !type) {
             res.json({})
             return
         }
         const result = {}
         try {
-            const startDate = new Date(Date.UTC(year, month, 1, 0, 0, 0))
-            const endDate = new Date(Date.UTC(year, parseInt(month) + 1, 1, 0, 0, 0))
-            const lastDate = new Date(endDate)
-            lastDate.setDate(lastDate.getDate() - 1)
+            let startDate
+            let endDate
+            if (type == 'year') {
+                startDate = new Date(Date.UTC(year, 0, 1, 0, 0, 0))
+                endDate = new Date(Date.UTC(parseInt(year) + 1, 0, 1, 0, 0, 0))
+                for (let index = 0; index < 12; index++) {
+                    result[index + 1] = {
+                        solar: {
+                            category: index + 1,
+                            value: 0
+                        },
+                        pea: {
+                            category: index + 1,
+                            value: 0
+                        }
+                    }
+                }
+            } else if (type == 'month') {
+                startDate = new Date(Date.UTC(year, month, 1, 0, 0, 0))
+                endDate = new Date(Date.UTC(year, parseInt(month) + 1, 1, 0, 0, 0))
+                const lastDate = new Date(endDate)
+                lastDate.setDate(lastDate.getDate() - 1)
 
-            for (let index = 0; index < lastDate.getDate(); index++) {
-                result[index + 1] = {
-                    solar: {
-                        category: index + 1,
-                        value: 0
-                    },
-                    pea: {
-                        category: index + 1,
-                        value: 0
+                for (let index = 0; index < lastDate.getDate(); index++) {
+                    result[index + 1] = {
+                        solar: {
+                            category: index + 1,
+                            value: 0
+                        },
+                        pea: {
+                            category: index + 1,
+                            value: 0
+                        }
+                    }
+                }
+            } else {
+                startDate = new Date(Date.UTC(year, month, day, 0, 0, 0))
+                endDate = new Date(Date.UTC(year, month, parseInt(day) + 1, 0, 0, 0))
+                for (let index = 0; index < 24; index++) {
+                    result[index] = {
+                        solar: {
+                            category: index,
+                            value: 0
+                        },
+                        pea: {
+                            category: index,
+                            value: 0
+                        }
                     }
                 }
             }
@@ -5452,6 +5491,7 @@ export function initAPI() {
                     ['id', 'asc']
                 ]
             })
+
             const prevEnergyPEA = {}
             const prevEnergySolar = {}
             for (const e of eData) {
@@ -5469,10 +5509,18 @@ export function initAPI() {
 
                 const absEnergyPEA = (pea - prevEnergyPEA[e.snmKey]) * multmap[e.snmKey]
                 const absEnergySolar = (solar - prevEnergySolar[e.snmKey]) * multmap[e.snmKey]
-                const utcDate = date.getUTCDate();
-                if (result[utcDate]) {
+                if (type == 'year') {
+                    const utcMonth = date.getUTCMonth() + 1
+                    result[utcMonth].solar.value += absEnergySolar
+                    result[utcMonth].pea.value += absEnergyPEA
+                } else if (type == 'month') {
+                    const utcDate = date.getUTCDate()
                     result[utcDate].solar.value += absEnergySolar
                     result[utcDate].pea.value += absEnergyPEA
+                } else {
+                    const utcHour = date.getUTCHours()
+                    result[utcHour].solar.value += absEnergySolar
+                    result[utcHour].pea.value += absEnergyPEA
                 }
                 prevEnergyPEA[e.snmKey] = pea
                 prevEnergySolar[e.snmKey] = solar
