@@ -628,7 +628,6 @@ export function initAPI() {
 
         // calculate value and return
         let now = new Date()
-
         let tLastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0))
         let tThisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0))
         let tYesterday = new Date(
@@ -5046,7 +5045,7 @@ export function initAPI() {
         const length = new Date(Date.UTC(year, month + 1, 1, 0, 0, 0))
         length.setDate(length.getDate() - 1)
         for (let index = 0; index < length.getDate(); index++) {
-            result.push({ category: index + 1, value: 0 })
+            result.push({ category: index + 1, value: 0, datetime:null })
         }
 
         const eData = await db.energy.findAll({
@@ -5067,7 +5066,9 @@ export function initAPI() {
         const prevEnergy = {}
         const prevTime = {}
         for (const e of eData) {
-            if (!isOnPeak(e.DateTimeUpdate)) continue
+            const tmpDate = new Date(e.DateTimeUpdate);
+            tmpDate.setMinutes(tmpDate.getMinutes() + 15)
+            if (!isOnPeak(tmpDate)) continue
             const sn = e.SerialNo
             const period = blacknode[sn].period * 60 * 1000
             let energy = 0
@@ -5090,12 +5091,15 @@ export function initAPI() {
             }
 
             const absEnergy = (energy - prevEnergy[e.snmKey]) * 4
-            prevEnergy[e.snmKey] = energy
             const adjustedTime = new Date(e.DateTimeUpdate)
             adjustedTime.setMinutes(adjustedTime.getMinutes() - 1)
             const day = adjustedTime.getUTCDate() - 1
-            if (absEnergy > result[day].value) result[day].value = absEnergy
-
+            if (absEnergy > result[day].value){
+                result[day].datetime = e.DateTimeUpdate;
+                result[day].value = absEnergy
+            }
+          
+            prevEnergy[e.snmKey] = energy
             prevTime[e.snmKey] = e.DateTimeUpdate
         }
 
