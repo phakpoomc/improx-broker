@@ -26,6 +26,9 @@ import { syncDB } from './db.js'
 
 import crypto from 'crypto'
 
+import { EventEmitter } from 'events'
+EventEmitter.defaultMaxListeners = 50
+
 const QOS = 2
 
 function loginWith(uname, pwd) {
@@ -652,24 +655,22 @@ let heartbeatInterval = setInterval(() => {
 let cacheRefreshInterval = setInterval(() => {
     // sendtime every minute on the 0-9th second
     if (authenticated) {
-        let now = new Date();
+        let now = new Date()
 
-        if(now.getHours() == 23 && now.getMinutes() >= 45)
-        {
-            let target = new Date();
+        if (now.getHours() == 23 && now.getMinutes() >= 45) {
+            let target = new Date()
             target.setDate(target.getDate() + 1)
             target.setHours(0)
             target.setMinutes(7)
 
-            console.log("Setting timeout in ", target.getTime() - now.getTime(), "ms")
+            console.log('Setting timeout in ', target.getTime() - now.getTime(), 'ms')
 
             setTimeout(() => {
                 initCache()
             }, target.getTime() - now.getTime())
         }
-        
     }
-}, 15*60 * 1000)
+}, 15 * 60 * 1000)
 
 // let dbSaveInterval = setInterval(() => {
 //     if (authenticated) {
