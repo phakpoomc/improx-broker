@@ -9,6 +9,7 @@ import {
     blacknode,
     db,
     paths,
+    readFile,
     writeFile,
     meta_cfg,
     loadBNInfoFromLocal,
@@ -483,6 +484,10 @@ function isOnPeak(dt) {
     return true
 }
 
+function round(num)
+{
+    return Math.round(num*1000)/1000;
+}
 
 export function initAPI() {
     if(api_server)
@@ -693,6 +698,16 @@ export function initAPI() {
         {
             if(!cached.hasOwnProperty(k))
             {
+                cached[k] = {
+                    energyLastMonth: 0,
+                    energyThisMonth: 0,
+                    energyYesterday: 0,
+                    energyToday: 0,
+                    maxDemandLastMonth: {},
+                    maxDemandThisMonth: {},
+                    maxDemandYesterday: {},
+                    maxDemandToday: {}
+                }
                 continue;
             }
 
@@ -731,7 +746,7 @@ export function initAPI() {
 
             for(let k of snmKey)
             {
-                if(!cached[k].maxDemandLastMonth[t])
+                if(!cached[k].maxDemandThisMonth[t])
                 {
                     cached[k].maxDemandThisMonth[t] = 0;
                 }
@@ -1662,8 +1677,18 @@ export function initAPI() {
             res.json(ret)
             return
         }
-    
-        let status_list = ['on', 'off', 'error', 'setup']
+
+        const data = readFile(paths["METER_TYPE_PATH"], { encoding: 'utf-8', flag: 'r' })
+
+        var lines = data.split('\n');
+        var meter_types = {};
+
+        for(let line of lines)
+        {
+            let l = line.split(' : ')
+            meter_types[l[0]] = line.trim();
+        }
+
         let keys = Object.keys(blacknode)
 
         // calculate value and return
@@ -1683,10 +1708,14 @@ export function initAPI() {
                     id: i + 1,
                     address: bn.meter_list[i].id,
                     name: bn.meter_list[i].name,
-                    status: bn.meter_list[i].status
+                    status: bn.meter_list[i].status,
+                    type: meter_types[bn.meter_list[i].type],
+                    // type_list: meta_cfg.mtypes
                 }
             }
         }
+
+        // console.log(meta_cfg)
 
         res.json(ret)
     })
@@ -3760,11 +3789,11 @@ export function initAPI() {
     api.get('/Getmeter', async(req, res) => {
         let ret = {status: 'ERR', data: []}
 
-        // if(await apiguard(req, 'meter_list', '') == false)
-        // {
-        //     res.json(ret)
-        //     return
-        // }
+        if(await apiguard(req, 'meter_list', '') == false)
+        {
+            res.json(ret)
+            return
+        }
 
         let keys = Object.keys(blacknode)
 
@@ -3789,11 +3818,11 @@ export function initAPI() {
     api.get('/GetGroupmeter', async(req, res) => {
         let ret = {status: 'ERR', data: []}
 
-        // if(await apiguard(req, 'meter_list', '') == false)
-        // {
-        //     res.json(ret)
-        //     return
-        // }
+        if(await apiguard(req, 'meter_list', '') == false)
+        {
+            res.json(ret)
+            return
+        }
 
         let keys = Object.keys(group)
 
@@ -3828,11 +3857,11 @@ export function initAPI() {
     api.get('/ReadEnergy/:siteid/:nodeid/:modbusid/:from/:to', async(req, res) => {
         let ret = {status: 'ERR', data: {}}
 
-        // if(await apiguard(req, 'rp_chart', '') == false)
-        // {
-        //     res.json(ret)
-        //     return
-        // }
+        if(await apiguard(req, 'rp_chart', '') == false)
+        {
+            res.json(ret)
+            return
+        }
 
         let arr = req.params.from.split("-")
 
@@ -3857,9 +3886,9 @@ export function initAPI() {
 
         if(eData.length == 2)
         {
-            ret.data["Import_kWh"] = eData[1].Import_kWh - eData[0].Import_kWh;
-            ret.data["Export_kWh"] = eData[1].Export_kWh - eData[0].Export_kWh;
-            ret.data["TotalkWh"] = eData[1].TotalkWh - eData[0].TotalkWh;
+            ret.data["Import_kWh"] = round(eData[1].Import_kWh - eData[0].Import_kWh);
+            ret.data["Export_kWh"] = round(eData[1].Export_kWh - eData[0].Export_kWh);
+            ret.data["TotalkWh"] = round(eData[1].TotalkWh - eData[0].TotalkWh);
         }
 
         ret.status = "OK"
@@ -3870,11 +3899,11 @@ export function initAPI() {
     api.get('/ReadParameterAll/:siteid/:nodeid/:modbusid/:from/:to', async(req, res) => {
         let ret = {status: 'ERR', data: []}
 
-        // if(await apiguard(req, 'rp_chart', '') == false)
-        // {
-        //     res.json(ret)
-        //     return
-        // }
+        if(await apiguard(req, 'rp_chart', '') == false)
+        {
+            res.json(ret)
+            return
+        }
 
         let arr = req.params.from.split("-")
 
@@ -3903,6 +3932,14 @@ export function initAPI() {
             order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
         })
 
+        for(let d of ret.data)
+        {
+            for(let k of pmap)
+            {
+                d[k] = round(d[k])
+            }
+        }
+
         ret.status = "OK"
 
         res.json(ret)
@@ -3911,11 +3948,11 @@ export function initAPI() {
     api.get('/ReadDemandMonth/:siteid/:nodeid/:modbusid/:year/:month', async(req, res) => {
         let ret = {status: 'ERR', data: {}}
 
-        // if(await apiguard(req, 'rp_chart', '') == false)
-        // {
-        //     res.json(ret)
-        //     return
-        // }
+        if(await apiguard(req, 'rp_chart', '') == false)
+        {
+            res.json(ret)
+            return
+        }
 
         let start_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, 1, 0, 0));
 
@@ -3965,7 +4002,7 @@ export function initAPI() {
             }
 
             let dval = e.TotalkWh - prev_dval;
-            let demand = dval/4;
+            let demand = round(dval*4);
 
             if(isOnPeak(e.DateTimeUpdate))
             {
@@ -3995,11 +4032,11 @@ export function initAPI() {
     api.get('/GroupMeterkWhCon/:groupid/:from/:to', async(req, res) => {
         let ret = {status: 'ERR', data: {}}
 
-        // if(await apiguard(req, 'rp_chart', '') == false)
-        // {
-        //     res.json(ret)
-        //     return
-        // }
+        if(await apiguard(req, 'rp_chart', '') == false)
+        {
+            res.json(ret)
+            return
+        }
 
         let arr = req.params.from.split("-")
 
@@ -4030,7 +4067,7 @@ export function initAPI() {
         let energy = {};
 
         let data_end = await db.energy.findAll({
-            attributes: ['DateTimeUpdate', 'SerialNo', 'Import_kWh', 'Export_kWh', 'TotalkWh'],
+            attributes: ['DateTimeUpdate', 'snmKey', 'Import_kWh', 'Export_kWh', 'TotalkWh'],
             where: {
                 DateTimeUpdate: end_date,
                 snmKey: snmList
@@ -4040,7 +4077,7 @@ export function initAPI() {
 
         for(let e of data_end)
         {
-            energy[e.SerialNo] = {
+            energy[e.snmKey] = {
                 Import_kWh: e.Import_kWh,
                 Export_kWh: e.Export_kWh,
                 TotalkWh: e.TotalkWh
@@ -4048,7 +4085,7 @@ export function initAPI() {
         }
 
         let data_start = await db.energy.findAll({
-            attributes: ['DateTimeUpdate', 'SerialNo', 'Import_kWh', 'Export_kWh', 'TotalkWh'],
+            attributes: ['DateTimeUpdate', 'snmKey', 'Import_kWh', 'Export_kWh', 'TotalkWh'],
             where: {
                 DateTimeUpdate: start_date,
                 snmKey: snmList
@@ -4058,14 +4095,18 @@ export function initAPI() {
 
         for(let e of data_start)
         {
-            let diff_import = (energy[e.SerialNo]) ? energy[e.SerialNo].Import_kWh - e.Import_kWh : 0;
-            let diff_export = (energy[e.SerialNo]) ? energy[e.SerialNo].Export_kWh - e.Export_kWh : 0;
-            let diff_total = (energy[e.SerialNo]) ? energy[e.SerialNo].TotalkWh - e.TotalkWh : 0;
+            let diff_import = (energy[e.snmKey]) ? energy[e.snmKey].Import_kWh - e.Import_kWh : 0;
+            let diff_export = (energy[e.snmKey]) ? energy[e.snmKey].Export_kWh - e.Export_kWh : 0;
+            let diff_total = (energy[e.snmKey]) ? energy[e.snmKey].TotalkWh - e.TotalkWh : 0;
 
             ret.data["Import_kWh"] += diff_import;
             ret.data["Export_kWh"] += diff_export;
             ret.data["TotalkWh"] += diff_total;
         }
+
+        ret.data["Import_kWh"] = round(ret.data["Import_kWh"]);
+        ret.data["Export_kWh"] = round(ret.data["Export_kWh"]);
+        ret.data["TotalkWh"] = round(ret.data["TotalkWh"]);
 
         ret.status = "OK"
 
@@ -4075,11 +4116,11 @@ export function initAPI() {
     api.get('/MaxMinAvg/:siteid/:nodeid/:modbusid/:from/:to', async(req, res) => {
         let ret = {status: 'ERR', data: {}}
 
-        // if(await apiguard(req, 'rp_chart', '') == false)
-        // {
-        //     res.json(ret)
-        //     return
-        // }
+        if(await apiguard(req, 'rp_chart', '') == false)
+        {
+            res.json(ret)
+            return
+        }
 
         let arr = req.params.from.split("-")
 
@@ -4117,8 +4158,8 @@ export function initAPI() {
                 for(let k of keys)
                 {
                     ret.data[k] = {
-                        max: e[k],
-                        min: e[k]
+                        max: round(e[k]),
+                        min: round(e[k])
                     }
 
                     count[k] = 1;
@@ -4132,12 +4173,12 @@ export function initAPI() {
             {
                 if(e[k] > ret.data[k].max)
                 {
-                    ret.data[k].max = e[k];
+                    ret.data[k].max = round(e[k]);
                 }
 
                 if(e[k] < ret.data[k].min)
                 {
-                    ret.data[k].min = e[k];
+                    ret.data[k].min = round(e[k]);
                 }
 
                 count[k]++;
@@ -4147,7 +4188,7 @@ export function initAPI() {
 
         for(let k of keys)
         {
-            ret.data[k].avg = sum[k]/count[k];
+            ret.data[k].avg = round(sum[k]/count[k]);
         }
 
         ret.status = "OK"

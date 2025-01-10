@@ -2,6 +2,8 @@ import { app, shell, BrowserWindow, ipcMain /*autoUpdater, dialog, safeStorage*/
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
+import { EventEmitter } from 'events'
+
 import AutoLaunch from 'auto-launch'
 
 import {
@@ -29,7 +31,7 @@ import crypto from 'crypto'
 import { EventEmitter } from 'events'
 EventEmitter.defaultMaxListeners = 50
 
-const QOS = 2
+const QOS = 0
 
 function loginWith(uname, pwd) {
     let correctHash = crypto.createHash('sha512')
@@ -302,6 +304,8 @@ app.whenReady().then(async () => {
         //     }
         //   });
         // }
+
+        EventEmitter.defaultMaxListeners += (curr_max - prev_max) * 2
 
         writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
         await loadMetaDB()
