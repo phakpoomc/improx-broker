@@ -52,6 +52,7 @@ if (process.contextIsolated) {
             isBNCBRegistered: () => ipcRenderer.invoke('handler:isBlacknodeCallbackRegistered'),
             updateBN: (bnCFG, sn) => ipcRenderer.invoke('cmd:updateBN', bnCFG, sn),
             resetBN: (bn_name) => ipcRenderer.invoke('cmd:resetBN', bn_name),
+            initCache: () => ipcRenderer.invoke('cmd:initCache'),
             removeBN: (bn_name) => ipcRenderer.invoke('cmd:removeBN', bn_name)
         })
     } catch (error) {

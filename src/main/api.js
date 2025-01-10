@@ -19,6 +19,7 @@ import {
     loadAlarm,
     loadMetaDB,
     loadMetaCFG,
+    cached,
     lastFeedTime,
     MAX_HEARTBEAT
 } from './global.js'
@@ -42,7 +43,7 @@ const cmap = {
         name: 'Import_kWh',
         unit: '',
         group: 'sum',
-        storage: 'accumulative',
+        storage: 'instance',
         weight: true,
         alarm: false,
     },
@@ -50,7 +51,7 @@ const cmap = {
         name: 'Export_kWh',
         unit: '',
         group: 'sum',
-        storage: 'accumulative',
+        storage: 'instance',
         weight: true,
         alarm: false,
     },
@@ -58,7 +59,7 @@ const cmap = {
         name: 'TotalkWh',
         unit: '',
         group: 'sum',
-        storage: 'accumulative',
+        storage: 'instance',
         weight: true,
         alarm: false,
     },
@@ -612,7 +613,16 @@ export function initAPI() {
     })
 
     api.get('/dashboard_card', async (req, res) => {
-        let ret = {}
+        let ret = {
+            t_last_month: 0,
+            t_this_month: 0,
+            t_yesterday: 0,
+            t_today: 0,
+            b_last_month: 0,
+            b_this_month: 0,
+            b_yesterday: 0,
+            b_today: 0
+        }
 
         if(await apiguard(req, 'dashboard', '') == false)
         {
@@ -629,22 +639,6 @@ export function initAPI() {
             res.json(ret)
             return
         }
-
-        // calculate value and return
-        let now = new Date()
-
-        let tLastMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0))
-        let tThisMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0))
-        let tYesterday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0))
-        let tToday = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0))
-        let tTomorrow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0))
-
-        let energyLastMonth = 0
-        let energyThisMonth = 0
-        let energyYesterday = 0
-        let energyToday = 0
-
-        // console.log(tTomorrow)
 
         let user = await db.user.findOne({
             where: { username: req.session.user }
@@ -664,21 +658,12 @@ export function initAPI() {
         } 
 
         group = group.dataValues;
-       
-        // var group = await db.group.findOne({
-        //     where: { showDashboard: true }
-        // })
 
-        var eData
         let all = true
         var snmKey = []
         let prevEnergy = {}
         let prevTime = {}
         let multmap = {}
-        let maxDemandLastMonth = {}
-        let maxDemandThisMonth = {}
-        let maxDemandYesterday = {}
-        let maxDemandToday = {}
 
         if (group !== null) {
             let members = await db.gmember.findAll({
@@ -699,215 +684,104 @@ export function initAPI() {
             }
         }
 
-        if (all) {
-            eData = await db.energy.findAll({
-                where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: tLastMonth,
-                            [Op.lte]: tTomorrow
-                        }
-                    }
-                },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
-            })
-        } else {
-            eData = await db.energy.findAll({
-                where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: tLastMonth,
-                            [Op.lte]: tTomorrow
-                        }
-                    },
-                    snmKey: snmKey
-                },
-                order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
-            })
-        }
-
-        for (let e of eData) {
-            let sn = e.SerialNo
-            let period = blacknode[sn].period * 60 * 1000
-            let energy = 0;
-
-            if(meta_cfg.useImport.value)
-            {
-                energy = e.Import_kWh
-            }
-            else
-            {
-                energy = e.TotalkWh
-            }
-
-            if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
-                prevEnergy[e.snmKey] = energy
-                prevTime[e.snmKey] = e.DateTimeUpdate
-                continue
-            }
-
-            let adjustedTime = new Date(Date.UTC(e.DateTimeUpdate.getUTCFullYear(), e.DateTimeUpdate.getUTCMonth(), e.DateTimeUpdate.getUTCDate(), e.DateTimeUpdate.getUTCHours(), e.DateTimeUpdate.getUTCMinutes()))
-            adjustedTime.setUTCMinutes(adjustedTime.getUTCMinutes() - 1)
-            let tKey = adjustedTime.getUTCFullYear() + '-' + adjustedTime.getUTCMonth() + '-' + adjustedTime.getUTCDate() + '-' + adjustedTime.getUTCHours() + '-' + adjustedTime.getUTCMinutes()
-
-
-            let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
-
-            // if (absEnergy == -1) {
-            //     absEnergy = 0
-            // }
-
-            prevEnergy[e.snmKey] = energy
-
-            if (e.DateTimeUpdate >= tLastMonth && e.DateTimeUpdate <= tThisMonth) {
-                // Last month
-                if(prevTime[e.snmKey] >= tLastMonth && prevTime[e.snmKey] <= tThisMonth)
-                {
-                    energyLastMonth += absEnergy
-
-                    if (isOnPeak(e.DateTimeUpdate)) {
-                        if(!(tKey in maxDemandLastMonth))
-                        {
-                            maxDemandLastMonth[tKey] = {}
-                        }
-
-                        maxDemandLastMonth[tKey][e.snmKey] = absEnergy * DEMAND
-                    }
-                }
-                
-            } else {
-                // This month
-                if(prevTime[e.snmKey] >= tThisMonth && prevTime[e.snmKey] <= tTomorrow)
-                {
-                    energyThisMonth += absEnergy
-
-                    if (isOnPeak(e.DateTimeUpdate)) {
-                        if(!(tKey in maxDemandThisMonth))
-                        {
-                            maxDemandThisMonth[tKey] = {}
-                        }
-
-                        maxDemandThisMonth[tKey][e.snmKey] = absEnergy * DEMAND
-                    }
-
-                    if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate <= tToday) {
-                        // Yesterday
-                        if(prevTime[e.snmKey] >= tYesterday && prevTime[e.snmKey] <= tTomorrow)
-                        {
-                            energyYesterday += absEnergy
-
-                            if (isOnPeak(e.DateTimeUpdate)) {
-                                if(!(tKey in maxDemandYesterday))
-                                {
-                                    maxDemandYesterday[tKey] = {}
-                                }
-
-                                maxDemandYesterday[tKey][e.snmKey] = absEnergy * DEMAND
-                            }
-                        }
-                        
-                    } else if (e.DateTimeUpdate >= tToday && prevTime[e.snmKey] <= tTomorrow) {
-                        energyToday += absEnergy
-
-                        if (isOnPeak(e.DateTimeUpdate)) {
-                            if(!(tKey in maxDemandToday))
-                            {
-                                maxDemandToday[tKey] = {}
-                            }
-
-                            maxDemandToday[tKey][e.snmKey] = absEnergy * DEMAND
-                        }
-                    }
-                }
-                
-            }
-
-            prevTime[e.snmKey] = e.DateTimeUpdate
-        }
-
-        
-
-        let todayKeys = Object.keys(maxDemandToday)
-        let yesterdayKeys = Object.keys(maxDemandYesterday)
-        let thisMonthKeys = Object.keys(maxDemandThisMonth)
-        let lastMonthKeys = Object.keys(maxDemandLastMonth)
-
-        let sumMaxDemandToday = 0
-        let sumMaxDemandYesterday = 0
-        let sumMaxDemandThisMonth = 0
-        let sumMaxDemandLastMonth = 0
-        
-        for(let k of todayKeys)
+        if(all)
         {
-            let tmpSum = 0
-
-            for(let snm of snmKey)
-            {
-                tmpSum += (maxDemandToday[k][snm]) ? maxDemandToday[k][snm] : 0
-            }
-
-            if(tmpSum > sumMaxDemandToday)
-            {
-                sumMaxDemandToday = tmpSum
-            }
+            snmKey = Object.keys(cached);
         }
 
-        for(let k of yesterdayKeys)
+        for(let k of snmKey)
         {
-            let tmpSum = 0
-
-            for(let snm of snmKey)
+            if(!cached.hasOwnProperty(k))
             {
-                tmpSum += (maxDemandYesterday[k][snm]) ? maxDemandYesterday[k][snm] : 0
+                continue;
             }
 
-            if(tmpSum > sumMaxDemandYesterday)
-            {
-                sumMaxDemandYesterday = tmpSum
-            }
+            ret.t_last_month += cached[k].energyLastMonth;
+            ret.t_this_month += cached[k].energyThisMonth;
+            ret.t_yesterday += cached[k].energyYesterday;
+            ret.t_today += cached[k].energyToday;
+
+            var kDLastMonth = Object.keys(cached[k].maxDemandLastMonth);
+            var kDThisMonth = Object.keys(cached[k].maxDemandThisMonth);
+            var kDYesterday = Object.keys(cached[k].maxDemandYesterday);
+            var kDToday = Object.keys(cached[k].maxDemandToday);
         }
 
-        for(let k of thisMonthKeys)
-        {
-            let tmpSum = 0
+        for(let t of kDLastMonth) {
+            let sum = 0;
 
-            for(let snm of snmKey)
+            for(let k of snmKey)
             {
-                
-                tmpSum += (maxDemandThisMonth[k][snm]) ? maxDemandThisMonth[k][snm] : 0
-            }
-
-            if(tmpSum > sumMaxDemandThisMonth)
-            {
-                sumMaxDemandThisMonth = tmpSum
-            }
-        }
-
-        for(let k of lastMonthKeys)
-            {
-                let tmpSum = 0
-    
-                for(let snm of snmKey)
+                if(!cached[k].maxDemandLastMonth[t])
                 {
-                    tmpSum += (maxDemandLastMonth[k][snm]) ? maxDemandLastMonth[k][snm] : 0
+                    cached[k].maxDemandLastMonth[t] = 0;
                 }
-    
-                if(tmpSum > sumMaxDemandLastMonth)
-                {
-                    sumMaxDemandLastMonth = tmpSum
-                }
+
+                sum += cached[k].maxDemandLastMonth[t];
             }
 
-        ret = {
-            t_last_month: energyLastMonth,
-            t_this_month: energyThisMonth,
-            t_yesterday: energyYesterday,
-            t_today: energyToday,
-            b_last_month: sumMaxDemandLastMonth,
-            b_this_month: sumMaxDemandThisMonth,
-            b_yesterday: sumMaxDemandYesterday,
-            b_today: sumMaxDemandToday
-        }
+            if(sum > ret.b_last_month)
+            {
+                ret.b_last_month = sum;
+            }
+        };
+
+        for(let t of kDThisMonth) {
+            let sum = 0;
+
+            for(let k of snmKey)
+            {
+                if(!cached[k].maxDemandLastMonth[t])
+                {
+                    cached[k].maxDemandThisMonth[t] = 0;
+                }
+
+                sum += cached[k].maxDemandThisMonth[t];
+            }
+
+            if(sum > ret.b_this_month)
+            {
+                ret.b_this_month = sum;
+            }
+        };
+
+        for(let t of kDYesterday) {
+            let sum = 0;
+
+            for(let k of snmKey)
+            {
+                if(!cached[k].maxDemandYesterday[t])
+                {
+                    cached[k].maxDemandYesterday[t] = 0;
+                }
+
+                sum += cached[k].maxDemandYesterday[t];
+            }
+
+            if(sum > ret.b_yesterday)
+            {
+                ret.b_yesterday = sum;
+            }
+        };
+
+        for(let t of kDToday) {
+            let sum = 0;
+
+            for(let k of snmKey)
+            {
+                if(!cached[k].maxDemandToday[t])
+                {
+                    cached[k].maxDemandToday[t] = 0;
+                }
+
+                sum += cached[k].maxDemandToday[t];
+            }
+
+            if(sum > ret.b_today)
+            {
+                ret.b_today = sum;
+            }
+        };
 
         res.json(ret)
     })
@@ -944,6 +818,13 @@ export function initAPI() {
             endTime = new Date(now)
         }
 
+        let timeList = [];
+
+        for(let t = startTime; t<endTime; t.setMinutes(t.getMinutes() + 60))
+        {
+            timeList.push(new Date(t));
+        }
+
         let user = await db.user.findOne({
             where: { username: req.session.user }
         })
@@ -991,25 +872,28 @@ export function initAPI() {
 
         if (all) {
             eData = await db.energy.findAll({
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    }
+                    DateTimeUpdate: timeList
+                    // DateTimeUpdate: {
+                    //     [Op.and]: {
+                    //         [Op.gte]: startTime,
+                    //         [Op.lte]: endTime
+                    //     }
+                    // }
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
             })
         } else {
             eData = await db.energy.findAll({
                 where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    },
+                    // DateTimeUpdate: {
+                    //     [Op.and]: {
+                    //         [Op.gte]: startTime,
+                    //         [Op.lte]: endTime
+                    //     }
+                    // },
+                    DateTimeUpdate: timeList,
                     snmKey: snmKey
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
@@ -1017,8 +901,8 @@ export function initAPI() {
         }
 
         for (let e of eData) {
-            let sn = e.SerialNo
-            let period = blacknode[sn].period * 60 * 1000
+            // let sn = e.SerialNo
+            // let period = blacknode[sn].period * 60 * 1000
             let energy = 0;
 
             if(meta_cfg.useImport.value)
@@ -1030,7 +914,7 @@ export function initAPI() {
                 energy = e.TotalkWh
             }
 
-            if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
+            if (!prevTime[e.snmKey]) {
                 prevTime[e.snmKey] = e.DateTimeUpdate
                 prevEnergy[e.snmKey] = energy
                 continue
@@ -1087,10 +971,26 @@ export function initAPI() {
         let now = new Date()
         now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
 
+        let timeList = [];
+
         if(now < endTime)
         {
             endTime = new Date(now)
+
+            if(now > startTime)
+            {
+                let nearestNow = new Date(now);
+                nearestNow.setMinutes(Math.floor(nearestNow.getMinutes()/15) * 15);
+                timeList.push(nearestNow);
+            }
         }
+
+        for(let t = startTime; t<=endTime; t.setDate(t.getDate() + 1))
+        {
+            timeList.push(new Date(t));
+        }
+
+        // console.log(timeList);
 
         let user = await db.user.findOne({
             where: { username: req.session.user }
@@ -1139,25 +1039,29 @@ export function initAPI() {
 
         if (all) {
             eData = await db.energy.findAll({
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    }
+                    // DateTimeUpdate: {
+                    //     [Op.and]: {
+                    //         [Op.gte]: startTime,
+                    //         [Op.lte]: endTime
+                    //     }
+                    // }
+                    DateTimeUpdate: timeList
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
             })
         } else {
             eData = await db.energy.findAll({
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    },
+                    // DateTimeUpdate: {
+                    //     [Op.and]: {
+                    //         [Op.gte]: startTime,
+                    //         [Op.lte]: endTime
+                    //     }
+                    // },
+                    DateTimeUpdate: timeList,
                     snmKey: snmKey
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
@@ -1165,8 +1069,8 @@ export function initAPI() {
         }
 
         for (let e of eData) {
-            let sn = e.SerialNo
-            let period = blacknode[sn].period * 60 * 1000
+            // let sn = e.SerialNo
+            // let period = blacknode[sn].period * 60 * 1000
             let energy = 0;
 
             if(meta_cfg.useImport.value)
@@ -1178,7 +1082,7 @@ export function initAPI() {
                 energy = e.TotalkWh
             }
 
-            if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
+            if (!prevTime[e.snmKey]) {
                 prevTime[e.snmKey] = e.DateTimeUpdate
                 prevEnergy[e.snmKey] = energy
                 continue
@@ -1231,10 +1135,27 @@ export function initAPI() {
         let now = new Date()
         now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
 
+        let timeList = [];
+
         if(now < endTime)
         {
             endTime = new Date(now)
+
+            if(now > startTime)
+                {
+                    let nearestNow = new Date(now);
+                    nearestNow.setMinutes(Math.floor(nearestNow.getMinutes()/15) * 15);
+                    timeList.push(nearestNow);
+                }
         }
+
+        for(let t = startTime; t<=endTime; t.setMonth(t.getMonth() + 1))
+        {
+
+            timeList.push(new Date(t));
+        }
+
+        // console.log(timeList);
 
         let user = await db.user.findOne({
             where: { username: req.session.user }
@@ -1283,25 +1204,29 @@ export function initAPI() {
 
         if (all) {
             eData = await db.energy.findAll({
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    }
+                    // DateTimeUpdate: {
+                    //     [Op.and]: {
+                    //         [Op.gte]: startTime,
+                    //         [Op.lte]: endTime
+                    //     }
+                    // }
+                    DateTimeUpdate: timeList
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
             })
         } else {
             eData = await db.energy.findAll({
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    },
+                    // DateTimeUpdate: {
+                    //     [Op.and]: {
+                    //         [Op.gte]: startTime,
+                    //         [Op.lte]: endTime
+                    //     }
+                    // },
+                    DateTimeUpdate: timeList,
                     snmKey: snmKey
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
@@ -1309,8 +1234,8 @@ export function initAPI() {
         }
 
         for (let e of eData) {
-            let sn = e.SerialNo
-            let period = blacknode[sn].period * 60 * 1000
+            // let sn = e.SerialNo
+            // let period = blacknode[sn].period * 60 * 1000
             let energy = 0;
 
             if(meta_cfg.useImport.value)
@@ -1322,7 +1247,7 @@ export function initAPI() {
                 energy = e.TotalkWh
             }
 
-            if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
+            if (!prevTime[e.snmKey]) {
                 prevTime[e.snmKey] = e.DateTimeUpdate
                 prevEnergy[e.snmKey] = energy
                 continue
@@ -1370,6 +1295,13 @@ export function initAPI() {
         let startTime = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0))
         let endTime = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), now.getSeconds()))
         
+        let timeList = [];
+
+        for(let t = startTime; t<endTime; t.setMinutes(t.getMinutes() + 60))
+        {
+            timeList.push(new Date(t));
+        }
+
         let user = await db.user.findOne({
             where: { username: req.session.user }
         })
@@ -1417,25 +1349,29 @@ export function initAPI() {
 
         if (all) {
             eData = await db.energy.findAll({
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    }
+                    // DateTimeUpdate: {
+                    //     [Op.and]: {
+                    //         [Op.gte]: startTime,
+                    //         [Op.lte]: endTime
+                    //     }
+                    // }
+                    DateTimeUpdate: timeList
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
             })
         } else {
             eData = await db.energy.findAll({
+                attributes: ['snmKey', 'DateTimeUpdate', 'Import_kWh', 'TotalkWh'],
                 where: {
-                    DateTimeUpdate: {
-                        [Op.and]: {
-                            [Op.gte]: startTime,
-                            [Op.lte]: endTime
-                        }
-                    },
+                    // DateTimeUpdate: {
+                    //     [Op.and]: {
+                    //         [Op.gte]: startTime,
+                    //         [Op.lte]: endTime
+                    //     }
+                    // },
+                    DateTimeUpdate: timeList,
                     snmKey: snmKey
                 },
                 order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
@@ -1443,8 +1379,8 @@ export function initAPI() {
         }
 
         for (let e of eData) {
-            let sn = e.SerialNo
-            let period = blacknode[sn].period * 60 * 1000
+            // let sn = e.SerialNo
+            // let period = blacknode[sn].period * 60 * 1000
             let energy = 0;
 
             if(meta_cfg.useImport.value)
@@ -1456,7 +1392,7 @@ export function initAPI() {
                 energy = e.TotalkWh
             }
 
-            if (!prevTime[e.snmKey] || e.DateTimeUpdate.getTime() - prevTime[e.snmKey].getTime() != period) {
+            if (!prevTime[e.snmKey]) {
                 prevTime[e.snmKey] = e.DateTimeUpdate
                 prevEnergy[e.snmKey] = energy
                 continue
@@ -3342,7 +3278,7 @@ export function initAPI() {
                         seq = 0
                     }
 
-                    if(cmap[param].storage == "accumulative" && param != kwhType)
+                    if(cmap[param].storage == "accumulative")
                     {
                         let sn = e.SerialNo
                         let period = blacknode[sn].period * 60 * 1000
@@ -3412,7 +3348,7 @@ export function initAPI() {
                 }
 
 
-                if(cmap[param].storage != "accumulative" && param != kwhType)
+                if(cmap[param].storage != "accumulative")
                 {
                     for(let i=0; i<arr_size; i++)
                     {
@@ -3517,7 +3453,7 @@ export function initAPI() {
                             dxt[tkey] = 0
                         }
     
-                        if(cmap[param].storage == "accumulative" && param != kwhType)
+                        if(cmap[param].storage == "accumulative")
                         {
                             let sn = e.SerialNo
                             let period = blacknode[sn].period * 60 * 1000
@@ -3615,7 +3551,7 @@ export function initAPI() {
                     
                 }
 
-                if(cmap[param].storage != 'accumulative' && param != kwhType)
+                if(cmap[param].storage != 'accumulative')
                 {
                     for(let i=0; i<arr_size; i++)
                     {
@@ -3819,6 +3755,404 @@ export function initAPI() {
         }
 
         res.send("SUCCESS");
+    })
+
+    api.get('/Getmeter', async(req, res) => {
+        let ret = {status: 'ERR', data: []}
+
+        // if(await apiguard(req, 'meter_list', '') == false)
+        // {
+        //     res.json(ret)
+        //     return
+        // }
+
+        let keys = Object.keys(blacknode)
+
+        for (let k of keys) {
+            for (let i = 0; i < blacknode[k].meter_list.length; i++) {
+                let m = {
+                    "site_id": blacknode[k].siteid,
+                    "node_id": blacknode[k].nodeid,
+                    "modbus_id": i+1,
+                    "name": blacknode[k].meter_list[i].name
+                }
+
+                ret.data.push(m)
+            }
+        }
+
+        ret.status = "OK"
+
+        res.json(ret)
+    })
+
+    api.get('/GetGroupmeter', async(req, res) => {
+        let ret = {status: 'ERR', data: []}
+
+        // if(await apiguard(req, 'meter_list', '') == false)
+        // {
+        //     res.json(ret)
+        //     return
+        // }
+
+        let keys = Object.keys(group)
+
+        for (let k of keys) {
+            let g = {
+                "id": group[k].id,
+                "name": group[k].name,
+                "member": []
+            }
+
+            for (let i = 0; i < group[k].member.length; i++) {
+                let m = {
+                    // "serial": group[k].member[i].serial,
+                    "site_id": group[k].member[i].siteid,
+                    "node_id": group[k].member[i].nodeid,
+                    "modbus_id": parseInt(group[k].member[i].modbusid),
+                    "name": blacknode[group[k].member[i].serial].meter_list[parseInt(group[k].member[i].modbusid)-1].name
+                }
+
+                g.member.push(m);
+            }
+
+
+            ret.data.push(g)
+        }
+
+        ret.status = "OK"
+
+        res.json(ret)
+    })
+
+    api.get('/ReadEnergy/:siteid/:nodeid/:modbusid/:from/:to', async(req, res) => {
+        let ret = {status: 'ERR', data: {}}
+
+        // if(await apiguard(req, 'rp_chart', '') == false)
+        // {
+        //     res.json(ret)
+        //     return
+        // }
+
+        let arr = req.params.from.split("-")
+
+        let start_date = new Date(Date.UTC(arr[0], parseInt(arr[1])-1, arr[2], arr[3], arr[4]));
+
+        arr = req.params.to.split("-")
+
+        let end_date = new Date(Date.UTC(arr[0], parseInt(arr[1])-1, arr[2], arr[3], arr[4]));
+
+        let eData = await db.energy.findAll({
+            attributes: ['DateTimeUpdate', 'SerialNo', 'Import_kWh', 'Export_kWh', 'TotalkWh'],
+            where: {
+                DateTimeUpdate: [start_date, end_date],
+                snmKey: req.params.siteid + "%" + req.params.nodeid + "%" + req.params.modbusid
+            },
+            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+        })
+
+        ret.data["Import_kWh"] = 0;
+        ret.data["Export_kWh"] = 0;
+        ret.data["TotalkWh"] = 0;
+
+        if(eData.length == 2)
+        {
+            ret.data["Import_kWh"] = eData[1].Import_kWh - eData[0].Import_kWh;
+            ret.data["Export_kWh"] = eData[1].Export_kWh - eData[0].Export_kWh;
+            ret.data["TotalkWh"] = eData[1].TotalkWh - eData[0].TotalkWh;
+        }
+
+        ret.status = "OK"
+
+        res.json(ret)
+    })
+
+    api.get('/ReadParameterAll/:siteid/:nodeid/:modbusid/:from/:to', async(req, res) => {
+        let ret = {status: 'ERR', data: []}
+
+        // if(await apiguard(req, 'rp_chart', '') == false)
+        // {
+        //     res.json(ret)
+        //     return
+        // }
+
+        let arr = req.params.from.split("-")
+
+        let start_date = new Date(Date.UTC(arr[0], parseInt(arr[1])-1, arr[2], arr[3], arr[4]));
+
+        arr = req.params.to.split("-")
+
+        let end_date = new Date(Date.UTC(arr[0], parseInt(arr[1])-1, arr[2], arr[3], arr[4]));
+
+        if(end_date.getTime() - start_date.getTime() > 1000*60*60*24)
+        {
+            res.json(ret);
+            return;
+        }
+
+        ret.data = await db.energy.findAll({
+            where: {
+                DateTimeUpdate: {
+                    [Op.and]: {
+                        [Op.gte]: start_date,
+                        [Op.lte]: end_date
+                    }
+                },
+                snmKey: req.params.siteid + "%" + req.params.nodeid + "%" + req.params.modbusid
+            },
+            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+        })
+
+        ret.status = "OK"
+
+        res.json(ret)
+    })
+
+    api.get('/ReadDemandMonth/:siteid/:nodeid/:modbusid/:year/:month', async(req, res) => {
+        let ret = {status: 'ERR', data: {}}
+
+        // if(await apiguard(req, 'rp_chart', '') == false)
+        // {
+        //     res.json(ret)
+        //     return
+        // }
+
+        let start_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month)-1, 1, 0, 0));
+
+        let end_date = new Date(Date.UTC(req.params.year, parseInt(req.params.month), 1, 0, 0));
+
+        let now = new Date()
+        now = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0))
+
+        if(now < end_date)
+        {
+            end_date = new Date(now)
+        }
+
+        let eData = await db.energy.findAll({
+            attributes: ['DateTimeUpdate', 'SerialNo', 'TotalkWh'],
+            where: {
+                DateTimeUpdate: {
+                    [Op.and]: {
+                        [Op.gte]: start_date,
+                        [Op.lte]: end_date
+                    }
+                },
+                snmKey: req.params.siteid + "%" + req.params.nodeid + "%" + req.params.modbusid
+            },
+            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+        })
+
+        ret.data = {
+            "onpeak": {
+                "time": null,
+                "kWDemand": 0
+            },
+            "offpeak": {
+                "time": null,
+                "kWDemand": 0
+            },
+        }
+
+        let prev_dval = null;
+
+        for(let e of eData)
+        {
+            if(!prev_dval)
+            {
+                prev_dval = e.TotalkWh;
+                continue;
+            }
+
+            let dval = e.TotalkWh - prev_dval;
+            let demand = dval/4;
+
+            if(isOnPeak(e.DateTimeUpdate))
+            {
+                if(demand > ret.data.onpeak.kWDemand)
+                {
+                    ret.data.onpeak.kWDemand = demand;
+                    ret.data.onpeak.time = e.DateTimeUpdate;
+                }
+            }
+            else
+            {
+                if(demand > ret.data.offpeak.kWDemand)
+                    {
+                        ret.data.offpeak.kWDemand = demand;
+                        ret.data.offpeak.time = e.DateTimeUpdate;
+                    }
+            }
+
+            prev_dval = e.TotalkWh;
+        }
+
+        ret.status = "OK"
+
+        res.json(ret)
+    })
+
+    api.get('/GroupMeterkWhCon/:groupid/:from/:to', async(req, res) => {
+        let ret = {status: 'ERR', data: {}}
+
+        // if(await apiguard(req, 'rp_chart', '') == false)
+        // {
+        //     res.json(ret)
+        //     return
+        // }
+
+        let arr = req.params.from.split("-")
+
+        let start_date = new Date(Date.UTC(arr[0], parseInt(arr[1])-1, arr[2], arr[3], arr[4]));
+
+        arr = req.params.to.split("-")
+
+        let end_date = new Date(Date.UTC(arr[0], parseInt(arr[1])-1, arr[2], arr[3], arr[4]));
+
+        ret.data["Import_kWh"] = 0;
+        ret.data["Export_kWh"] = 0;
+        ret.data["TotalkWh"] = 0;
+
+        let snmList = [];
+
+        for(let m of group[parseInt(req.params.groupid)].member)
+        {
+            let sn = m.serial;
+            let siteid = blacknode[sn].siteid;
+            let nodeid = blacknode[sn].nodeid;
+            let modbusid = parseInt(m.modbusid);
+
+            let snmKey = siteid + "%" + nodeid + "%" + modbusid;
+
+            snmList.push(snmKey);
+        }
+
+        let energy = {};
+
+        let data_end = await db.energy.findAll({
+            attributes: ['DateTimeUpdate', 'SerialNo', 'Import_kWh', 'Export_kWh', 'TotalkWh'],
+            where: {
+                DateTimeUpdate: end_date,
+                snmKey: snmList
+            },
+            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+        })
+
+        for(let e of data_end)
+        {
+            energy[e.SerialNo] = {
+                Import_kWh: e.Import_kWh,
+                Export_kWh: e.Export_kWh,
+                TotalkWh: e.TotalkWh
+            }
+        }
+
+        let data_start = await db.energy.findAll({
+            attributes: ['DateTimeUpdate', 'SerialNo', 'Import_kWh', 'Export_kWh', 'TotalkWh'],
+            where: {
+                DateTimeUpdate: start_date,
+                snmKey: snmList
+            },
+            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+        })
+
+        for(let e of data_start)
+        {
+            let diff_import = (energy[e.SerialNo]) ? energy[e.SerialNo].Import_kWh - e.Import_kWh : 0;
+            let diff_export = (energy[e.SerialNo]) ? energy[e.SerialNo].Export_kWh - e.Export_kWh : 0;
+            let diff_total = (energy[e.SerialNo]) ? energy[e.SerialNo].TotalkWh - e.TotalkWh : 0;
+
+            ret.data["Import_kWh"] += diff_import;
+            ret.data["Export_kWh"] += diff_export;
+            ret.data["TotalkWh"] += diff_total;
+        }
+
+        ret.status = "OK"
+
+        res.json(ret)
+    })
+
+    api.get('/MaxMinAvg/:siteid/:nodeid/:modbusid/:from/:to', async(req, res) => {
+        let ret = {status: 'ERR', data: {}}
+
+        // if(await apiguard(req, 'rp_chart', '') == false)
+        // {
+        //     res.json(ret)
+        //     return
+        // }
+
+        let arr = req.params.from.split("-")
+
+        let start_date = new Date(Date.UTC(arr[0], parseInt(arr[1])-1, arr[2], arr[3], arr[4]));
+
+        arr = req.params.to.split("-")
+
+        let end_date = new Date(Date.UTC(arr[0], parseInt(arr[1])-1, arr[2], arr[3], arr[4]));
+
+        let eData = await db.energy.findAll({
+            attributes: ["DateTimeUpdate", "SerialNo", "V1", "V2", "V3", "V12", "V23", "V31", "I1", "I2", "I3", "P1", "P2", "P3", "P_Sum", "Q1", "Q2", "Q3", "Q_Sum", "S1", "S2", "S3", "S_Sum", "PF1", "PF2", "PF3", "PF_Sum", "THD_U1", "THD_U2", "THD_U3", "THD_I1", "THD_I2", "THD_I3", "Frequency"],
+            where: {
+                DateTimeUpdate: {
+                    [Op.and]: {
+                        [Op.gte]: start_date,
+                        [Op.lte]: end_date
+                    }
+                },
+                snmKey: req.params.siteid + "%" + req.params.nodeid + "%" + req.params.modbusid
+            },
+            order: [['DateTimeUpdate', 'ASC'], ['id', 'asc']]
+        })
+
+        let first = true;
+        let keys = ["V1", "V2", "V3", "V12", "V23", "V31", "I1", "I2", "I3", "P1", "P2", "P3", "P_Sum", "Q1", "Q2", "Q3", "Q_Sum", "S1", "S2", "S3", "S_Sum", "PF1", "PF2", "PF3", "PF_Sum", "THD_U1", "THD_U2", "THD_U3", "THD_I1", "THD_I2", "THD_I3", "Frequency"];
+        let sum = {}
+        let count = {}
+
+        for(let e of eData)
+        {
+            if(first)
+            {
+                first = false;
+
+                for(let k of keys)
+                {
+                    ret.data[k] = {
+                        max: e[k],
+                        min: e[k]
+                    }
+
+                    count[k] = 1;
+                    sum[k] = e[k];
+                }
+                
+                continue;
+            }
+
+            for(let k of keys)
+            {
+                if(e[k] > ret.data[k].max)
+                {
+                    ret.data[k].max = e[k];
+                }
+
+                if(e[k] < ret.data[k].min)
+                {
+                    ret.data[k].min = e[k];
+                }
+
+                count[k]++;
+                sum[k] += e[k];
+            }
+        }
+
+        for(let k of keys)
+        {
+            ret.data[k].avg = sum[k]/count[k];
+        }
+
+        ret.status = "OK"
+
+        res.json(ret)
     })
 
     api_server = api.listen((meta_cfg.broker.apiport) ? meta_cfg.broker.apiport : 8888, () => {
