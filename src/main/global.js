@@ -201,10 +201,7 @@ export async function initCache()
                     cached[e.snmKey].energyThisMonth += absEnergy
     
                     if (isOnPeak(e.DateTimeUpdate)) {
-                        if(d > cached[e.snmKey].maxDemandThisMonth)
-                        {
                             cached[e.snmKey].maxDemandThisMonth[tKey] = d;
-                        }
                     }
     
                     if (e.DateTimeUpdate >= tYesterday && e.DateTimeUpdate <= tToday) {
@@ -214,10 +211,7 @@ export async function initCache()
                             cached[e.snmKey].energyYesterday += absEnergy
     
                             if (isOnPeak(e.DateTimeUpdate)) {
-                                if(d > cached[e.snmKey].maxDemandYesterday)
-                                {
                                     cached[e.snmKey].maxDemandYesterday[tKey] = d;
-                                }
                             }
                         }
                         
@@ -225,10 +219,7 @@ export async function initCache()
                         cached[e.snmKey].energyToday += absEnergy
     
                         if (isOnPeak(e.DateTimeUpdate)) {
-                            if(d > cached[e.snmKey].maxDemandToday)
-                            {
                                 cached[e.snmKey].maxDemandToday[tKey] = d;
-                            }
                         }
                     }
                 }
