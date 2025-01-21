@@ -1,9 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain /*autoUpdater, dialog, safeStorage*/ } from 'electron'
 import * as path from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-
-import { EventEmitter } from 'events'
-
 import AutoLaunch from 'auto-launch'
 
 import {
