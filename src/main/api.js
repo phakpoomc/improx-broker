@@ -706,7 +706,9 @@ export function initAPI() {
                     maxDemandLastMonth: {},
                     maxDemandThisMonth: {},
                     maxDemandYesterday: {},
-                    maxDemandToday: {}
+                    maxDemandToday: {},
+                    prevEnergy: 0,
+                    prevTime: null
                 }
                 continue;
             }
@@ -3789,7 +3791,10 @@ export function initAPI() {
     api.get('/Getmeter', async(req, res) => {
         let ret = {status: 'ERR', data: []}
 
-        if(await apiguard(req, 'meter_list', '') == false)
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];  
+
+        if(await apiguard(req, 'meter_list', token) == false)
         {
             res.json(ret)
             return
@@ -3818,7 +3823,10 @@ export function initAPI() {
     api.get('/GetGroupmeter', async(req, res) => {
         let ret = {status: 'ERR', data: []}
 
-        if(await apiguard(req, 'meter_list', '') == false)
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];  
+
+        if(await apiguard(req, 'meter_list', token) == false)
         {
             res.json(ret)
             return
@@ -3857,7 +3865,10 @@ export function initAPI() {
     api.get('/ReadEnergy/:siteid/:nodeid/:modbusid/:from/:to', async(req, res) => {
         let ret = {status: 'ERR', data: {}}
 
-        if(await apiguard(req, 'rp_chart', '') == false)
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];  
+
+        if(await apiguard(req, 'rp_chart', token) == false)
         {
             res.json(ret)
             return
@@ -3899,7 +3910,10 @@ export function initAPI() {
     api.get('/ReadParameterAll/:siteid/:nodeid/:modbusid/:from/:to', async(req, res) => {
         let ret = {status: 'ERR', data: []}
 
-        if(await apiguard(req, 'rp_chart', '') == false)
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];  
+
+        if(await apiguard(req, 'rp_chart', token) == false)
         {
             res.json(ret)
             return
@@ -3948,7 +3962,10 @@ export function initAPI() {
     api.get('/ReadDemandMonth/:siteid/:nodeid/:modbusid/:year/:month', async(req, res) => {
         let ret = {status: 'ERR', data: {}}
 
-        if(await apiguard(req, 'rp_chart', '') == false)
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];  
+
+        if(await apiguard(req, 'rp_chart', token) == false)
         {
             res.json(ret)
             return
@@ -4032,7 +4049,10 @@ export function initAPI() {
     api.get('/GroupMeterkWhCon/:groupid/:from/:to', async(req, res) => {
         let ret = {status: 'ERR', data: {}}
 
-        if(await apiguard(req, 'rp_chart', '') == false)
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];  
+
+        if(await apiguard(req, 'rp_chart', token) == false)
         {
             res.json(ret)
             return
@@ -4116,7 +4136,10 @@ export function initAPI() {
     api.get('/MaxMinAvg/:siteid/:nodeid/:modbusid/:from/:to', async(req, res) => {
         let ret = {status: 'ERR', data: {}}
 
-        if(await apiguard(req, 'rp_chart', '') == false)
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1];  
+
+        if(await apiguard(req, 'rp_chart', token) == false)
         {
             res.json(ret)
             return
