@@ -315,9 +315,12 @@ export async function loadOverview(isClear) {
             continue
         }
         for (const k in overview_store.monthly_kwh) {
-            const kwh =
+            let kwh =
                 (e.Import_kWh - prevValue[e.snmKey]) *
                 overview_store['multiplier'][k + '-' + e.snmKey]
+            if(kwh <= -1){
+                kwh = 0
+            }
             if (overview_store.monthly_kwh[k].keys.includes(e.snmKey))
                 overview_store.monthly_kwh[k].value[e.snmKey] += kwh
         }

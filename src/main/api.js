@@ -869,11 +869,11 @@ export function initAPI() {
                 '-' +
                 adjustedTime.getUTCMinutes()
 
-            const absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+            let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
-            // if (absEnergy == -1) {
-            //     absEnergy = 0
-            // }
+            if (absEnergy <= -1) {
+                absEnergy = 0
+            }
 
             prevEnergy[e.snmKey] = energy
 
@@ -1178,9 +1178,9 @@ export function initAPI() {
 
             let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
-            // if (absEnergy == -1) {
-            //     absEnergy = 0
-            // }
+            if (absEnergy <= -1) {
+                absEnergy = 0
+            }
 
             prevEnergy[e.snmKey] = energy
 
@@ -1345,9 +1345,9 @@ export function initAPI() {
 
             let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
-            // if (absEnergy == -1) {
-            //     absEnergy = 0
-            // }
+            if (absEnergy <= -1) {
+                absEnergy = 0
+            }
 
             prevEnergy[e.snmKey] = energy
 
@@ -1510,9 +1510,9 @@ export function initAPI() {
 
             let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
-            // if (absEnergy == -1) {
-            //     absEnergy = 0
-            // }
+            if (absEnergy <= -1) {
+                absEnergy = 0
+            }
 
             prevEnergy[e.snmKey] = energy
 
@@ -1669,9 +1669,9 @@ export function initAPI() {
 
             let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
 
-            // if (absEnergy == -1) {
-            //     absEnergy = 0
-            // }
+            if (absEnergy <= -1) {
+                absEnergy = 0
+            }
 
             prevEnergy[e.snmKey] = energy
 
@@ -1951,6 +1951,10 @@ export function initAPI() {
 
             if (prevEnergy[e.snmKey] > 0 && energy > 0 && energy > prevEnergy[e.snmKey]) {
                 absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+            }
+
+            if (absEnergy <= -1) {
+                absEnergy = 0
             }
 
             prevEnergy[e.snmKey] = energy
@@ -4897,6 +4901,9 @@ export function initAPI() {
                 }
 
                 let absEnergy = (energy - prevEnergy[e.snmKey]) * multmap[e.snmKey]
+                if (absEnergy <= -1) {
+                    absEnergy = 0
+                }
                 total += absEnergy
                 prevEnergy[e.snmKey] = energy
                 prevTime[e.snmKey] = e.DateTimeUpdate
