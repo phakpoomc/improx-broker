@@ -228,7 +228,8 @@ app.whenReady().then(async () => {
                     type: 0,
                     status: 'off',
                     last_update: new Date(),
-                    last_db: new Date(0)
+                    last_db: new Date(0),
+                    enable: true
                 }
 
                 blacknode[sn].meter_list[i] = initMeter
@@ -239,7 +240,6 @@ app.whenReady().then(async () => {
             if (i < prev_max) {
                 blacknode[sn].meter_list[i].name = cfg.meter_list[i].name
                 blacknode[sn].meter_list[i].type = cfg.meter_list[i].type
-
                 if (cfg.meter_list[i].type != '') {
                     pkt +=
                         String(i + 1).padStart(2, '0') +

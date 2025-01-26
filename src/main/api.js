@@ -462,6 +462,7 @@ const routes = {
     'target': ['owner', 'admin', 'test'],
     'total_kWh_22kV': ['owner', 'user', 'admin', 'test'],
     'dashboard_group': ['owner', 'user', 'admin', 'test'],
+    'meter_manage': ['owner', 'admin', 'test'],
 }
 
 const apis = {
@@ -487,6 +488,7 @@ const apis = {
     'air_comp_monitor': ['owner', 'user', 'admin', 'test'],
     'target': ['owner', 'admin', 'test'],
     'group_monitor': ['owner', 'user', 'admin', 'test'],
+    'meter_manage': ['owner', 'admin', 'test'],
 }
 
 async function routeguard(req, route)
@@ -1035,7 +1037,7 @@ export function initAPI() {
             res.json(ret)
             return
         }
-
+        
         // calculate value and return
 
         const groupId = req.params.groupId;
@@ -1046,7 +1048,7 @@ export function initAPI() {
         let startTime = new Date(Date.UTC(year, month, day, 7, 30, 0))
         let endTime = new Date(Date.UTC(year, month, day + 1, 7, 30, 0))
 
-        const newDate = new Date(`${year}-${month}-${day} 06:30`)
+        const newDate = new Date(`${year}-${month+1}-${day} 06:30`)
         for (let i = 0; i < 24; i++) {
             newDate.setHours(newDate.getHours() + 1);
             ret[i] = {
@@ -1054,10 +1056,11 @@ export function initAPI() {
                 value1: 0
             }
         }
-        ret[0] = {category:`${day.toString().padStart(2,'0')}-${month.toString().padStart(2,'0')}-${year} 07:30`,value1: 0}
-        ret[17] = {category:`${newDate.getDay().toString().padStart(2,'0')}-${(newDate.getMonth()+1).toString().padStart(2,'0')}-${year} 00:00`,value1: 0}
-
-
+        const startDate = new Date(`${year}-${month+1}-${day} 07:30`);
+        ret[0] = {category:`${startDate.getDay().toString().padStart(2,'0')}-${(startDate.getMonth()+1).toString().padStart(2,'0')}-${year} 07:30`,value1: 0}
+        ret[17] = {category:`${newDate.getDay().toString().padStart(2,'0')}-${(newDate.getMonth()+1).toString().padStart(2,'0')}-${year} 06:30`,value1: 0}
+        
+        
         let now = new Date()
         now = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0)
 
@@ -2370,6 +2373,7 @@ export function initAPI() {
 
             for (let s of sn) {
                 for (let j = 0; j < blacknode[s].meter_list.length; j++) {
+                    if(!blacknode[s].meter_list[j].enable) continue;
                     let k = s + '%' + String(j)
 
                     if (
@@ -2423,6 +2427,7 @@ export function initAPI() {
             }
             let isPartial = false;
             for (let i = 0; i < bn.maxmeter; i++) {
+                if(bn.meter_list[i].enable == false) continue;
                 //delay  2 min
                 const m_lastUpdate = new Date(bn.meter_list[i].last_update);
                 let m_status = 'off';
@@ -2434,12 +2439,12 @@ export function initAPI() {
                 if(m_status === 'off'){
                     isPartial = true;
                 }
-                ret[bn.serial].meter_list[i] = {
+                ret[bn.serial].meter_list.push( {
                     id: i + 1,
                     address: bn.meter_list[i].id,
                     name: bn.meter_list[i].name,
                     status: m_status
-                }
+                })
             }
             if(isPartial){
                 ret[bn.serial].status == 'partial';
@@ -2448,6 +2453,49 @@ export function initAPI() {
 
         res.json(ret)
     })
+
+    api.get('/bn_info', async (req, res) => {
+        let ret = {}
+
+        if(await apiguard(req, 'node_monitor', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+        res.json(blacknode)
+
+    })
+
+    api.post('/bn_info', async (req, res) => {
+        let ret = {}
+
+        if(await apiguard(req, 'meter_manage', '') == false)
+        {
+            res.json(ret)
+            return
+        }
+        const meterList = req.body.meterList;
+        if(!meterList || meterList?.length == 0){
+            res.send('ok')
+            return
+        }
+
+        try{
+            for (const meter of meterList) {
+                blacknode[meter.sn].meter_list[meter.meterId].enable = meter.enable;
+            }
+            const BN_CFG_PATH = path.join(process.cwd(), 'blacknode.info');
+            writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' });
+            res.send('ok')
+            return
+        }catch(err){
+            console.log(err);
+            res.send('err')
+            return
+        }
+
+    })
+
 
     api.get('/air_comp_monitor/:type/:i_value', async (_req, res) => {
         if(await apiguard(_req, 'air_comp_monitor', '') == false)

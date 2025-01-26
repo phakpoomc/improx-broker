@@ -162,7 +162,17 @@ export function loadBNInfoFromLocal(BN_CFG_PATH) {
                 }
             }
         }
+        if(blacknode[sn].maxmeter > 0)
+        {
+            for(let i=0; i<blacknode[sn].maxmeter; i++)
+            {
+                if(blacknode[sn].meter_list[i].enable == undefined){
+                    blacknode[sn].meter_list[i].enable = true;
+                }
+            }
+        }
     }
+    writeFile(BN_CFG_PATH, JSON.stringify(blacknode), { flag: 'w' })
 }
 
 export async function loadMetaDB()
